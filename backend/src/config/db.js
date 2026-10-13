@@ -1,5 +1,6 @@
 const sql = require('mssql');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 const dbConfig = {
     server: process.env.DB_SERVER,
@@ -20,6 +21,7 @@ const conectarBD = async () => {
         return pool;
     } catch (err) {
         console.error("Error al conectar a la Base de Datos:", err);
+        throw err; 
     }
 };
 
