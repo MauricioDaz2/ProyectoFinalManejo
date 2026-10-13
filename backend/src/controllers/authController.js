@@ -18,7 +18,7 @@ const login = async (req, res) => {
             `);
 
         if (resultado.recordset.length === 0) {
-            return res.status(404.json({ success: false, message: "Usuario no encontrado." }));
+            return res.status(404).json({ success: false, message: "Usuario no encontrado." });
         }
 
         const usuario = resultado.recordset[0];
