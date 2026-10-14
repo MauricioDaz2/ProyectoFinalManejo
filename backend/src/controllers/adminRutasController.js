@@ -233,4 +233,47 @@ const crearHojaRuta = async (req, res) => {
     }
 };
 
-module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones, crearFrecuencia, crearHojaRuta };
+const asignarFrecuencia = async (req, res) => {
+    const { id } = req.params;
+    const { idFre } = req.body;
+
+    if (!idFre) {
+        return res.status(400).json({ success: false, message: 'Debe indicar la frecuencia a vincular.' });
+    }
+
+    try {
+        const pool = await conectarBD();
+
+        const hoja = await pool.request()
+            .input('id', sql.VarChar, id)
+            .query('SELECT ID_HOJ FROM HOJAS_RUTAS WHERE ID_HOJ = @id');
+
+        if (hoja.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'Hoja de ruta no encontrada.' });
+        }
+
+        const frecuencia = await pool.request()
+            .input('idFre', sql.VarChar, idFre)
+            .query('SELECT ID_FRE FROM FRECUENCIAS WHERE ID_FRE = @idFre');
+
+        if (frecuencia.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'La frecuencia indicada no existe.' });
+        }
+
+        await pool.request()
+            .input('id', sql.VarChar, id)
+            .input('idFre', sql.VarChar, idFre)
+            .query('UPDATE HOJAS_RUTAS SET ID_FRE_PER = @idFre WHERE ID_HOJ = @id');
+
+        res.status(200).json({
+            success: true,
+            message: 'Frecuencia vinculada a la hoja de ruta correctamente.'
+        });
+
+    } catch (error) {
+        console.error('Error al asignar frecuencia:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones, crearFrecuencia, crearHojaRuta, asignarFrecuencia };
