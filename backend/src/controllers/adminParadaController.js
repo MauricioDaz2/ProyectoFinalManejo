@@ -113,4 +113,45 @@ const asignarBusReemplazo = async (req, res) => {
     }
 };
 
-module.exports = { listarFlota, asignarBusReemplazo };
+const listarAsientosBus = async (req, res) => {
+    const { idBus } = req.params;
+
+    try {
+        const pool = await conectarBD();
+
+        const bus = await pool.request()
+            .input('idBus', sql.VarChar, idBus)
+            .query('SELECT ID_BUS, NUM_BUS, PLA_BUS, NUM_PIS FROM BUSES WHERE ID_BUS = @idBus');
+
+        if (bus.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'El bus indicado no existe.' });
+        }
+
+        const resultado = await pool.request()
+            .input('idBus', sql.VarChar, idBus)
+            .query(`
+                SELECT A.ID_ASI,
+                       A.PIS_ASI,
+                       A.ID_TIP_PER,
+                       T.NOM_TIP,
+                       T.PRE_TIP
+                FROM ASIENTOS_BUS A
+                INNER JOIN TIPOS_ASIENTOS T ON A.ID_TIP_PER = T.ID_TIP
+                WHERE A.ID_BUS_PER = @idBus
+                ORDER BY A.PIS_ASI
+            `);
+
+        res.status(200).json({
+            success: true,
+            bus: bus.recordset[0],
+            total: resultado.recordset.length,
+            asientos: resultado.recordset
+        });
+
+    } catch (error) {
+        console.error('Error al listar asientos del bus:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+module.exports = { listarFlota, asignarBusReemplazo, listarAsientosBus };
