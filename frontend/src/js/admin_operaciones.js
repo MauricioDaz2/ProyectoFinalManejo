@@ -68,3 +68,44 @@ const cargarFrecuencias = async () => {
     if (selectVincular) selectVincular.innerHTML = opciones;
 };
 
+const cargarHojas = async () => {
+    const tbody = document.getElementById('tablaHojas');
+    try {
+        const respuesta = await fetch(`${API}/admin/rutas/hojas`);
+        const data = await respuesta.json();
+        if (!data.success) throw new Error(data.message || 'No se pudieron cargar las hojas de ruta.');
+        renderHojas(data.hojas);
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No se pudieron cargar las hojas de ruta.</td></tr>';
+        mostrarToast(error.message, true);
+    }
+};
+
+const renderHojas = (hojas) => {
+    const tbody = document.getElementById('tablaHojas');
+
+    if (!hojas || hojas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No hay hojas de ruta registradas.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = hojas.map((h) => `
+        <tr>
+            <td>${escapeHtml(h.ID_HOJ)}</td>
+            <td>${escapeHtml(h.FEC_PRO_HOJ)}</td>
+            <td>${escapeHtml(h.CIU_ORI_FRE)} → ${escapeHtml(h.CIU_DES_FRE)}</td>
+            <td><span class="badge badge-bus">${escapeHtml(h.NUM_BUS_PER)} · ${escapeHtml(h.PLA_BUS_PER)}</span></td>
+            <td>${h.ID_BUS_REE
+                ? `<span class="badge badge-ree">${escapeHtml(h.NUM_BUS_REE)} · ${escapeHtml(h.PLA_BUS_REE)}</span>`
+                : '<span class="badge badge-sin">Sin reemplazo</span>'}</td>
+            <td><span class="badge badge-estado">${escapeHtml(h.EST_VIA_HO || 'S/E')}</span></td>
+            <td>${escapeHtml(h.NOM_COP)}</td>
+            <td>
+                <button class="btn btn-secondary btn-sm" data-vincular="${escapeHtml(h.ID_HOJ)}">Vincular frecuencia</button>
+            </td>
+        </tr>
+    `).join('');
+};
+
+
