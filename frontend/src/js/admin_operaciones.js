@@ -151,5 +151,46 @@ const crearHoja = async () => {
     }
 };
 
+let hojaParaFrecuencia = null;
+const abrirModalFrecuencia = (idHoja) => {
+    hojaParaFrecuencia = idHoja;
+    document.getElementById('hojaSeleccionada').textContent = idHoja;
+    document.getElementById('frecuenciaSelect').value = '';
+    document.getElementById('errorFrecuencia').textContent = '';
+    abrirModal('modalFrecuencia');
+};
+
+const asignarFrecuencia = async () => {
+    const errorBox = document.getElementById('errorFrecuencia');
+    errorBox.textContent = '';
+
+    const idFre = document.getElementById('frecuenciaSelect').value;
+    if (!idFre) {
+        errorBox.textContent = 'Seleccione una frecuencia.';
+        return;
+    }
+
+    try {
+        const respuesta = await fetch(`${API}/admin/rutas/hojas/${hojaParaFrecuencia}/frecuencia`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idFre })
+        });
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.success) {
+            errorBox.textContent = data.message || 'No se pudo vincular la frecuencia.';
+            return;
+        }
+
+        cerrarModal('modalFrecuencia');
+        mostrarToast(data.message);
+        cargarFrecuencias();
+    } catch (error) {
+        console.error(error);
+        errorBox.textContent = 'No se pudo conectar con el servidor.';
+    }
+};
+
 
 
