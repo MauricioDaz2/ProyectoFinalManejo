@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { listarHojasRuta } = require('../controllers/adminRutasController');
+const { listarHojasRuta, listarFrecuencias } = require('../controllers/adminRutasController');
 
 
 router.get('/hojas', listarHojasRuta);
+router.get('/frecuencias', listarFrecuencias);
 
 module.exports = router;
