@@ -168,4 +168,69 @@ const crearFrecuencia = async (req, res) => {
     }
 };
 
-module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones, crearFrecuencia };
+const crearHojaRuta = async (req, res) => {
+    const { fecPro, idBus, idFre, obs, usuarioId } = req.body;
+
+    if (!fecPro || !idBus || !idFre) {
+        return res.status(400).json({
+            success: false,
+            message: 'Fecha de programación, bus y frecuencia son obligatorios.'
+        });
+    }
+
+    if (isNaN(Date.parse(fecPro))) {
+        return res.status(400).json({ success: false, message: 'Formato de fecha inválido.' });
+    }
+
+    if (obs && String(obs).length > 50) {
+        return res.status(400).json({ success: false, message: 'La observación no puede superar los 50 caracteres.' });
+    }
+
+    try {
+        const pool = await conectarBD();
+
+        const existe = await pool.request()
+            .input('idBus', sql.VarChar, idBus)
+            .input('idFre', sql.VarChar, idFre)
+            .query(`
+                SELECT (SELECT COUNT(*) FROM BUSES       WHERE ID_BUS = @idBus) AS bus,
+                       (SELECT COUNT(*) FROM FRECUENCIAS WHERE ID_FRE = @idFre) AS fre
+            `);
+
+        if (existe.recordset[0].bus === 0) {
+            return res.status(404).json({ success: false, message: 'El bus indicado no existe.' });
+        }
+        if (existe.recordset[0].fre === 0) {
+            return res.status(404).json({ success: false, message: 'La frecuencia indicada no existe.' });
+        }
+
+        const ultimo = await pool.request().query('SELECT MAX(ID_HOJ) AS ultimo FROM HOJAS_RUTAS');
+        const nuevoId = generarId('HOJ', ultimo.recordset[0].ultimo);
+
+        await pool.request()
+            .input('id', sql.VarChar, nuevoId)
+            .input('fec', sql.Date, fecPro)
+            .input('obs', sql.VarChar, obs || null)
+            .input('idBus', sql.VarChar, idBus)
+            .input('idFre', sql.VarChar, idFre)
+            .input('idUsu', sql.VarChar, usuarioId || null)
+            .query(`
+                INSERT INTO HOJAS_RUTAS
+                    (ID_HOJ, FEC_PRO_HOJ, EST_VIA_HOJ, OBS_HOJ, ID_BUS_PER, ID_BUS_REE, ID_FRE_PER, ID_USU_CON)
+                VALUES
+                    (@id, @fec, 'PROGRAMADO', @obs, @idBus, NULL, @idFre, @idUsu)
+            `);
+
+        res.status(201).json({
+            success: true,
+            message: 'Hoja de ruta creada correctamente.',
+            id: nuevoId
+        });
+
+    } catch (error) {
+        console.error('Error al crear hoja de ruta:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones, crearFrecuencia, crearHojaRuta };
