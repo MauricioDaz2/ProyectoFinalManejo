@@ -73,4 +73,32 @@ const listarFrecuencias = async (req, res) => {
     }
 };
 
-module.exports = { listarHojasRuta, listarFrecuencias };
+const listarResoluciones = async (req, res) => {
+    try {
+        const pool = await conectarBD();
+
+        const resultado = await pool.request().query(`
+            SELECT R.ID_RES,
+                   CONVERT(varchar(10), R.FEC_EMI_RES, 23) AS FEC_EMI_RES,
+                   R.CUP_FRE_MAX,
+                   R.DOC_URL_RES,
+                   R.ID_COP_PER,
+                   C.NOM_COP
+            FROM RESOLUCIONES_ANT R
+            LEFT JOIN COOPERATIVAS C ON R.ID_COP_PER = C.ID_COP
+            ORDER BY R.FEC_EMI_RES DESC
+        `);
+
+        res.status(200).json({
+            success: true,
+            total: resultado.recordset.length,
+            resoluciones: resultado.recordset
+        });
+
+    } catch (error) {
+        console.error('Error al listar resoluciones:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones };
