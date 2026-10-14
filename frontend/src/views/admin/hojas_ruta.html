@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hojas de Ruta y Frecuencias - Administración</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body { background-color: #f4f6f9; color: #333; }
+
+        .layout { display: flex; min-height: 100vh; }
+
+        /* --- Menú lateral --- */
+        .sidebar { width: 250px; background-color: #8B0000; color: #fff; display: flex; flex-direction: column; }
+        .sidebar .brand { padding: 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,.2); }
+        .sidebar nav { display: flex; flex-direction: column; padding: 10px 0; }
+        .sidebar nav a { color: #fff; text-decoration: none; padding: 12px 20px; font-size: 15px; transition: background .2s ease; }
+        .sidebar nav a:hover { background-color: rgba(255,255,255,.12); }
+        .sidebar nav a.active { background-color: rgba(0,0,0,.25); font-weight: 600; border-left: 4px solid #fff; }
+
+        /* --- Contenido --- */
+        .content { flex: 1; display: flex; flex-direction: column; }
+        .topbar { background: #fff; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+        .topbar h1 { font-size: 20px; color: #8B0000; }
+        .topbar .user { font-size: 14px; color: #666; }
+        .topbar .user button { margin-left: 12px; background: #8B0000; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+
+        .main { padding: 25px; }
+
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+        .toolbar .filters { display: flex; gap: 10px; align-items: center; }
+
+        .btn { border: none; border-radius: 6px; padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background-color: #8B0000; color: #fff; }
+        .btn-primary:hover { background-color: #a00000; }
+        .btn-secondary { background-color: #e6e9ee; color: #333; }
+        .btn-secondary:hover { background-color: #d7dbe2; }
+        .btn-sm { padding: 6px 10px; font-size: 13px; }
+
+        input[type="date"], input[type="text"], select {
+            padding: 9px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: #fff;
+        }
+        input:focus, select:focus { outline: none; border-color: #8B0000; }
+
+        .card { background: #fff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background-color: #f0f2f5; }
+        th, td { text-align: left; padding: 12px 14px; font-size: 14px; border-bottom: 1px solid #eef0f3; }
+        th { font-weight: 600; color: #555; }
+        tbody tr:hover { background-color: #fafbfc; }
+        .empty { padding: 30px; text-align: center; color: #888; }
+
+        .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-bus { background: #e8f0fe; color: #1a56b0; }
+        .badge-ree { background: #fff3cd; color: #8a6d00; }
+        .badge-estado { background: #e7f6ec; color: #1c7a3d; }
+        .badge-sin { background: #f1f2f4; color: #888; }
+
+        /* --- Modal --- */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); justify-content: center; align-items: center; z-index: 50; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #fff; border-radius: 10px; width: 100%; max-width: 460px; padding: 25px; }
+        .modal h2 { color: #8B0000; font-size: 18px; margin-bottom: 18px; }
+        .modal .form-group { margin-bottom: 14px; }
+        .modal .form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+        .modal .form-group input, .modal .form-group select { width: 100%; }
+        .modal .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .modal .error { color: #d9534f; font-size: 13px; margin-top: 6px; min-height: 16px; }
+
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #1c7a3d; color: #fff; padding: 12px 18px; border-radius: 8px; font-size: 14px; display: none; z-index: 60; }
+        .toast.error { background: #d9534f; }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Menú lateral del módulo: Hojas de Ruta, Parada y Flota (Dev 2) -->
+        <aside class="sidebar">
+            <div class="brand">Transporte Admin</div>
+            <nav>
+                <a href="hojas_ruta.html" class="active">Hojas de Ruta y Frecuencias</a>
+                <a href="parada_buses.html">Parada (Buses de Contingencia)</a>
+                <a href="parada_buses.html#flota">Flota de Unidades</a>
+            </nav>
+        </aside>
+
+        <div class="content">
+            <header class="topbar">
+                <h1>Control de Hojas de Ruta y Frecuencias</h1>
+                <div class="user">
+                    <span id="nombreUsuario">Usuario</span>
+                    <button id="btnSalir">Salir</button>
+                </div>
+            </header>
+
+            <main class="main">
+                <div class="toolbar">
+                    <div class="filters">
+                        <input type="text" id="buscar" placeholder="Buscar por bus, placa o ruta...">
+                    </div>
+                    <button class="btn btn-primary" id="btnNuevaHoja">+ Nueva Hoja de Ruta</button>
+                </div>
+
+                <div class="card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha programada</th>
+                                <th>Ruta</th>
+                                <th>Bus</th>
+                                <th>Bus reemplazo</th>
+                                <th>Estado</th>
+                                <th>Cooperativa</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaHojas">
+                            <tr><td colspan="8" class="empty">Cargando hojas de ruta...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal: nueva hoja de ruta -->
+    <div class="modal-overlay" id="modalHoja">
+        <div class="modal">
+            <h2>Nueva Hoja de Ruta</h2>
+            <div class="form-group">
+                <label for="hojaFecha">Fecha programada</label>
+                <input type="date" id="hojaFecha">
+            </div>
+            <div class="form-group">
+                <label for="hojaBus">Bus</label>
+                <select id="hojaBus"></select>
+            </div>
+            <div class="form-group">
+                <label for="hojaFrecuencia">Frecuencia (ruta)</label>
+                <select id="hojaFrecuencia"></select>
+            </div>
+            <div class="form-group">
+                <label for="hojaObs">Observación</label>
+                <input type="text" id="hojaObs" maxlength="50" placeholder="Opcional">
+            </div>
+            <div class="error" id="errorHoja"></div>
+            <div class="actions">
+                <button class="btn btn-secondary" data-cerrar="modalHoja">Cancelar</button>
+                <button class="btn btn-primary" id="btnGuardarHoja">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: vincular frecuencia -->
+    <div class="modal-overlay" id="modalFrecuencia">
+        <div class="modal">
+            <h2>Vincular Frecuencia a la Hoja <span id="hojaSeleccionada"></span></h2>
+            <div class="form-group">
+                <label for="frecuenciaSelect">Frecuencia (ruta)</label>
+                <select id="frecuenciaSelect"></select>
+            </div>
+            <div class="error" id="errorFrecuencia"></div>
+            <div class="actions">
+                <button class="btn btn-secondary" data-cerrar="modalFrecuencia">Cancelar</button>
+                <button class="btn btn-primary" id="btnGuardarFrecuencia">Vincular</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="../../js/admin_operaciones.js"></script>
+</body>
+</html>
