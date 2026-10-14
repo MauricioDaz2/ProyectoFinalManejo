@@ -108,4 +108,48 @@ const renderHojas = (hojas) => {
     `).join('');
 };
 
+// ---------------------------------------------------------------------------
+// Acciones
+// ---------------------------------------------------------------------------
+const crearHoja = async () => {
+    const errorBox = document.getElementById('errorHoja');
+    errorBox.textContent = '';
+
+    const fecPro = document.getElementById('hojaFecha').value;
+    const idBus = document.getElementById('hojaBus').value;
+    const idFre = document.getElementById('hojaFrecuencia').value;
+    const obs = document.getElementById('hojaObs').value.trim();
+
+    if (!fecPro || !idBus || !idFre) {
+        errorBox.textContent = 'Complete fecha, bus y frecuencia.';
+        return;
+    }
+
+    try {
+        const respuesta = await fetch(`${API}/admin/rutas/hojas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fecPro, idBus, idFre, obs, usuarioId: usuarioActual().ID })
+        });
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.success) {
+            errorBox.textContent = data.message || 'No se pudo crear la hoja de ruta.';
+            return;
+        }
+
+        cerrarModal('modalHoja');
+        document.getElementById('hojaFecha').value = '';
+        document.getElementById('hojaBus').value = '';
+        document.getElementById('hojaFrecuencia').value = '';
+        document.getElementById('hojaObs').value = '';
+        mostrarToast(data.message);
+        cargarHojas();
+    } catch (error) {
+        console.error(error);
+        errorBox.textContent = 'No se pudo conectar con el servidor.';
+    }
+};
+
+
 
