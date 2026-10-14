@@ -192,5 +192,53 @@ const asignarFrecuencia = async () => {
     }
 };
 
+// ---------------------------------------------------------------------------
+// Inicialización de la vista de Hojas de Ruta
+// ---------------------------------------------------------------------------
+const inicializarHojasRuta = async () => {
+    const usuario = usuarioActual();
+    const nombreEl = document.getElementById('nombreUsuario');
+    if (nombreEl && usuario.nombre) nombreEl.textContent = usuario.nombre;
+
+    document.getElementById('btnSalir')?.addEventListener('click', () => {
+        localStorage.removeItem('usuario');
+        window.location.href = '../auth/login.html';
+    });
+
+    document.getElementById('btnNuevaHoja')?.addEventListener('click', () => abrirModal('modalHoja'));
+    document.getElementById('btnGuardarHoja')?.addEventListener('click', crearHoja);
+    document.getElementById('btnGuardarFrecuencia')?.addEventListener('click', asignarFrecuencia);
+
+    document.querySelectorAll('[data-cerrar]').forEach((btn) => {
+        btn.addEventListener('click', () => cerrarModal(btn.dataset.cerrar));
+    });
+
+    document.getElementById('tablaHojas')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-vincular]');
+        if (btn) abrirModalFrecuencia(btn.dataset.vincular);
+    });
+
+    document.getElementById('buscar')?.addEventListener('input', () => {
+        const texto = document.getElementById('buscar').value;
+        document.querySelectorAll('#tablaHojas tr').forEach((fila) => {
+            fila.style.display = fila.textContent.toLowerCase().includes(texto) ? '' : 'none';
+        });
+    });
+
+    try {
+        await Promise.all([cargarFlota(), cargarFrecuencias()]);
+    } catch (error) {
+        mostrarToast(error.message, true);
+    }
+    cargarHojas();
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Solo se inicializa si la vista de hojas de ruta está presente en el DOM.
+    if (document.getElementById('tablaHojas')) {
+        inicializarHojasRuta();
+    }
+});
+
 
 
