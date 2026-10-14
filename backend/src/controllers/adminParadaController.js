@@ -47,4 +47,70 @@ const listarFlota = async (req, res) => {
     }
 };
 
-module.exports = { listarFlota };
+const asignarBusReemplazo = async (req, res) => {
+    const { idHoja } = req.params;
+    const { idBusRee } = req.body;
+
+    if (!idBusRee) {
+        return res.status(400).json({ success: false, message: 'Debe indicar el bus de reemplazo.' });
+    }
+
+    try {
+        const pool = await conectarBD();
+
+        const hoja = await pool.request()
+            .input('idHoja', sql.VarChar, idHoja)
+            .query('SELECT ID_HOJ, ID_BUS_PER FROM HOJAS_RUTAS WHERE ID_HOJ = @idHoja');
+
+        if (hoja.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'Hoja de ruta no encontrada.' });
+        }
+
+        const idBusOriginal = hoja.recordset[0].ID_BUS_PER;
+
+        if (idBusRee === idBusOriginal) {
+            return res.status(400).json({
+                success: false,
+                message: 'El bus de reemplazo no puede ser el mismo bus programado en la hoja.'
+            });
+        }
+
+        const ree = await pool.request()
+            .input('idBusRee', sql.VarChar, idBusRee)
+            .query('SELECT ID_BUS, EST_BUS FROM BUSES WHERE ID_BUS = @idBusRee');
+
+        if (ree.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'El bus de reemplazo no existe.' });
+        }
+
+        if (ree.recordset[0].EST_BUS === 'MANTENIMIENTO') {
+            return res.status(409).json({
+                success: false,
+                message: 'El bus indicado no está disponible en Parada.'
+            });
+        }
+
+        await pool.request()
+            .input('idHoja', sql.VarChar, idHoja)
+            .input('idBusRee', sql.VarChar, idBusRee)
+            .input('idBusOriginal', sql.VarChar, idBusOriginal)
+            .query(`
+                UPDATE HOJAS_RUTAS SET ID_BUS_REE = @idBusRee WHERE ID_HOJ = @idHoja;
+                UPDATE BUSES SET EST_BUS = 'OPERANDO' WHERE ID_BUS = @idBusRee;
+                UPDATE BUSES SET EST_BUS = 'PARADA'   WHERE ID_BUS = @idBusOriginal;
+            `);
+
+        res.status(200).json({
+            success: true,
+            message: 'Bus de reemplazo asignado correctamente.',
+            idBusOriginal,
+            idBusRee
+        });
+
+    } catch (error) {
+        console.error('Error al asignar bus de reemplazo:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+module.exports = { listarFlota, asignarBusReemplazo };
