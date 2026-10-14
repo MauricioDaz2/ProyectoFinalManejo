@@ -1,6 +1,12 @@
 const { sql, conectarBD } = require('../config/db');
 
 
+const generarId = (prefijo, ultimoId) => {
+    const numero = ultimoId ? parseInt(String(ultimoId).replace(/\D/g, ''), 10) || 0 : 0;
+    return prefijo + String(numero + 1).padStart(5 - prefijo.length, '0');
+};
+
+
 const listarHojasRuta = async (req, res) => {
     try {
         const pool = await conectarBD();
@@ -101,4 +107,65 @@ const listarResoluciones = async (req, res) => {
     }
 };
 
-module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones };
+const crearFrecuencia = async (req, res) => {
+    const { ciuOri, ciuDes, fecHorIni, fecHorFin, idRes } = req.body;
+
+    if (!ciuOri || !ciuDes || !fecHorIni || !idRes) {
+        return res.status(400).json({
+            success: false,
+            message: 'Origen, destino, fecha de inicio y resolución son obligatorios.'
+        });
+    }
+
+    if (String(ciuOri).trim().length > 15 || String(ciuDes).trim().length > 15) {
+        return res.status(400).json({
+            success: false,
+            message: 'Origen y destino no pueden superar los 15 caracteres.'
+        });
+    }
+
+    if (isNaN(Date.parse(fecHorIni)) || (fecHorFin && isNaN(Date.parse(fecHorFin)))) {
+        return res.status(400).json({ success: false, message: 'Formato de fecha inválido.' });
+    }
+
+    try {
+        const pool = await conectarBD();
+
+        const resolucion = await pool.request()
+            .input('idRes', sql.VarChar, idRes)
+            .query('SELECT ID_RES FROM RESOLUCIONES_ANT WHERE ID_RES = @idRes');
+
+        if (resolucion.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'La resolución indicada no existe.' });
+        }
+
+        const ultimo = await pool.request().query('SELECT MAX(ID_FRE) AS ultimo FROM FRECUENCIAS');
+        const nuevoId = generarId('FRE', ultimo.recordset[0].ultimo);
+
+        await pool.request()
+            .input('id', sql.VarChar, nuevoId)
+            .input('ori', sql.VarChar, ciuOri)
+            .input('des', sql.VarChar, ciuDes)
+            .input('ini', sql.Date, fecHorIni)
+            .input('fin', sql.Date, fecHorFin || null)
+            .input('idRes', sql.VarChar, idRes)
+            .query(`
+                INSERT INTO FRECUENCIAS
+                    (ID_FRE, CIU_ORI_FRE, CIU_DES_FRE, FEC_HOR_INI_FRE, FEC_HOR_FIN_FRE, EST_RES, ID_RES_PER)
+                VALUES
+                    (@id, @ori, @des, @ini, @fin, '1', @idRes)
+            `);
+
+        res.status(201).json({
+            success: true,
+            message: 'Frecuencia creada correctamente.',
+            id: nuevoId
+        });
+
+    } catch (error) {
+        console.error('Error al crear frecuencia:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones, crearFrecuencia };
