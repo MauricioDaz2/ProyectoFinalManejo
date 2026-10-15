@@ -261,6 +261,44 @@ const asignarBusReemplazo = async () => {
 };
 
 // ---------------------------------------------------------------------------
+// Asientos del bus
+// ---------------------------------------------------------------------------
+const abrirModalAsientos = async (idBus) => {
+    document.getElementById('busAsientosLabel').textContent = idBus;
+    const tbody = document.getElementById('cuerpoAsientos');
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Cargando asientos...</td></tr>';
+    abrirModal('modalAsientos');
+
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/buses/${idBus}/asientos`);
+        const data = await respuesta.json();
+        if (!data.success) throw new Error(data.message || 'No se pudieron cargar los asientos.');
+        renderAsientos(data.asientos);
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">No se pudieron cargar los asientos.</td></tr>';
+        mostrarToast(error.message, true);
+    }
+};
+
+const renderAsientos = (asientos) => {
+    const tbody = document.getElementById('cuerpoAsientos');
+    if (!asientos || asientos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">El bus no tiene asientos registrados.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = asientos.map((a) => `
+        <tr>
+            <td>${escapeHtml(a.ID_ASI)}</td>
+            <td>${escapeHtml(a.PIS_ASI)}</td>
+            <td>${escapeHtml(a.NOM_TIPO)}</td>
+            <td>${escapeHtml(a.PRE_TIP)}</td>
+        </tr>
+    `).join('');
+};
+
+// ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
 const crearHoja = async () => {
