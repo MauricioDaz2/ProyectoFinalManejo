@@ -159,6 +159,46 @@ const renderFlota = (buses) => {
 };
 
 // ---------------------------------------------------------------------------
+// Buses en Parada (retén de contingencia)
+// ---------------------------------------------------------------------------
+const cargarParada = async () => {
+    const tbody = document.getElementById('tablaParada');
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/flota?estado=PARADA`);
+        const data = await respuesta.json();
+        if (!data.success) throw new Error(data.message || 'No se pudo cargar los buses en parada.');
+        renderParada(data.buses);
+    } catch (error) {
+        console.error(error);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty">No se pudieron cargar los buses en parada.</td></tr>';
+        mostrarToast(error.message, true);
+    }
+};
+
+const renderParada = (buses) => {
+    const tbody = document.getElementById('tablaParada');
+    if (!tbody) return;
+
+    if (!buses || buses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay buses en parada.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = buses.map((b) => `
+        <tr>
+            <td>${escapeHtml(b.ID_BUS)}</td>
+            <td>${escapeHtml(b.NUM_BUS)}</td>
+            <td>${escapeHtml(b.PLA_BUS)}</td>
+            <td><span class="${claseEstado(b.EST_BUS)}">${escapeHtml(etiquetaEstado(b.EST_BUS))}</span></td>
+            <td>${escapeHtml(b.NOM_COP)}</td>
+            <td>
+                <button class="btn btn-primary btn-sm" data-asignar="${escapeHtml(b.ID_BUS)}">Asignar reemplazo</button>
+            </td>
+        </tr>
+    `).join('');
+};
+
+// ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
 const crearHoja = async () => {
