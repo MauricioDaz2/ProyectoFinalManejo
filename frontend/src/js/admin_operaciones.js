@@ -423,10 +423,51 @@ const inicializarHojasRuta = async () => {
     cargarHojas();
 };
 
+// ---------------------------------------------------------------------------
+// Inicialización de la vista de Parada y Flota
+// ---------------------------------------------------------------------------
+const inicializarParada = async () => {
+    const usuario = usuarioActual();
+    const nombreEl = document.getElementById('nombreUsuario');
+    if (nombreEl && usuario.nombre) nombreEl.textContent = usuario.nombre;
+
+    document.getElementById('btnSalir')?.addEventListener('click', () => {
+        localStorage.removeItem('usuario');
+        window.location.href = '../auth/login.html';
+    });
+
+    document.getElementById('btnConfirmarAsignar')?.addEventListener('click', asignarBusReemplazo);
+
+    document.querySelectorAll('[data-cerrar]').forEach((btn) => {
+        btn.addEventListener('click', () => cerrarModal(btn.dataset.cerrar));
+    });
+
+    document.getElementById('tablaParada')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-asignar]');
+        if (btn) abrirModalAsignar(btn.dataset.asignar);
+    });
+
+    document.getElementById('tablaFlota')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-asientos]');
+        if (btn) abrirModalAsientos(btn.dataset.asientos);
+    });
+
+    try {
+        await Promise.all([cargarParada(), cargarFlotaCompleta()]);
+    } catch (error) {
+        mostrarToast(error.message, true);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // Solo se inicializa si la vista de hojas de ruta está presente en el DOM.
     if (document.getElementById('tablaHojas')) {
         inicializarHojasRuta();
+    }
+
+    // Solo se inicializa si la vista de Parada/Flota está presente en el DOM.
+    if (document.getElementById('tablaParada') || document.getElementById('tablaFlota')) {
+        inicializarParada();
     }
 });
 
