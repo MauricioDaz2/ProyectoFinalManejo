@@ -199,6 +199,36 @@ const renderParada = (buses) => {
 };
 
 // ---------------------------------------------------------------------------
+// Asignación de bus de reemplazo
+// ---------------------------------------------------------------------------
+let busParaReemplazo = null;
+
+const cargarHojasParaAsignar = async () => {
+    const select = document.getElementById('hojaSelect');
+    if (!select) return;
+
+    const respuesta = await fetch(`${API}/admin/rutas/hojas`);
+    const data = await respuesta.json();
+    if (!data.success) throw new Error(data.message || 'No se pudieron cargar las hojas de ruta.');
+
+    select.innerHTML = '<option value="">Seleccione una hoja de ruta...</option>' +
+        data.hojas.map((h) => `<option value="${escapeHtml(h.ID_HOJ)}">${escapeHtml(h.ID_HOJ)} · ${escapeHtml(h.CIU_ORI_FRE)} → ${escapeHtml(h.CIU_DES_FRE)}</option>`).join('');
+};
+
+const abrirModalAsignar = async (idBus) => {
+    busParaReemplazo = idBus;
+    document.getElementById('busAsignarLabel').textContent = idBus;
+    document.getElementById('errorAsignar').textContent = '';
+    try {
+        await cargarHojasParaAsignar();
+        abrirModal('modalAsignar');
+    } catch (error) {
+        console.error(error);
+        mostrarToast(error.message, true);
+    }
+};
+
+// ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
 const crearHoja = async () => {
