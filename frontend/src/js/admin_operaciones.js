@@ -109,6 +109,56 @@ const renderHojas = (hojas) => {
 };
 
 // ---------------------------------------------------------------------------
+// Flota de Unidades (vista Parada/Flota)
+// ---------------------------------------------------------------------------
+const etiquetaEstado = (estado) => {
+    const mapa = { OPERANDO: 'Operando', PARADA: 'Operando', TALLER: 'En taller' };
+    return mapa[estado] || (estado || 'S/E');
+};
+
+const claseEstado = (estado) => `badge badge-${(estado || 'sin').toLowerCase()}`;
+
+const cargarFlotaCompleta = async () => {
+    const tbody = document.getElementById('tablaFlota');
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/flota`);
+        const data = await respuesta.json();
+        if (!data.success) throw new Error(data.message || 'No se pudo cargar la flota.');
+        renderFlota(data.buses);
+    } catch (error) {
+        console.error(error);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty">No se pudo cargar la flota.</td></tr>';
+        mostrarToast(error.message, true);
+    }
+};
+
+const renderFlota = (buses) => {
+    const tbody = document.getElementById('tablaFlota');
+    if (!tbody) return;
+
+    if (!buses || buses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">No hay unidades registradas.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = buses.map((b) => `
+        <tr>
+            <td>${escapeHtml(b.ID_BUS)}</td>
+            <td>${escapeHtml(b.NUM_BUS)}</td>
+            <td>${escapeHtml(b.PLA_BUS)}</td>
+            <td>${escapeHtml(b.NUM_PIS)}</td>
+            <td>${escapeHtml(b.ANIO_BUS)}</td>
+            <td><span class="${claseEstado(b.EST_BUS)}">${escapeHtml(etiquetaEstado(b.EST_BUS))}</span></td>
+            <td>${escapeHtml(b.TOTAL_ASIENTOS)}</td>
+            <td>${escapeHtml(b.NOM_COP)}</td>
+            <td>
+                <button class="btn btn-secondary btn-sm" data-asientos="${escapeHtml(b.ID_BUS)}">Ver asientos</button>
+            </td>
+        </tr>
+    `).join('');
+};
+
+// ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
 const crearHoja = async () => {
