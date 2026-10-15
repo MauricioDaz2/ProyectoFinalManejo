@@ -228,6 +228,38 @@ const abrirModalAsignar = async (idBus) => {
     }
 };
 
+const asignarBusReemplazo = async () => {
+    const errorBox = document.getElementById('errorAsignar');
+    errorBox.textContent = '';
+
+    const idHoja = document.getElementById('hojaSelect').value;
+    if (!idHoja) {
+        errorBox.textContent = 'Seleccione la hoja de ruta a cubrir.';
+        return;
+    }
+
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/asignar/${idHoja}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idBusRee: busParaReemplazo })
+        });
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.success) {
+            errorBox.textContent = data.message || 'No se pudo asignar el bus de reemplazo.';
+            return;
+        }
+
+        cerrarModal('modalAsignar');
+        mostrarToast(data.message);
+        cargarParada();
+    } catch (error) {
+        console.error(error);
+        errorBox.textContent = 'No se pudo conectar con el servidor.';
+    }
+};
+
 // ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
