@@ -109,6 +109,196 @@ const renderHojas = (hojas) => {
 };
 
 // ---------------------------------------------------------------------------
+// Flota de Unidades (vista Parada/Flota)
+// ---------------------------------------------------------------------------
+const etiquetaEstado = (estado) => {
+    const mapa = { OPERANDO: 'Operando', PARADA: 'Operando', TALLER: 'En taller' };
+    return mapa[estado] || (estado || 'S/E');
+};
+
+const claseEstado = (estado) => `badge badge-${(estado || 'sin').toLowerCase()}`;
+
+const cargarFlotaCompleta = async () => {
+    const tbody = document.getElementById('tablaFlota');
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/flota`);
+        const data = await respuesta.json();
+        if (!data.success) throw new Error(data.message || 'No se pudo cargar la flota.');
+        renderFlota(data.buses);
+    } catch (error) {
+        console.error(error);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty">No se pudo cargar la flota.</td></tr>';
+        mostrarToast(error.message, true);
+    }
+};
+
+const renderFlota = (buses) => {
+    const tbody = document.getElementById('tablaFlota');
+    if (!tbody) return;
+
+    if (!buses || buses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">No hay unidades registradas.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = buses.map((b) => `
+        <tr>
+            <td>${escapeHtml(b.ID_BUS)}</td>
+            <td>${escapeHtml(b.NUM_BUS)}</td>
+            <td>${escapeHtml(b.PLA_BUS)}</td>
+            <td>${escapeHtml(b.NUM_PIS)}</td>
+            <td>${escapeHtml(b.ANIO_BUS)}</td>
+            <td><span class="${claseEstado(b.EST_BUS)}">${escapeHtml(etiquetaEstado(b.EST_BUS))}</span></td>
+            <td>${escapeHtml(b.TOTAL_ASIENTOS)}</td>
+            <td>${escapeHtml(b.NOM_COP)}</td>
+            <td>
+                <button class="btn btn-secondary btn-sm" data-asientos="${escapeHtml(b.ID_BUS)}">Ver asientos</button>
+            </td>
+        </tr>
+    `).join('');
+};
+
+// ---------------------------------------------------------------------------
+// Buses en Parada (retén de contingencia)
+// ---------------------------------------------------------------------------
+const cargarParada = async () => {
+    const tbody = document.getElementById('tablaParada');
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/flota?estado=PARADA`);
+        const data = await respuesta.json();
+        if (!data.success) throw new Error(data.message || 'No se pudo cargar los buses en parada.');
+        renderParada(data.buses);
+    } catch (error) {
+        console.error(error);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty">No se pudieron cargar los buses en parada.</td></tr>';
+        mostrarToast(error.message, true);
+    }
+};
+
+const renderParada = (buses) => {
+    const tbody = document.getElementById('tablaParada');
+    if (!tbody) return;
+
+    if (!buses || buses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay buses en parada.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = buses.map((b) => `
+        <tr>
+            <td>${escapeHtml(b.ID_BUS)}</td>
+            <td>${escapeHtml(b.NUM_BUS)}</td>
+            <td>${escapeHtml(b.PLA_BUS)}</td>
+            <td><span class="${claseEstado(b.EST_BUS)}">${escapeHtml(etiquetaEstado(b.EST_BUS))}</span></td>
+            <td>${escapeHtml(b.NOM_COP)}</td>
+            <td>
+                <button class="btn btn-primary btn-sm" data-asignar="${escapeHtml(b.ID_BUS)}">Asignar reemplazo</button>
+            </td>
+        </tr>
+    `).join('');
+};
+
+// ---------------------------------------------------------------------------
+// Asignación de bus de reemplazo
+// ---------------------------------------------------------------------------
+let busParaReemplazo = null;
+
+const cargarHojasParaAsignar = async () => {
+    const select = document.getElementById('hojaSelect');
+    if (!select) return;
+
+    const respuesta = await fetch(`${API}/admin/rutas/hojas`);
+    const data = await respuesta.json();
+    if (!data.success) throw new Error(data.message || 'No se pudieron cargar las hojas de ruta.');
+
+    select.innerHTML = '<option value="">Seleccione una hoja de ruta...</option>' +
+        data.hojas.map((h) => `<option value="${escapeHtml(h.ID_HOJ)}">${escapeHtml(h.ID_HOJ)} · ${escapeHtml(h.CIU_ORI_FRE)} → ${escapeHtml(h.CIU_DES_FRE)}</option>`).join('');
+};
+
+const abrirModalAsignar = async (idBus) => {
+    busParaReemplazo = idBus;
+    document.getElementById('busAsignarLabel').textContent = idBus;
+    document.getElementById('errorAsignar').textContent = '';
+    try {
+        await cargarHojasParaAsignar();
+        abrirModal('modalAsignar');
+    } catch (error) {
+        console.error(error);
+        mostrarToast(error.message, true);
+    }
+};
+
+const asignarBusReemplazo = async () => {
+    const errorBox = document.getElementById('errorAsignar');
+    errorBox.textContent = '';
+
+    const idHoja = document.getElementById('hojaSelect').value;
+    if (!idHoja) {
+        errorBox.textContent = 'Seleccione la hoja de ruta a cubrir.';
+        return;
+    }
+
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/asignar/${idHoja}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idBusRee: busParaReemplazo })
+        });
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.success) {
+            errorBox.textContent = data.message || 'No se pudo asignar el bus de reemplazo.';
+            return;
+        }
+
+        cerrarModal('modalAsignar');
+        mostrarToast(data.message);
+        cargarParada();
+    } catch (error) {
+        console.error(error);
+        errorBox.textContent = 'No se pudo conectar con el servidor.';
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Asientos del bus
+// ---------------------------------------------------------------------------
+const abrirModalAsientos = async (idBus) => {
+    document.getElementById('busAsientosLabel').textContent = idBus;
+    const tbody = document.getElementById('cuerpoAsientos');
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Cargando asientos...</td></tr>';
+    abrirModal('modalAsientos');
+
+    try {
+        const respuesta = await fetch(`${API}/admin/parada/buses/${idBus}/asientos`);
+        const data = await respuesta.json();
+        if (!data.success) throw new Error(data.message || 'No se pudieron cargar los asientos.');
+        renderAsientos(data.asientos);
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">No se pudieron cargar los asientos.</td></tr>';
+        mostrarToast(error.message, true);
+    }
+};
+
+const renderAsientos = (asientos) => {
+    const tbody = document.getElementById('cuerpoAsientos');
+    if (!asientos || asientos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">El bus no tiene asientos registrados.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = asientos.map((a) => `
+        <tr>
+            <td>${escapeHtml(a.ID_ASI)}</td>
+            <td>${escapeHtml(a.PIS_ASI)}</td>
+            <td>${escapeHtml(a.NOM_TIPO)}</td>
+            <td>${escapeHtml(a.PRE_TIP)}</td>
+        </tr>
+    `).join('');
+};
+
+// ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
 const crearHoja = async () => {
@@ -233,10 +423,51 @@ const inicializarHojasRuta = async () => {
     cargarHojas();
 };
 
+// ---------------------------------------------------------------------------
+// Inicialización de la vista de Parada y Flota
+// ---------------------------------------------------------------------------
+const inicializarParada = async () => {
+    const usuario = usuarioActual();
+    const nombreEl = document.getElementById('nombreUsuario');
+    if (nombreEl && usuario.nombre) nombreEl.textContent = usuario.nombre;
+
+    document.getElementById('btnSalir')?.addEventListener('click', () => {
+        localStorage.removeItem('usuario');
+        window.location.href = '../auth/login.html';
+    });
+
+    document.getElementById('btnConfirmarAsignar')?.addEventListener('click', asignarBusReemplazo);
+
+    document.querySelectorAll('[data-cerrar]').forEach((btn) => {
+        btn.addEventListener('click', () => cerrarModal(btn.dataset.cerrar));
+    });
+
+    document.getElementById('tablaParada')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-asignar]');
+        if (btn) abrirModalAsignar(btn.dataset.asignar);
+    });
+
+    document.getElementById('tablaFlota')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-asientos]');
+        if (btn) abrirModalAsientos(btn.dataset.asientos);
+    });
+
+    try {
+        await Promise.all([cargarParada(), cargarFlotaCompleta()]);
+    } catch (error) {
+        mostrarToast(error.message, true);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // Solo se inicializa si la vista de hojas de ruta está presente en el DOM.
     if (document.getElementById('tablaHojas')) {
         inicializarHojasRuta();
+    }
+
+    // Solo se inicializa si la vista de Parada/Flota está presente en el DOM.
+    if (document.getElementById('tablaParada') || document.getElementById('tablaFlota')) {
+        inicializarParada();
     }
 });
 
