@@ -5,6 +5,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/authRoutes');
 const adminRutasRoutes = require('./routes/adminRutasRoutes');
 const adminParadaRoutes = require('./routes/adminParadaRoutes');
+const adminCooperativaRoutes = require('./routes/adminCooperativaRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/rutas', adminRutasRoutes);
 app.use('/api/admin/parada', adminParadaRoutes);
+app.use('/api/admin/cooperativas', adminCooperativaRoutes);
 
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
