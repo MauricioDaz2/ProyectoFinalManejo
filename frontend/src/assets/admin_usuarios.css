@@ -113,3 +113,9 @@
   .staff-table-footer { padding-inline: 18px; }
 }
 .staff-field[hidden] { display: none; }
+
+.staff-notice.is-error { background: #fff1f0; border-color: #f3c3bc; color: #991b1b; }
+.staff-panel-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.staff-btn:disabled, .staff-action:disabled { opacity: .55; cursor: not-allowed; }
+.staff-toast.is-error { background: #9d1c1c; }
+@media (max-width: 650px) { .staff-panel-actions, .staff-panel-actions .staff-btn { width: 100%; } }

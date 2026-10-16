@@ -24,9 +24,9 @@
           <p>Administra la información de oficinistas y controladores de las cooperativas.</p>
         </div>
 
-        <div class="staff-notice" role="status">
+        <div class="staff-notice" id="avisoPersonal" role="status" aria-live="polite">
           <span aria-hidden="true">ⓘ</span>
-          <p>Vista previa local. Los registros de esta pantalla son temporales y aún no se guardan en SQL Server ni habilitan el inicio de sesión.</p>
+          <p id="mensajeConexionPersonal">Conectando con la base de datos...</p>
         </div>
 
         <section class="staff-summary" aria-label="Resumen de personal operativo">
@@ -53,9 +53,12 @@
               <h2 id="tituloPersonal">Usuarios operativos</h2>
               <p>Consulta, registra y actualiza información del personal.</p>
             </div>
-            <button type="button" id="btnNuevoPersonal" class="staff-btn staff-btn-primary">
-              <span aria-hidden="true">＋</span> Nuevo usuario
-            </button>
+            <div class="staff-panel-actions">
+              <button type="button" id="btnActualizarPersonal" class="staff-btn staff-btn-secondary">Actualizar</button>
+              <button type="button" id="btnNuevoPersonal" class="staff-btn staff-btn-primary">
+                <span aria-hidden="true">＋</span> Nuevo usuario
+              </button>
+            </div>
           </div>
 
           <nav class="tab-list staff-tabs" aria-label="Tipo de personal">
@@ -96,7 +99,7 @@
             <div id="personalVacio" class="staff-empty" role="status" aria-live="polite">
               <span class="staff-empty-icon" aria-hidden="true">▤</span>
               <h3 id="tituloPersonalVacio">Todavía no hay oficinistas</h3>
-              <p id="descripcionPersonalVacio">Utiliza «Nuevo usuario» para añadir un registro de prueba.</p>
+              <p id="descripcionPersonalVacio">Los usuarios registrados en SQL Server aparecerán aquí.</p>
             </div>
           </div>
           <footer class="staff-table-footer">
@@ -164,7 +167,7 @@
           <label class="staff-field" for="claveUsuario" id="grupoClaveUsuario">
             <span>Contraseña inicial <b>*</b></span>
             <input id="claveUsuario" type="password" minlength="8" maxlength="72" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
-            <small>Solo para validar el formulario. No se almacena en la vista previa.</small>
+            <small>La contraseña se enviará al servidor para su almacenamiento protegido.</small>
           </label>
         </div>
         <p id="errorPersonal" class="staff-form-error" role="alert" hidden></p>
