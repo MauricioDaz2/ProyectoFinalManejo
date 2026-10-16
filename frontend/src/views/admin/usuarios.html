@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal operativo | Administración de Transporte</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <script src="../../js/admin_layout.js" defer></script>
+</head>
+<body data-page="usuarios">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+      <main id="main-content" class="admin-main">
+        <div class="page-title">
+          <p class="eyebrow">Administración / Personal operativo</p>
+          <h1>Gestión de personal operativo</h1>
+          <p>Accede a las secciones de oficinistas y controladores de bus.</p>
+        </div>
+        <nav class="tab-list" aria-label="Tipo de personal">
+          <a id="tabOficinistas" href="#oficinistas">Oficinistas</a>
+          <a id="tabControladores" href="#controladores">Controladores</a>
+        </nav>
+        <section class="surface-card placeholder-card" aria-live="polite">
+          <span class="placeholder-icon" aria-hidden="true">U</span>
+          <h2 id="placeholderTitulo">Oficinistas</h2>
+          <p id="placeholderDescripcion">La tabla y los formularios de personal operativo se implementarán futuramente.</p>
+          <span class="status-tag">Próxima funcionalidad</span>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
