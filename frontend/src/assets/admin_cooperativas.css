@@ -1,0 +1,151 @@
+/* Gestión de cooperativas: estilos propios de la vista administrativa */
+.coop-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid #d6e4f5;
+  border-radius: 11px;
+  background: #eef5ff;
+  color: #344b68;
+  padding: 14px 17px;
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.coop-notice p { margin: 0; }
+.coop-notice-icon { font-weight: 700; font-size: 17px; }
+.coop-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.coop-summary-card {
+  background: #fff;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: var(--admin-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.coop-summary-label { font-size: 13px; color: var(--admin-muted); font-weight: 650; }
+.coop-summary-number { font-size: 30px; line-height: 1.15; font-weight: 760; }
+.coop-summary-detail { color: #798493; font-size: 12px; }
+.coop-panel {
+  background: #fff;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  box-shadow: var(--admin-shadow);
+  overflow: hidden;
+}
+.coop-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 24px 18px;
+}
+.coop-panel-heading h2 { margin: 0 0 6px; font-size: 19px; }
+.coop-panel-heading p { margin: 0; color: var(--admin-muted); font-size: 13px; }
+.coop-button {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: 41px;
+  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.coop-button-primary { background: var(--admin-primary); color: #fff; }
+.coop-button-primary:hover { background: var(--admin-primary-dark); }
+.coop-button-secondary { color: var(--admin-text); background: #fff; border-color: #d8dfe8; }
+.coop-button-secondary:hover { background: #f4f6f9; }
+.coop-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 0 24px 22px;
+}
+.coop-search-field, .coop-filter-field, .coop-form-field { display: flex; flex-direction: column; gap: 7px; }
+.coop-search-field { flex: 1; min-width: 0; }
+.coop-filter-field { width: 210px; max-width: 100%; }
+.coop-field-label, .coop-form-field > span { font-size: 12px; color: #374151; font-weight: 650; }
+.coop-search-field input, .coop-filter-field select, .coop-form-field input, .coop-form-field select {
+  min-height: 42px;
+  border: 1px solid #d8dfe8;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--admin-text);
+  padding: 10px 12px;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+}
+.coop-search-field input:focus, .coop-filter-field select:focus, .coop-form-field input:focus, .coop-form-field select:focus {
+  border-color: var(--admin-primary);
+  outline: 3px solid rgba(139, 0, 0, .10);
+}
+.coop-form-field input:read-only { background: #f4f5f8; color: #586374; }
+.coop-table-scroll { overflow-x: auto; }
+.coop-table { width: 100%; min-width: 840px; border-collapse: collapse; font-size: 13px; }
+.coop-table th { color: #647082; text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; background: #f8f9fb; font-weight: 750; white-space: nowrap; padding: 15px 19px; border-block: 1px solid var(--admin-border); }
+.coop-table td { padding: 16px 19px; vertical-align: middle; border-bottom: 1px solid #edf0f4; color: #4b5563; }
+.coop-table tbody tr:last-child td { border-bottom: none; }
+.coop-table tbody tr:hover { background: #fffdfd; }
+.coop-name-cell { display: flex; align-items: center; gap: 10px; color: var(--admin-text); font-weight: 700; }
+.coop-avatar { flex-shrink: 0; width: 34px; height: 34px; display: grid; place-items: center; background: #fbefef; border-radius: 8px; color: var(--admin-primary); font-weight: 800; }
+.coop-badge { font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border-radius: 20px; padding: 6px 10px; }
+.coop-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.coop-badge-active { color: #11724b; background: #e8f7f0; }
+.coop-badge-inactive { color: #896022; background: #fff6de; }
+.coop-actions { display: flex; align-items: center; gap: 7px; }
+.coop-action { background: #fff; border: 1px solid #dce2e8; border-radius: 7px; color: var(--admin-primary); cursor: pointer; padding: 7px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.coop-action:hover { background: #fbf0f0; }
+.coop-action-muted { color: #536173; }
+.coop-action-muted:hover { background: #f2f4f7; }
+.coop-empty-state { padding: 52px 18px; text-align: center; }
+.coop-empty-state[hidden] { display: none; }
+.coop-empty-icon { width: 56px; height: 56px; border-radius: 15px; background: #faeeee; color: var(--admin-primary); margin: 0 auto 16px; display: grid; place-items: center; font-size: 27px; }
+.coop-empty-state h3 { margin: 0 0 8px; font-size: 17px; }
+.coop-empty-state p { margin: 0; color: var(--admin-muted); font-size: 13px; }
+.coop-table-footer { display: flex; justify-content: space-between; gap: 15px; flex-wrap: wrap; border-top: 1px solid var(--admin-border); padding: 16px 24px; color: var(--admin-muted); font-size: 12px; }
+.coop-dialog { border: none; border-radius: 14px; background: #fff; width: min(620px, calc(100% - 24px)); max-height: min(92vh, 850px); overflow-y: auto; padding: 0; box-shadow: 0 22px 75px rgba(16, 24, 40, .28); color: var(--admin-text); }
+.coop-dialog::backdrop { background: rgba(15, 23, 42, .60); }
+.coop-dialog-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 24px 26px 20px; border-bottom: 1px solid var(--admin-border); }
+.coop-dialog-kicker { color: var(--admin-primary); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 6px; }
+.coop-dialog-heading h2 { font-size: 23px; margin: 0 0 6px; }
+.coop-dialog-heading p:not(.coop-dialog-kicker) { color: var(--admin-muted); font-size: 13px; margin: 0; }
+.coop-icon-button { background: #f3f4f6; color: #667085; font-size: 24px; line-height: 30px; width: 33px; height: 33px; border: none; border-radius: 8px; cursor: pointer; }
+.coop-dialog-content { padding: 24px 26px 20px; }
+.coop-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 19px 16px; }
+.coop-field-wide { grid-column: 1 / -1; }
+.coop-form-field small { font-size: 11px; color: #7c8594; }
+.coop-required { color: var(--admin-primary); }
+.coop-form-help { margin: 21px 0 0; color: var(--admin-muted); font-size: 12px; }
+.coop-form-error { color: #9d1c1c; margin: 14px 0 0; padding: 12px; background: #fff1f0; border: 1px solid #f5ceca; border-radius: 7px; font-size: 13px; }
+.coop-form-error[hidden] { display: none; }
+.coop-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--admin-border); padding: 18px 26px; }
+.coop-toast { position: fixed; z-index: 90; bottom: 24px; right: 24px; max-width: min(420px, calc(100% - 48px)); background: #263547; color: #fff; border-radius: 9px; padding: 14px 18px; box-shadow: 0 8px 30px rgba(0,0,0,.20); font-size: 13px; }
+.coop-toast[hidden] { display: none; }
+@media(max-width: 900px) { .coop-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media(max-width: 650px) {
+  .coop-summary { grid-template-columns: 1fr; }
+  .coop-panel-heading { flex-direction: column; align-items: stretch; }
+  .coop-toolbar { flex-direction: column; align-items: stretch; }
+  .coop-filter-field { width: auto; }
+  .coop-panel-heading, .coop-toolbar { padding-inline: 18px; }
+  .coop-dialog-heading, .coop-dialog-content, .coop-dialog-actions { padding-inline: 18px; }
+  .coop-form-grid { grid-template-columns: 1fr; }
+  .coop-dialog-actions { flex-direction: column-reverse; }
+  .coop-dialog-actions .coop-button { width: 100%; }
+  .coop-table-footer { padding-inline: 18px; }
+}
