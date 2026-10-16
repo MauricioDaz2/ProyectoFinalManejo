@@ -1,4 +1,3 @@
-/* Gestión de cooperativas: estilos propios de la vista administrativa */
 .coop-notice {
   display: flex;
   align-items: flex-start;
@@ -148,4 +147,27 @@
   .coop-dialog-actions { flex-direction: column-reverse; }
   .coop-dialog-actions .coop-button { width: 100%; }
   .coop-table-footer { padding-inline: 18px; }
+}
+
+.coop-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.coop-notice.is-error {
+  background: #fff1f0;
+  color: #8b2525;
+  border-color: #f1c7c5;
+}
+.coop-toast.is-error {
+  background: #8b2525;
+}
+.coop-button:disabled, .coop-action:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+@media (max-width: 650px) {
+  .coop-heading-actions { width: 100%; }
+  .coop-heading-actions .coop-button { flex: 1; }
 }

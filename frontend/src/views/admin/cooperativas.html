@@ -24,16 +24,16 @@
           <p>Organiza las empresas de transporte interprovincial y sus datos de contacto.</p>
         </div>
 
-        <div class="coop-notice" role="note">
+        <div class="coop-notice" id="avisoCooperativas" role="status" aria-live="polite">
           <span class="coop-notice-icon" aria-hidden="true">ⓘ</span>
-          <p><strong>Vista previa local.</strong> Puedes probar el formulario y los filtros; los registros se mantienen temporalmente en esta pantalla y aún no se guardan en SQL Server.</p>
+          <p id="mensajeConexion">Conectando con la base de datos...</p>
         </div>
 
         <section class="coop-summary" aria-label="Resumen de cooperativas">
           <article class="coop-summary-card">
             <span class="coop-summary-label">Total de cooperativas</span>
             <strong id="totalCooperativas" class="coop-summary-number">0</strong>
-            <span class="coop-summary-detail">Registradas en esta sesión</span>
+            <span class="coop-summary-detail">Registradas en el sistema</span>
           </article>
           <article class="coop-summary-card">
             <span class="coop-summary-label">Activas</span>
@@ -53,9 +53,12 @@
               <h2 id="tituloListado">Cooperativas registradas</h2>
               <p>Consulta, busca y administra los registros.</p>
             </div>
-            <button class="coop-button coop-button-primary" type="button" id="btnNuevaCooperativa">
-              <span aria-hidden="true">＋</span> Nueva cooperativa
-            </button>
+            <div class="coop-heading-actions">
+              <button class="coop-button coop-button-secondary" type="button" id="btnActualizarCooperativas">Actualizar</button>
+              <button class="coop-button coop-button-primary" type="button" id="btnNuevaCooperativa">
+                <span aria-hidden="true">＋</span> Nueva cooperativa
+              </button>
+            </div>
           </div>
 
           <div class="coop-toolbar">
@@ -91,12 +94,12 @@
             <div class="coop-empty-state" id="estadoVacio" role="status">
               <div class="coop-empty-icon" aria-hidden="true">▤</div>
               <h3 id="tituloEstadoVacio">Todavía no hay cooperativas</h3>
-              <p id="textoEstadoVacio">Utiliza «Nueva cooperativa» para ingresar un registro de prueba.</p>
+              <p id="textoEstadoVacio">Utiliza «Nueva cooperativa» para registrar una empresa de transporte.</p>
             </div>
           </div>
           <div class="coop-table-footer">
             <span id="contadorResultados" aria-live="polite">0 resultados</span>
-            <span>Información de cooperativas de transporte</span>
+            <span>Datos almacenados en SQL Server</span>
           </div>
         </section>
       </main>
