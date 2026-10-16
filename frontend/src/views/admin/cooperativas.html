@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de cooperativas | Transporte Admin</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/admin_cooperativas.css">
+  <script src="../../js/admin_layout.js" defer></script>
+  <script src="../../js/admin_cooperativas.js" defer></script>
+</head>
+<body data-page="cooperativas">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+
+      <main id="main-content" class="admin-main">
+        <div class="page-title">
+          <p class="eyebrow">Administración / Cooperativas</p>
+          <h1>Gestión de cooperativas</h1>
+          <p>Organiza las empresas de transporte interprovincial y sus datos de contacto.</p>
+        </div>
+
+        <div class="coop-notice" id="avisoCooperativas" role="status" aria-live="polite">
+          <span class="coop-notice-icon" aria-hidden="true">ⓘ</span>
+          <p id="mensajeConexion">Conectando con la base de datos...</p>
+        </div>
+
+        <section class="coop-summary" aria-label="Resumen de cooperativas">
+          <article class="coop-summary-card">
+            <span class="coop-summary-label">Total de cooperativas</span>
+            <strong id="totalCooperativas" class="coop-summary-number">0</strong>
+            <span class="coop-summary-detail">Registradas en el sistema</span>
+          </article>
+          <article class="coop-summary-card">
+            <span class="coop-summary-label">Activas</span>
+            <strong id="cooperativasActivas" class="coop-summary-number">0</strong>
+            <span class="coop-summary-detail">Habilitadas para operar</span>
+          </article>
+          <article class="coop-summary-card">
+            <span class="coop-summary-label">Inactivas</span>
+            <strong id="cooperativasInactivas" class="coop-summary-number">0</strong>
+            <span class="coop-summary-detail">Suspendidas temporalmente</span>
+          </article>
+        </section>
+
+        <section class="coop-panel" aria-labelledby="tituloListado">
+          <div class="coop-panel-heading">
+            <div>
+              <h2 id="tituloListado">Cooperativas registradas</h2>
+              <p>Consulta, busca y administra los registros.</p>
+            </div>
+            <div class="coop-heading-actions">
+              <button class="coop-button coop-button-secondary" type="button" id="btnActualizarCooperativas">Actualizar</button>
+              <button class="coop-button coop-button-primary" type="button" id="btnNuevaCooperativa">
+                <span aria-hidden="true">＋</span> Nueva cooperativa
+              </button>
+            </div>
+          </div>
+
+          <div class="coop-toolbar">
+            <label class="coop-search-field" for="buscarCooperativa">
+              <span class="coop-field-label">Buscar cooperativa</span>
+              <input id="buscarCooperativa" type="search" placeholder="Nombre, código o RUC..." autocomplete="off">
+            </label>
+            <label class="coop-filter-field" for="filtrarEstado">
+              <span class="coop-field-label">Estado</span>
+              <select id="filtrarEstado">
+                <option value="todos">Todos los estados</option>
+                <option value="1">Activas</option>
+                <option value="0">Inactivas</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="coop-table-scroll">
+            <table class="coop-table" aria-label="Listado de cooperativas">
+              <thead>
+                <tr>
+                  <th scope="col">Código</th>
+                  <th scope="col">Cooperativa</th>
+                  <th scope="col">RUC</th>
+                  <th scope="col">Dirección</th>
+                  <th scope="col">Teléfono</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaCooperativas"></tbody>
+            </table>
+            <div class="coop-empty-state" id="estadoVacio" role="status">
+              <div class="coop-empty-icon" aria-hidden="true">▤</div>
+              <h3 id="tituloEstadoVacio">Todavía no hay cooperativas</h3>
+              <p id="textoEstadoVacio">Utiliza «Nueva cooperativa» para registrar una empresa de transporte.</p>
+            </div>
+          </div>
+          <div class="coop-table-footer">
+            <span id="contadorResultados" aria-live="polite">0 resultados</span>
+            <span>Datos almacenados en SQL Server</span>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="modalCooperativa" class="coop-dialog" aria-labelledby="tituloModal">
+    <form id="formCooperativa">
+      <div class="coop-dialog-heading">
+        <div>
+          <p class="coop-dialog-kicker">Información de cooperativa</p>
+          <h2 id="tituloModal">Nueva cooperativa</h2>
+          <p>Completa los datos requeridos para continuar.</p>
+        </div>
+        <button type="button" class="coop-icon-button" id="btnCerrarModal" aria-label="Cerrar formulario">×</button>
+      </div>
+
+      <div class="coop-dialog-content">
+        <div class="coop-form-grid">
+          <label class="coop-form-field" for="idCop">
+            <span>Código <span class="coop-required">*</span></span>
+            <input id="idCop" name="ID_COP" type="text" maxlength="5" required placeholder="COP01" autocomplete="off">
+            <small>Máximo 5 caracteres</small>
+          </label>
+          <label class="coop-form-field" for="nombreCop">
+            <span>Nombre de cooperativa <span class="coop-required">*</span></span>
+            <input id="nombreCop" name="NOM_COP" type="text" maxlength="20" required placeholder="Cooperativa Ambato">
+          </label>
+          <label class="coop-form-field" for="rucCop">
+            <span>RUC <span class="coop-required">*</span></span>
+            <input id="rucCop" name="RUC_COP" type="text" inputmode="numeric" pattern="[0-9]{13}" maxlength="13" required placeholder="13 dígitos" title="Ingresa exactamente 13 dígitos">
+            <small>Debe contener 13 dígitos</small>
+          </label>
+          <label class="coop-form-field" for="telefonoCop">
+            <span>Teléfono <span class="coop-required">*</span></span>
+            <input id="telefonoCop" name="TEL_COP" type="tel" inputmode="numeric" pattern="[0-9]{7,10}" maxlength="10" required placeholder="0999999999" title="Ingresa entre 7 y 10 dígitos">
+          </label>
+          <label class="coop-form-field coop-field-wide" for="direccionCop">
+            <span>Dirección <span class="coop-required">*</span></span>
+            <input id="direccionCop" name="DIR_COP" type="text" maxlength="20" required placeholder="Dirección principal">
+            <small>Máximo 20 caracteres según el modelo actual</small>
+          </label>
+          <label class="coop-form-field coop-field-wide" for="logoCop">
+            <span>URL del logotipo <span class="coop-required">*</span></span>
+            <input id="logoCop" name="LOG_URL_COP" type="url" maxlength="500" required placeholder="https://ejemplo.com/logo.png">
+          </label>
+          <label class="coop-form-field coop-field-wide" for="estadoCop">
+            <span>Estado</span>
+            <select id="estadoCop" name="EST_COP">
+              <option value="1">Activa</option>
+              <option value="0">Inactiva</option>
+            </select>
+          </label>
+        </div>
+        <p class="coop-form-help">Los campos marcados con * son obligatorios.</p>
+        <p id="errorFormulario" class="coop-form-error" role="alert" hidden></p>
+      </div>
+
+      <div class="coop-dialog-actions">
+        <button type="button" class="coop-button coop-button-secondary" id="btnCancelarModal">Cancelar</button>
+        <button type="submit" class="coop-button coop-button-primary" id="btnGuardarCooperativa">Guardar registro</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="notificacionCooperativa" class="coop-toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
