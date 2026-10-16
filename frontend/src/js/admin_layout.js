@@ -1,7 +1,3 @@
-/* Layout compartido de las vistas del Administrador (Dev 1).
- * Esta comprobación de rol es SOLO de interfaz. El backend debe autenticar
- * y autorizar las peticiones a la API de manera independiente.
- */
 (() => {
   'use strict';
 
@@ -13,9 +9,6 @@
     usuario = null;
   }
 
-  // El login actual guarda {nombre, rolId, ...} en localStorage.
-  // Esto evita mostrar el panel accidentalmente a otro rol, pero no reemplaza
-  // una sesión segura validada en el servidor.
   if (!usuario || usuario.rolId !== 'R001') {
     window.location.replace('../auth/login.html');
     return;
@@ -67,7 +60,6 @@
       </div>
     `;
 
-    // textContent evita interpretar el nombre del usuario como HTML.
     document.getElementById('nombreUsuario').textContent = usuario.nombre || 'Administrador';
     document.getElementById('btnCerrarSesion').addEventListener('click', () => {
       localStorage.removeItem('usuario');
@@ -98,10 +90,6 @@
     let activo = pagina;
     if (pagina === 'usuarios') {
       activo = location.hash === '#controladores' ? 'controladores' : 'oficinistas';
-      const titulo = document.getElementById('placeholderTitulo');
-      if (titulo) titulo.textContent = activo === 'controladores' ? 'Controladores' : 'Oficinistas';
-      const descripcion = document.getElementById('placeholderDescripcion');
-      if (descripcion) descripcion.textContent = `La administración de ${activo} estará disponible próximamente.`;
       for (const [id, clave] of [['tabOficinistas', 'oficinistas'], ['tabControladores', 'controladores']]) {
         const tab = document.getElementById(id);
         if (tab) {

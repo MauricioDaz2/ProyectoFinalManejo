@@ -1,4 +1,3 @@
-const bcrypt = require('bcrypt');
 const { sql, conectarBD } = require('../config/db');
 
 const columnas = `
@@ -53,8 +52,8 @@ function validarUsuario(datos, creando = false) {
         return 'El estado debe ser 1 (activo) o 0 (inactivo).';
     }
     if (creando && (typeof datos.password !== 'string' ||
-        datos.password.length < 8 || Buffer.byteLength(datos.password, 'utf8') > 72)) {
-        return 'La contraseña debe tener al menos 8 caracteres y no superar 72 bytes.';
+        !/^[\x21-\x7E]{8,20}$/.test(datos.password))) {
+        return 'La contraseña debe tener entre 8 y 20 caracteres, sin espacios ni tildes.';
     }
     return null;
 }
@@ -126,7 +125,7 @@ function manejarError(res, error) {
     if (numero === 2628 || numero === 8152) {
         return res.status(500).json({
             success: false,
-            message: 'El esquema de USUARIOS debe actualizarse para almacenar contraseñas protegidas.'
+            message: 'Uno de los valores supera la longitud permitida en la base de datos.'
         });
     }
     return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
@@ -206,9 +205,8 @@ async function registrarUsuario(req, res) {
         const duplicado = await validarDuplicado(pool, datos);
         if (duplicado) return res.status(409).json({ success: false, message: duplicado });
 
-        const hash = await bcrypt.hash(datos.password, 12);
         const resultado = await entradasUsuario(pool.request(), datos)
-            .input('hash', sql.VarChar(255), hash)
+            .input('clave', sql.VarChar(20), datos.password)
             .query(`
                 INSERT INTO dbo.USUARIOS
                     (ID_USU, NOM_USU, APE_USU, COR_USU, CON_USU, TEL_USU,
@@ -216,7 +214,7 @@ async function registrarUsuario(req, res) {
                 OUTPUT INSERTED.ID_USU, INSERTED.NOM_USU, INSERTED.APE_USU,
                        INSERTED.COR_USU, INSERTED.TEL_USU, INSERTED.FEC_REG_USU,
                        INSERTED.EST_USU, INSERTED.ID_ROL_PER, INSERTED.ID_COP_PER
-                VALUES (@id, @nombre, @apellido, @correo, @hash, @telefono,
+                VALUES (@id, @nombre, @apellido, @correo, @clave, @telefono,
                         GETDATE(), @estado, @rol, @cooperativa)
             `);
 

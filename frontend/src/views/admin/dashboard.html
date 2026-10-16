@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard | Administración de Transporte</title>
   <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/admin_dashboard.css">
   <script src="../../js/admin_layout.js" defer></script>
+  <script src="../../js/admin_dashboard.js" defer></script>
 </head>
 <body data-page="dashboard">
   <div class="admin-shell">
@@ -19,6 +21,7 @@
           <h1>Dashboard general</h1>
           <p>Bienvenido al sistema de gestión de transporte interprovincial.</p>
         </div>
+
         <section class="welcome-banner" aria-labelledby="bienvenidaTitulo">
           <div>
             <p class="welcome-kicker">Panel de administración</p>
@@ -27,6 +30,42 @@
           </div>
           <span class="banner-decoration" aria-hidden="true">◈</span>
         </section>
+
+        <section class="dashboard-section" aria-labelledby="resumenTitulo">
+          <div class="dashboard-section-heading">
+            <div>
+              <h2 id="resumenTitulo" class="section-title">Resumen del sistema</h2>
+              <p>Registros obtenidos desde la base de datos.</p>
+            </div>
+            <button class="dashboard-refresh" id="btnActualizarDashboard" type="button">Actualizar</button>
+          </div>
+
+          <p id="estadoDashboard" class="dashboard-status" role="status" aria-live="polite">Consultando información...</p>
+
+          <div class="dashboard-metrics">
+            <a class="dashboard-metric" href="cooperativas.html" aria-label="Ver cooperativas">
+              <span class="metric-label">Cooperativas registradas</span>
+              <strong id="metricCooperativas" class="metric-value" aria-live="polite">—</strong>
+              <span class="metric-link">Gestionar cooperativas →</span>
+            </a>
+            <a class="dashboard-metric" href="cooperativas.html" aria-label="Ver cooperativas activas">
+              <span class="metric-label">Cooperativas activas</span>
+              <strong id="metricCooperativasActivas" class="metric-value" aria-live="polite">—</strong>
+              <span class="metric-link">Ver cooperativas →</span>
+            </a>
+            <a class="dashboard-metric" href="usuarios.html#oficinistas" aria-label="Ver oficinistas">
+              <span class="metric-label">Oficinistas</span>
+              <strong id="metricOficinistas" class="metric-value" aria-live="polite">—</strong>
+              <span class="metric-link">Gestionar oficinistas →</span>
+            </a>
+            <a class="dashboard-metric" href="usuarios.html#controladores" aria-label="Ver controladores">
+              <span class="metric-label">Controladores</span>
+              <strong id="metricControladores" class="metric-value" aria-live="polite">—</strong>
+              <span class="metric-link">Gestionar controladores →</span>
+            </a>
+          </div>
+        </section>
+
         <h2 class="section-title">Accesos del administrador</h2>
         <div class="feature-grid">
           <a class="feature-card" href="cooperativas.html">
@@ -48,7 +87,6 @@
             <span class="feature-link">Ver hojas de ruta →</span>
           </a>
         </div>
-        <p class="helper-note">Las estadísticas reales se integrarán más adelante; aquí no se muestran cifras inventadas.</p>
       </main>
     </div>
   </div>
