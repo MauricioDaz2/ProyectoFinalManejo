@@ -919,7 +919,10 @@ async function crearFrecuencia(req, res) {
         const pool = await conectarBD();
         const resolucion = await obtenerResolucionDeCooperativa(pool, datos.ID_RES_PER, datos.ID_COP_PER || cooperativa);
         if (!resolucion) {
-            return res.status(404).json({ success: false, message: 'La resolución indicada no existe o no pertenece a tu cooperativa.' });
+            return res.status(404).json({
+                success: false,
+                message: 'La resolución indicada no existe o no pertenece a tu cooperativa.'
+            });
         }
 
         const cupo = await validarCupoResolucion(pool, resolucion);
@@ -951,7 +954,11 @@ async function crearFrecuencia(req, res) {
                 VALUES (@id, @origen, @destino, @inicio, @fin, @estado, @resolucion)
             `);
 
-        return res.status(201).json({ success: true, message: 'Frecuencia registrada correctamente.', frecuencia: resultado.recordset[0] });
+        return res.status(201).json({
+            success: true,
+            message: 'Frecuencia registrada correctamente.',
+            frecuencia: resultado.recordset[0]
+        });
     } catch (error) {
         return manejarError(res, 'registro de frecuencia', error);
     }
