@@ -1034,7 +1034,7 @@ async function cambiarEstadoFrecuencia(req, res) {
     const estado = String(req.body?.EST_RES ?? req.body?.estado);
 
     if (!CODIGO_RE.test(id) || !ESTADOS_FRECUENCIA.includes(estado)) {
-        return res.status(400).json({ success: false, message: 'Código o estado de frecuencia inválido.' });
+        return res.status(400).json({ success: false, message: 'Código o estado de frecuencia inválido. Usa 1 o 0.' });
     }
 
     try {
