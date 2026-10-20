@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal operativo | Transporte Admin</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/admin_usuarios.css">
+  <script src="../../js/admin_layout.js" defer></script>
+  <script src="../../js/admin_usuarios.js" defer></script>
+</head>
+<body data-page="usuarios">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+
+      <main id="main-content" class="admin-main">
+        <div class="page-title">
+          <p class="eyebrow">Administración / Personal operativo</p>
+          <h1>Gestión de personal operativo</h1>
+          <p>Administra la información de oficinistas y controladores de las cooperativas.</p>
+        </div>
+
+        <div class="staff-notice" id="avisoPersonal" role="status" aria-live="polite">
+          <span aria-hidden="true">ⓘ</span>
+          <p id="mensajeConexionPersonal">Conectando con la base de datos...</p>
+        </div>
+
+        <section class="staff-summary" aria-label="Resumen de personal operativo">
+          <article class="staff-summary-card">
+            <span>Personal registrado</span>
+            <strong id="totalPersonal">0</strong>
+            <small>Oficinistas y controladores</small>
+          </article>
+          <article class="staff-summary-card">
+            <span>Personal activo</span>
+            <strong id="totalActivos">0</strong>
+            <small>Con estado habilitado</small>
+          </article>
+          <article class="staff-summary-card">
+            <span>Personal inactivo</span>
+            <strong id="totalInactivos">0</strong>
+            <small>Con estado suspendido</small>
+          </article>
+        </section>
+
+        <section class="staff-panel" aria-labelledby="tituloPersonal">
+          <div class="staff-panel-heading">
+            <div>
+              <h2 id="tituloPersonal">Usuarios operativos</h2>
+              <p>Consulta, registra y actualiza información del personal.</p>
+            </div>
+            <div class="staff-panel-actions">
+              <button type="button" id="btnActualizarPersonal" class="staff-btn staff-btn-secondary">Actualizar</button>
+              <button type="button" id="btnNuevoPersonal" class="staff-btn staff-btn-primary">
+                <span aria-hidden="true">＋</span> Nuevo usuario
+              </button>
+            </div>
+          </div>
+
+          <nav class="tab-list staff-tabs" aria-label="Tipo de personal">
+            <a id="tabOficinistas" href="#oficinistas" class="active">Oficinistas <span id="cantidadOficinistas">0</span></a>
+            <a id="tabControladores" href="#controladores">Controladores <span id="cantidadControladores">0</span></a>
+          </nav>
+
+          <div class="staff-toolbar">
+            <label class="staff-field staff-search" for="buscarPersonal">
+              <span>Buscar personal</span>
+              <input type="search" id="buscarPersonal" placeholder="Nombre, identificación, correo o cooperativa..." autocomplete="off">
+            </label>
+            <label class="staff-field staff-filter" for="filtroEstadoPersonal">
+              <span>Estado</span>
+              <select id="filtroEstadoPersonal">
+                <option value="todos">Todos los estados</option>
+                <option value="1">Activos</option>
+                <option value="0">Inactivos</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="staff-table-scroll">
+            <table class="staff-table" aria-label="Personal operativo registrado">
+              <thead>
+                <tr>
+                  <th scope="col">Identificación</th>
+                  <th scope="col">Personal</th>
+                  <th scope="col">Correo</th>
+                  <th scope="col">Cooperativa</th>
+                  <th scope="col">Teléfono</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaPersonal"></tbody>
+            </table>
+            <div id="personalVacio" class="staff-empty" role="status" aria-live="polite">
+              <span class="staff-empty-icon" aria-hidden="true">▤</span>
+              <h3 id="tituloPersonalVacio">Todavía no hay oficinistas</h3>
+              <p id="descripcionPersonalVacio">Los usuarios registrados en SQL Server aparecerán aquí.</p>
+            </div>
+          </div>
+          <footer class="staff-table-footer">
+            <span id="contadorPersonal" aria-live="polite">0 resultados</span>
+            <span id="etiquetaTipoPersonal">Oficinistas</span>
+          </footer>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="modalPersonal" class="staff-dialog" aria-labelledby="tituloModalPersonal">
+    <form id="formPersonal">
+      <div class="staff-dialog-heading">
+        <div>
+          <p class="staff-kicker">Personal de cooperativas</p>
+          <h2 id="tituloModalPersonal">Nuevo oficinista</h2>
+          <p>Completa los datos de identificación y contacto.</p>
+        </div>
+        <button type="button" id="btnCerrarPersonal" class="staff-close" aria-label="Cerrar formulario">×</button>
+      </div>
+
+      <div class="staff-dialog-content">
+        <div class="staff-form-grid">
+          <label class="staff-field" for="idUsuario">
+            <span>Identificación <b>*</b></span>
+            <input id="idUsuario" name="ID_USU" type="text" maxlength="10" minlength="5" pattern="[A-Za-z0-9]{5,10}" required placeholder="Cédula o pasaporte" autocomplete="off">
+          </label>
+          <label class="staff-field" for="rolUsuario">
+            <span>Tipo de personal <b>*</b></span>
+            <select id="rolUsuario" name="ID_ROL_PER" required>
+              <option value="R003">Oficinista</option>
+              <option value="R004">Controlador</option>
+            </select>
+          </label>
+          <label class="staff-field" for="nombreUsuarioForm">
+            <span>Nombres <b>*</b></span>
+            <input id="nombreUsuarioForm" name="NOM_USU" type="text" maxlength="15" required placeholder="Nombres">
+          </label>
+          <label class="staff-field" for="apellidoUsuario">
+            <span>Apellidos <b>*</b></span>
+            <input id="apellidoUsuario" name="APE_USU" type="text" maxlength="15" required placeholder="Apellidos">
+          </label>
+          <label class="staff-field staff-span-2" for="correoUsuario">
+            <span>Correo electrónico <b>*</b></span>
+            <input id="correoUsuario" name="COR_USU" type="email" maxlength="40" required placeholder="personal@cooperativa.ec" autocomplete="off">
+          </label>
+          <label class="staff-field" for="telefonoUsuario">
+            <span>Teléfono <b>*</b></span>
+            <input id="telefonoUsuario" name="TEL_USU" type="tel" inputmode="numeric" pattern="[0-9]{7,10}" maxlength="10" required placeholder="0999999999">
+          </label>
+          <label class="staff-field" for="cooperativaUsuario">
+            <span>Código de cooperativa <b>*</b></span>
+            <input id="cooperativaUsuario" name="ID_COP_PER" type="text" list="cooperativasDisponibles" maxlength="5" required placeholder="CP001" autocomplete="off">
+            <datalist id="cooperativasDisponibles"></datalist>
+            <small id="ayudaCooperativa">Usa el código de una cooperativa registrada.</small>
+          </label>
+          <label class="staff-field" for="estadoUsuario">
+            <span>Estado</span>
+            <select id="estadoUsuario" name="EST_USU">
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </label>
+          <label class="staff-field" for="claveUsuario" id="grupoClaveUsuario">
+            <span>Contraseña inicial <b>*</b></span>
+            <input id="claveUsuario" type="password" minlength="8" maxlength="20" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+            <small>Utiliza entre 8 y 20 caracteres sin espacios ni tildes.</small>
+          </label>
+        </div>
+        <p id="errorPersonal" class="staff-form-error" role="alert" hidden></p>
+      </div>
+
+      <div class="staff-dialog-actions">
+        <button type="button" id="btnCancelarPersonal" class="staff-btn staff-btn-secondary">Cancelar</button>
+        <button type="submit" id="btnGuardarPersonal" class="staff-btn staff-btn-primary">Guardar registro</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="mensajePersonal" class="staff-toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

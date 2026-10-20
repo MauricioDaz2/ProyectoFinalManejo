@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parada y Flota - Administración</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body { background-color: #f4f6f9; color: #333; }
+
+        .layout { display: flex; min-height: 100vh; }
+
+        /* --- Menú lateral --- */
+        .sidebar { width: 250px; background-color: #8B0000; color: #fff; display: flex; flex-direction: column; }
+        .sidebar .brand { padding: 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,.2); }
+        .sidebar nav { display: flex; flex-direction: column; padding: 10px 0; }
+        .sidebar nav a { color: #fff; text-decoration: none; padding: 12px 20px; font-size: 15px; transition: background .2s ease; }
+        .sidebar nav a:hover { background-color: rgba(255,255,255,.12); }
+        .sidebar nav a.active { background-color: rgba(0,0,0,.25); font-weight: 600; border-left: 4px solid #fff; }
+
+        /* --- Contenido --- */
+        .content { flex: 1; display: flex; flex-direction: column; }
+        .topbar { background: #fff; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+        .topbar h1 { font-size: 20px; color: #8B0000; }
+        .topbar .user { font-size: 14px; color: #666; }
+        .topbar .user button { margin-left: 12px; background: #8B0000; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+
+        .main { padding: 25px; }
+
+        .section-title { font-size: 17px; color: #8B0000; margin: 28px 0 12px; }
+        .section-title:first-child { margin-top: 0; }
+
+        .btn { border: none; border-radius: 6px; padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background-color: #8B0000; color: #fff; }
+        .btn-primary:hover { background-color: #a00000; }
+        .btn-secondary { background-color: #e6e9ee; color: #333; }
+        .btn-secondary:hover { background-color: #d7dbe2; }
+        .btn-sm { padding: 6px 10px; font-size: 13px; }
+
+        input[type="text"], select { padding: 9px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: #fff; }
+        input:focus, select:focus { outline: none; border-color: #8B0000; }
+
+        .card { background: #fff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background-color: #f0f2f5; }
+        th, td { text-align: left; padding: 12px 14px; font-size: 14px; border-bottom: 1px solid #eef0f3; }
+        th { font-weight: 600; color: #555; }
+        tbody tr:hover { background-color: #fafbfc; }
+        .empty { padding: 30px; text-align: center; color: #888; }
+
+        .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-operando { background: #e8f0fe; color: #1a56b0; }
+        .badge-parada { background: #e7f6ec; color: #1c7a3d; }
+        .badge-taller { background: #fdecea; color: #b02a20; }
+
+        /* --- Modal --- */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); justify-content: center; align-items: center; z-index: 50; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #fff; border-radius: 10px; width: 100%; max-width: 520px; padding: 25px; }
+        .modal h2 { color: #8B0000; font-size: 18px; margin-bottom: 18px; }
+        .modal .form-group { margin-bottom: 14px; }
+        .modal .form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+        .modal .form-group select { width: 100%; }
+        .modal .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .modal .error { color: #d9534f; font-size: 13px; margin-top: 6px; min-height: 16px; }
+
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #1c7a3d; color: #fff; padding: 12px 18px; border-radius: 8px; font-size: 14px; display: none; z-index: 60; }
+        .toast.error { background: #d9534f; }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Menú lateral del módulo: Hojas de Ruta, Parada y Flota (Dev 2) -->
+        <aside class="sidebar">
+            <div class="brand">Transporte Admin</div>
+            <nav>
+                <a href="hojas_ruta.html">Hojas de Ruta y Frecuencias</a>
+                <a href="parada_buses.html" class="active">Parada (Buses de Contingencia)</a>
+                <a href="#flota">Flota de Unidades</a>
+            </nav>
+        </aside>
+
+        <div class="content">
+            <header class="topbar">
+                <h1>Parada (Buses de Contingencia) y Flota</h1>
+                <div class="user">
+                    <span id="nombreUsuario">Usuario</span>
+                    <button id="btnSalir">Salir</button>
+                </div>
+            </header>
+
+            <main class="main">
+                <!-- Parada: buses de retén disponibles para suplir emergencias -->
+                <h2 class="section-title">Buses en Parada (retén de contingencia)</h2>
+                <div class="card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>N&#176; bus</th>
+                                <th>Placa</th>
+                                <th>Estado</th>
+                                <th>Cooperativa</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaParada">
+                            <tr><td colspan="6" class="empty">Cargando buses en parada...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Flota: estado general y supervisión de asientos -->
+                <h2 class="section-title" id="flota">Flota de Unidades</h2>
+                <div class="card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>N&#176; bus</th>
+                                <th>Placa</th>
+                                <th>A&#241;o</th>
+                                <th>Pisos</th>
+                                <th>Estado</th>
+                                <th>Asientos</th>
+                                <th>Cooperativa</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaFlota">
+                            <tr><td colspan="9" class="empty">Cargando flota...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal: asignar bus de reemplazo -->
+    <div class="modal-overlay" id="modalAsignar">
+        <div class="modal">
+            <h2>Asignar bus de reemplazo</h2>
+            <p style="font-size:14px;color:#555;margin-bottom:14px;">
+                Bus seleccionado: <strong id="busAsignarLabel">-</strong>
+            </p>
+            <div class="form-group">
+                <label for="hojaSelect">Hoja de ruta a cubrir</label>
+                <select id="hojaSelect"></select>
+            </div>
+            <div class="error" id="errorAsignar"></div>
+            <div class="actions">
+                <button class="btn btn-secondary" data-cerrar="modalAsignar">Cancelar</button>
+                <button class="btn btn-primary" id="btnConfirmarAsignar">Asignar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: asientos del bus -->
+    <div class="modal-overlay" id="modalAsientos">
+        <div class="modal">
+            <h2>Asientos del bus <span id="busAsientosLabel">-</span></h2>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Piso</th>
+                            <th>Tipo</th>
+                            <th>Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoAsientos">
+                        <tr><td colspan="4" class="empty">Cargando asientos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="actions">
+                <button class="btn btn-secondary" data-cerrar="modalAsientos">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="../../js/admin_operaciones.js"></script>
+</body>
+</html>
