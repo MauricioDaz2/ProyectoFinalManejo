@@ -818,10 +818,10 @@ function validarFrecuencia(datos) {
         return 'La ciudad de origen y destino deben ser diferentes.';
     }
     if (!datos.FEC_HOR_INI_FRE) {
-        return 'La fecha de inicio de vigencia no es válida.';
+        return 'La fecha de inicio de vigencia no es válida (formato esperado: AAAA-MM-DD).';
     }
     if (datos.FEC_HOR_FIN_FRE && datos.FEC_HOR_FIN_FRE < datos.FEC_HOR_INI_FRE) {
-        return 'La fecha de fin no puede ser anterior a la fecha de inicio.';
+        return 'La fecha de fin de vigencia no puede ser anterior a la fecha de inicio.';
     }
     if (!ESTADOS_FRECUENCIA.includes(datos.EST_RES)) {
         return 'El estado de la frecuencia debe ser 1 (activa) o 0 (inactiva).';
@@ -891,6 +891,7 @@ async function listarFrecuencias(req, res) {
                 SELECT F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
                        F.FEC_HOR_FIN_FRE, F.EST_RES, F.ID_RES_PER,
                        R.CUP_FRE_MAX,
+                       DATEDIFF(DAY, F.FEC_HOR_INI_FRE, ISNULL(F.FEC_HOR_FIN_FRE, F.FEC_HOR_INI_FRE)) + 1 AS DIAS_VIGENCIA,
                        (SELECT COUNT(*) FROM dbo.HOJAS_RUTAS H WHERE H.ID_FRE_PER = F.ID_FRE) AS TOTAL_HOJAS
                 FROM dbo.FRECUENCIAS F
                 INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
