@@ -1019,7 +1019,11 @@ async function actualizarFrecuencia(req, res) {
                 WHERE ID_FRE = @id
             `);
 
-        return res.status(200).json({ success: true, message: 'Frecuencia actualizada correctamente.', frecuencia: resultado.recordset[0] });
+        return res.status(200).json({
+            success: true,
+            message: 'Frecuencia actualizada correctamente.',
+            frecuencia: resultado.recordset[0]
+        });
     } catch (error) {
         return manejarError(res, 'actualización de frecuencia', error);
     }
@@ -1086,7 +1090,10 @@ async function eliminarFrecuencia(req, res) {
             return res.status(404).json({ success: false, message: 'Frecuencia no encontrada.' });
         }
 
-        return res.status(200).json({ success: true, message: 'Frecuencia eliminada correctamente.' });
+        return res.status(200).json({
+            success: true,
+            message: 'Frecuencia eliminada correctamente.'
+        });
     } catch (error) {
         return manejarError(res, 'eliminación de frecuencia', error);
     }
