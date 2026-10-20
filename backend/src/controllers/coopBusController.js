@@ -12,7 +12,11 @@ const { sql, conectarBD } = require('../config/db');
 const CODIGO_RE = /^[A-Z0-9_-]{1,5}$/;
 const ESTADOS_BUS = ['ACTIVO', 'TALLER', 'INACTIVO'];
 const ESTADOS_VIAJE = ['PROGRAMADA', 'EN CURSO', 'FINALIZADA', 'CANCELADA'];
+const ESTADOS_FRECUENCIA = ['0', '1'];
 const TIPO_ASIENTO_NORMAL = 'TIP01';
+
+const CUPO_FRECUENCIA_MIN = 1;
+const CUPO_FRECUENCIA_MAX = 999;
 
 const texto = (valor) => (typeof valor === 'string' ? valor.trim() : '');
 const codigo = (valor) => texto(valor).toUpperCase();
@@ -612,8 +616,12 @@ function validarResolucion(datos) {
     if (!datos.FEC_EMI_RES) {
         return 'La fecha de emisión no es válida.';
     }
-    if (!Number.isInteger(datos.CUP_FRE_MAX) || datos.CUP_FRE_MAX < 1 || datos.CUP_FRE_MAX > 999) {
-        return 'El cupo máximo de frecuencias debe estar entre 1 y 999.';
+    if (
+        !Number.isInteger(datos.CUP_FRE_MAX)
+        || datos.CUP_FRE_MAX < CUPO_FRECUENCIA_MIN
+        || datos.CUP_FRE_MAX > CUPO_FRECUENCIA_MAX
+    ) {
+        return `El cupo máximo de frecuencias debe estar entre ${CUPO_FRECUENCIA_MIN} y ${CUPO_FRECUENCIA_MAX}.`;
     }
     if (datos.DOC_URL_RES.length > 500) {
         return 'La URL del documento debe tener máximo 500 caracteres.';
@@ -819,7 +827,7 @@ function validarFrecuencia(datos) {
     if (datos.FEC_HOR_FIN_FRE && datos.FEC_HOR_FIN_FRE < datos.FEC_HOR_INI_FRE) {
         return 'La fecha de fin no puede ser anterior a la fecha de inicio.';
     }
-    if (!['0', '1'].includes(datos.EST_RES)) {
+    if (!ESTADOS_FRECUENCIA.includes(datos.EST_RES)) {
         return 'El estado de la frecuencia debe ser 1 (activa) o 0 (inactiva).';
     }
     if (!CODIGO_RE.test(datos.ID_RES_PER)) {
@@ -1009,7 +1017,7 @@ async function cambiarEstadoFrecuencia(req, res) {
     const id = codigo(req.params.id);
     const estado = String(req.body?.EST_RES ?? req.body?.estado);
 
-    if (!CODIGO_RE.test(id) || !['0', '1'].includes(estado)) {
+    if (!CODIGO_RE.test(id) || !ESTADOS_FRECUENCIA.includes(estado)) {
         return res.status(400).json({ success: false, message: 'Código o estado de frecuencia inválido.' });
     }
 
