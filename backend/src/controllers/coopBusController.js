@@ -653,7 +653,11 @@ async function listarResoluciones(req, res) {
                 ORDER BY R.FEC_EMI_RES DESC, R.ID_RES DESC
             `);
 
-        return res.status(200).json({ success: true, total: resultado.recordset.length, resoluciones: resultado.recordset });
+        return res.status(200).json({
+            success: true,
+            total: resultado.recordset.length,
+            resoluciones: resultado.recordset
+        });
     } catch (error) {
         return manejarError(res, 'listado de resoluciones', error);
     }
