@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
+/**
+ * Rutas del módulo Cooperativa
+ * Flota de buses, distribución de asientos, resoluciones ANT,
+ * frecuencias, hojas de ruta y panel de control
+ */
+
 const {
     listarBuses,
     obtenerBus,
