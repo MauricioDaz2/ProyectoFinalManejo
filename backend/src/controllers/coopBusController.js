@@ -723,14 +723,12 @@ async function actualizarResolucion(req, res) {
             return res.status(404).json({ success: false, message: 'Resolución no encontrada.' });
         }
 
-        const usadas = await pool.request()
-            .input('id', sql.VarChar(5), id)
-            .query('SELECT COUNT(*) AS total FROM dbo.FRECUENCIAS WHERE ID_RES_PER = @id');
+        const asignadas = await contarFrecuenciasDeResolucion(pool, id);
 
-        if (usadas.recordset[0].total > datos.CUP_FRE_MAX) {
+        if (asignadas > datos.CUP_FRE_MAX) {
             return res.status(400).json({
                 success: false,
-                message: `La resolución ya tiene ${usadas.recordset[0].total} frecuencias; el cupo no puede ser menor.`
+                message: `La resolución ya tiene ${asignadas} frecuencias; el cupo no puede ser menor.`
             });
         }
 
@@ -766,11 +764,9 @@ async function eliminarResolucion(req, res) {
 
     try {
         const pool = await conectarBD();
-        const usadas = await pool.request()
-            .input('id', sql.VarChar(5), id)
-            .query('SELECT COUNT(*) AS total FROM dbo.FRECUENCIAS WHERE ID_RES_PER = @id');
+        const asignadas = await contarFrecuenciasDeResolucion(pool, id);
 
-        if (usadas.recordset[0].total > 0) {
+        if (asignadas > 0) {
             return res.status(409).json({
                 success: false,
                 message: 'No se puede eliminar la resolución porque tiene frecuencias asociadas.'
@@ -848,18 +844,26 @@ async function obtenerResolucionDeCooperativa(pool, idResolucion, cooperativa) {
     return resultado.recordset[0] || null;
 }
 
-async function validarCupoResolucion(pool, resolucion, idActual = null) {
+/**
+ * Cuenta cuántas frecuencias tiene asignadas una resolución.
+ * Permite excluir la frecuencia en edición para no contar el registro actual.
+ */
+async function contarFrecuenciasDeResolucion(pool, idResolucion, idExcluir = null) {
     const resultado = await pool.request()
-        .input('resolucion', sql.VarChar(5), resolucion.ID_RES)
-        .input('idActual', sql.VarChar(5), idActual)
+        .input('resolucion', sql.VarChar(5), idResolucion)
+        .input('idExcluir', sql.VarChar(5), idExcluir)
         .query(`
             SELECT COUNT(*) AS total
             FROM dbo.FRECUENCIAS
             WHERE ID_RES_PER = @resolucion
-              AND (@idActual IS NULL OR ID_FRE <> @idActual)
+              AND (@idExcluir IS NULL OR ID_FRE <> @idExcluir)
         `);
 
-    const usadas = resultado.recordset[0].total;
+    return resultado.recordset[0].total;
+}
+
+async function validarCupoResolucion(pool, resolucion, idActual = null) {
+    const usadas = await contarFrecuenciasDeResolucion(pool, resolucion.ID_RES, idActual);
     if (usadas >= resolucion.CUP_FRE_MAX) {
         return `La resolución ${resolucion.ID_RES} alcanzó su cupo máximo de ${resolucion.CUP_FRE_MAX} frecuencias.`;
     }
