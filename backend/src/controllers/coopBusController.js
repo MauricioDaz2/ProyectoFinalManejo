@@ -13,6 +13,7 @@ const CODIGO_RE = /^[A-Z0-9_-]{1,5}$/;
 const ESTADOS_BUS = ['ACTIVO', 'TALLER', 'INACTIVO'];
 const ESTADOS_VIAJE = ['PROGRAMADA', 'EN CURSO', 'FINALIZADA', 'CANCELADA'];
 const ESTADOS_FRECUENCIA = ['0', '1'];
+const ESTADOS_BOLETO_VALIDOS_VENTA = ['RESERVADO', 'EMITIDO', 'PAGADO', 'USADO'];
 const TIPO_ASIENTO_NORMAL = 'TIP01';
 
 const CUPO_FRECUENCIA_MIN = 1;
@@ -1067,6 +1068,13 @@ async function cambiarEstadoFrecuencia(req, res) {
     }
 }
 
+async function contarHojasDeFrecuencia(pool, idFrecuencia) {
+    const resultado = await pool.request()
+        .input('id', sql.VarChar(5), idFrecuencia)
+        .query('SELECT COUNT(*) AS total FROM dbo.HOJAS_RUTAS WHERE ID_FRE_PER = @id');
+    return resultado.recordset[0].total;
+}
+
 async function eliminarFrecuencia(req, res) {
     const id = codigo(req.params.id);
     if (!CODIGO_RE.test(id)) {
@@ -1075,11 +1083,9 @@ async function eliminarFrecuencia(req, res) {
 
     try {
         const pool = await conectarBD();
-        const usadas = await pool.request()
-            .input('id', sql.VarChar(5), id)
-            .query('SELECT COUNT(*) AS total FROM dbo.HOJAS_RUTAS WHERE ID_FRE_PER = @id');
+        const usadas = await contarHojasDeFrecuencia(pool, id);
 
-        if (usadas.recordset[0].total > 0) {
+        if (usadas > 0) {
             return res.status(409).json({
                 success: false,
                 message: 'No se puede eliminar la frecuencia porque tiene hojas de ruta asociadas.'
@@ -1128,7 +1134,7 @@ function validarHoja(datos) {
         return 'La fecha de programación no es válida.';
     }
     if (!ESTADOS_VIAJE.includes(datos.EST_VIA_HOJ)) {
-        return 'El estado del viaje no es válido.';
+        return 'El estado del viaje debe ser PROGRAMADA, EN CURSO, FINALIZADA o CANCELADA.';
     }
     if (datos.OBS_HOJ.length > 50) {
         return 'La observación debe tener máximo 50 caracteres.';
@@ -1182,7 +1188,7 @@ async function listarHojasRuta(req, res) {
                 WHERE R.ID_COP_PER = @cooperativa
                   AND (@fecha IS NULL OR H.FEC_PRO_HOJ = @fecha)
                   AND (@estado IS NULL OR H.EST_VIA_HOJ = @estado)
-                ORDER BY H.FEC_PRO_HOJ DESC, F.CIU_ORI_FRE, F.CIU_DES_FRE
+                ORDER BY H.FEC_PRO_HOJ ASC, H.ID_HOJ ASC, F.CIU_ORI_FRE, F.CIU_DES_FRE
             `);
 
         return res.status(200).json({ success: true, total: resultado.recordset.length, hojas: resultado.recordset });
@@ -1195,17 +1201,20 @@ async function validarRelacionesHoja(pool, datos, cooperativa) {
     const bus = await pool.request()
         .input('bus', sql.VarChar(5), datos.ID_BUS_PER)
         .input('cooperativa', sql.VarChar(5), cooperativa)
-        .query('SELECT 1 AS existe FROM dbo.BUSES WHERE ID_BUS = @bus AND ID_COP_PER = @cooperativa');
+        .query('SELECT EST_BUS FROM dbo.BUSES WHERE ID_BUS = @bus AND ID_COP_PER = @cooperativa');
 
     if (bus.recordset.length === 0) {
         return 'El bus seleccionado no pertenece a tu cooperativa.';
+    }
+    if (bus.recordset[0].EST_BUS === 'INACTIVO') {
+        return 'El bus seleccionado se encuentra inactivo y no puede asignarse a una hoja de ruta.';
     }
 
     const frecuencia = await pool.request()
         .input('frecuencia', sql.VarChar(5), datos.ID_FRE_PER)
         .input('cooperativa', sql.VarChar(5), cooperativa)
         .query(`
-            SELECT F.ID_FRE, F.EST_RES
+            SELECT F.ID_FRE, F.EST_RES, F.FEC_HOR_INI_FRE, F.FEC_HOR_FIN_FRE
             FROM dbo.FRECUENCIAS F
             INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
             WHERE F.ID_FRE = @frecuencia AND R.ID_COP_PER = @cooperativa
@@ -1216,6 +1225,12 @@ async function validarRelacionesHoja(pool, datos, cooperativa) {
     }
     if (frecuencia.recordset[0].EST_RES !== '1') {
         return 'La frecuencia seleccionada está inactiva.';
+    }
+    if (datos.FEC_PRO_HOJ < frecuencia.recordset[0].FEC_HOR_INI_FRE) {
+        return 'La fecha de programación debe ser mayor o igual a la fecha de inicio de vigencia de la frecuencia.';
+    }
+    if (frecuencia.recordset[0].FEC_HOR_FIN_FRE && datos.FEC_PRO_HOJ > frecuencia.recordset[0].FEC_HOR_FIN_FRE) {
+        return 'La fecha de programación debe be menor o igual a la fecha de fin de vigencia de la frecuencia.';
     }
 
     if (datos.ID_USU_CON) {
@@ -1381,7 +1396,7 @@ async function eliminarHojaRuta(req, res) {
         const pool = await conectarBD();
         const boletos = await pool.request()
             .input('id', sql.VarChar(5), id)
-            .query('SELECT COUNT(*) AS total FROM dbo.BOLETOS WHERE ID_HOJ_PER = @id');
+            .query("SELECT COUNT(*) AS total FROM dbo.BOLETOS WHERE ID_HOJ_PER = @id AND EST_BOL IN ('RESERVADO','EMITIDO','PAGADO','USADO')");
 
         if (boletos.recordset[0].total > 0) {
             return res.status(409).json({
@@ -1398,7 +1413,10 @@ async function eliminarHojaRuta(req, res) {
             return res.status(404).json({ success: false, message: 'Hoja de ruta no encontrada.' });
         }
 
-        return res.status(200).json({ success: true, message: 'Hoja de ruta eliminada correctamente.' });
+        return res.status(200).json({
+            success: true,
+            message: 'Hoja de ruta eliminada correctamente.'
+        });
     } catch (error) {
         return manejarError(res, 'eliminación de hoja de ruta', error);
     }
@@ -1416,10 +1434,11 @@ async function resumenCooperativa(req, res) {
 
     try {
         const pool = await conectarBD();
+        const fechaHoy = hoyISO();
 
         const datos = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa)
-            .input('hoy', sql.Date, hoyISO())
+            .input('hoy', sql.Date, fechaHoy)
             .query(`
                 SELECT
                     (SELECT COUNT(*) FROM dbo.BUSES WHERE ID_COP_PER = @cooperativa) AS TOTAL_BUSES,
@@ -1453,11 +1472,11 @@ async function resumenCooperativa(req, res) {
 
         const proximas = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa)
-            .input('hoy', sql.Date, hoyISO())
+            .input('hoy', sql.Date, fechaHoy)
             .query(`
                 SELECT TOP (6)
                     H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ,
-                    B.NUM_BUS, B.PLA_BUS,
+                    B.NUM_BUS, B.PLA_BUS, B.NUM_PIS,
                     F.CIU_ORI_FRE, F.CIU_DES_FRE,
                     (SELECT COUNT(*) FROM dbo.BOLETOS BO
                       WHERE BO.ID_HOJ_PER = H.ID_HOJ
@@ -1470,7 +1489,7 @@ async function resumenCooperativa(req, res) {
                 WHERE R.ID_COP_PER = @cooperativa
                   AND H.FEC_PRO_HOJ >= @hoy
                   AND H.EST_VIA_HOJ IN ('PROGRAMADA','EN CURSO')
-                ORDER BY H.FEC_PRO_HOJ, F.CIU_ORI_FRE
+                ORDER BY H.FEC_PRO_HOJ, F.CIU_ORI_FRE, H.ID_HOJ
             `);
 
         const cooperativaInfo = await pool.request()
@@ -1481,10 +1500,23 @@ async function resumenCooperativa(req, res) {
             return res.status(404).json({ success: false, message: 'Cooperativa no encontrada.' });
         }
 
+        const resumen = datos.recordset[0];
+        const boletosHoy = Number(resumen.BOLETOS_HOY) || 0;
+        const ingresosHoy = Number(resumen.INGRESOS_HOY) || 0;
+        const hojasHoy = Number(resumen.HOJAS_HOY) || 0;
+        const reservasPendientes = Number(resumen.RESERVAS_PENDIENTES) || 0;
+
         return res.status(200).json({
             success: true,
             cooperativa: cooperativaInfo.recordset[0],
-            resumen: datos.recordset[0],
+            resumen: {
+                ...resumen,
+                BOLETOS_HOY: boletosHoy,
+                INGRESOS_HOY: ingresosHoy,
+                HOJAS_HOY: hojasHoy,
+                RESERVAS_PENDIENTES: reservasPendientes,
+                PROMEDIO_BOLETO_HOY: boletosHoy > 0 ? Math.round(ingresosHoy / boletosHoy) : 0
+            },
             proximasSalidas: proximas.recordset
         });
     } catch (error) {
