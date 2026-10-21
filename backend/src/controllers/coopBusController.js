@@ -1068,6 +1068,13 @@ async function cambiarEstadoFrecuencia(req, res) {
     }
 }
 
+async function contarHojasDeFrecuencia(pool, idFrecuencia) {
+    const resultado = await pool.request()
+        .input('id', sql.VarChar(5), idFrecuencia)
+        .query('SELECT COUNT(*) AS total FROM dbo.HOJAS_RUTAS WHERE ID_FRE_PER = @id');
+    return resultado.recordset[0].total;
+}
+
 async function eliminarFrecuencia(req, res) {
     const id = codigo(req.params.id);
     if (!CODIGO_RE.test(id)) {
@@ -1076,11 +1083,9 @@ async function eliminarFrecuencia(req, res) {
 
     try {
         const pool = await conectarBD();
-        const usadas = await pool.request()
-            .input('id', sql.VarChar(5), id)
-            .query('SELECT COUNT(*) AS total FROM dbo.HOJAS_RUTAS WHERE ID_FRE_PER = @id');
+        const usadas = await contarHojasDeFrecuencia(pool, id);
 
-        if (usadas.recordset[0].total > 0) {
+        if (usadas > 0) {
             return res.status(409).json({
                 success: false,
                 message: 'No se puede eliminar la frecuencia porque tiene hojas de ruta asociadas.'
@@ -1382,7 +1387,7 @@ async function eliminarHojaRuta(req, res) {
         const pool = await conectarBD();
         const boletos = await pool.request()
             .input('id', sql.VarChar(5), id)
-            .query('SELECT COUNT(*) AS total FROM dbo.BOLETOS WHERE ID_HOJ_PER = @id');
+            .query("SELECT COUNT(*) AS total FROM dbo.BOLETOS WHERE ID_HOJ_PER = @id AND EST_BOL IN ('RESERVADO','EMITIDO','PAGADO','USADO')");
 
         if (boletos.recordset[0].total > 0) {
             return res.status(409).json({
