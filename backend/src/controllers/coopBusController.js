@@ -1500,10 +1500,23 @@ async function resumenCooperativa(req, res) {
             return res.status(404).json({ success: false, message: 'Cooperativa no encontrada.' });
         }
 
+        const resumen = datos.recordset[0];
+        const boletosHoy = Number(resumen.BOLETOS_HOY) || 0;
+        const ingresosHoy = Number(resumen.INGRESOS_HOY) || 0;
+        const hojasHoy = Number(resumen.HOJAS_HOY) || 0;
+        const reservasPendientes = Number(resumen.RESERVAS_PENDIENTES) || 0;
+
         return res.status(200).json({
             success: true,
             cooperativa: cooperativaInfo.recordset[0],
-            resumen: datos.recordset[0],
+            resumen: {
+                ...resumen,
+                BOLETOS_HOY: boletosHoy,
+                INGRESOS_HOY: ingresosHoy,
+                HOJAS_HOY: hojasHoy,
+                RESERVAS_PENDIENTES: reservasPendientes,
+                PROMEDIO_BOLETO_HOY: boletosHoy > 0 ? Math.round(ingresosHoy / boletosHoy) : 0
+            },
             proximasSalidas: proximas.recordset
         });
     } catch (error) {
