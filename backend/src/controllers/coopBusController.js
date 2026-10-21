@@ -1434,10 +1434,11 @@ async function resumenCooperativa(req, res) {
 
     try {
         const pool = await conectarBD();
+        const fechaHoy = hoyISO();
 
         const datos = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa)
-            .input('hoy', sql.Date, hoyISO())
+            .input('hoy', sql.Date, fechaHoy)
             .query(`
                 SELECT
                     (SELECT COUNT(*) FROM dbo.BUSES WHERE ID_COP_PER = @cooperativa) AS TOTAL_BUSES,
@@ -1471,11 +1472,11 @@ async function resumenCooperativa(req, res) {
 
         const proximas = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa)
-            .input('hoy', sql.Date, hoyISO())
+            .input('hoy', sql.Date, fechaHoy)
             .query(`
                 SELECT TOP (6)
                     H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ,
-                    B.NUM_BUS, B.PLA_BUS,
+                    B.NUM_BUS, B.PLA_BUS, B.NUM_PIS,
                     F.CIU_ORI_FRE, F.CIU_DES_FRE,
                     (SELECT COUNT(*) FROM dbo.BOLETOS BO
                       WHERE BO.ID_HOJ_PER = H.ID_HOJ
@@ -1488,7 +1489,7 @@ async function resumenCooperativa(req, res) {
                 WHERE R.ID_COP_PER = @cooperativa
                   AND H.FEC_PRO_HOJ >= @hoy
                   AND H.EST_VIA_HOJ IN ('PROGRAMADA','EN CURSO')
-                ORDER BY H.FEC_PRO_HOJ, F.CIU_ORI_FRE
+                ORDER BY H.FEC_PRO_HOJ, F.CIU_ORI_FRE, H.ID_HOJ
             `);
 
         const cooperativaInfo = await pool.request()
