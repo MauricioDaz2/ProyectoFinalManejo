@@ -1188,7 +1188,7 @@ async function listarHojasRuta(req, res) {
                 WHERE R.ID_COP_PER = @cooperativa
                   AND (@fecha IS NULL OR H.FEC_PRO_HOJ = @fecha)
                   AND (@estado IS NULL OR H.EST_VIA_HOJ = @estado)
-                ORDER BY H.FEC_PRO_HOJ DESC, F.CIU_ORI_FRE, F.CIU_DES_FRE
+                ORDER BY H.FEC_PRO_HOJ ASC, H.ID_HOJ ASC, F.CIU_ORI_FRE, F.CIU_DES_FRE
             `);
 
         return res.status(200).json({ success: true, total: resultado.recordset.length, hojas: resultado.recordset });
