@@ -13,6 +13,7 @@ const CODIGO_RE = /^[A-Z0-9_-]{1,5}$/;
 const ESTADOS_BUS = ['ACTIVO', 'TALLER', 'INACTIVO'];
 const ESTADOS_VIAJE = ['PROGRAMADA', 'EN CURSO', 'FINALIZADA', 'CANCELADA'];
 const ESTADOS_FRECUENCIA = ['0', '1'];
+const ESTADOS_BOLETO_VALIDOS_VENTA = ['RESERVADO', 'EMITIDO', 'PAGADO', 'USADO'];
 const TIPO_ASIENTO_NORMAL = 'TIP01';
 
 const CUPO_FRECUENCIA_MIN = 1;
@@ -1128,7 +1129,7 @@ function validarHoja(datos) {
         return 'La fecha de programación no es válida.';
     }
     if (!ESTADOS_VIAJE.includes(datos.EST_VIA_HOJ)) {
-        return 'El estado del viaje no es válido.';
+        return 'El estado del viaje debe ser PROGRAMADA, EN CURSO, FINALIZADA o CANCELADA.';
     }
     if (datos.OBS_HOJ.length > 50) {
         return 'La observación debe tener máximo 50 caracteres.';
