@@ -1413,7 +1413,10 @@ async function eliminarHojaRuta(req, res) {
             return res.status(404).json({ success: false, message: 'Hoja de ruta no encontrada.' });
         }
 
-        return res.status(200).json({ success: true, message: 'Hoja de ruta eliminada correctamente.' });
+        return res.status(200).json({
+            success: true,
+            message: 'Hoja de ruta eliminada correctamente.'
+        });
     } catch (error) {
         return manejarError(res, 'eliminación de hoja de ruta', error);
     }
