@@ -1201,17 +1201,20 @@ async function validarRelacionesHoja(pool, datos, cooperativa) {
     const bus = await pool.request()
         .input('bus', sql.VarChar(5), datos.ID_BUS_PER)
         .input('cooperativa', sql.VarChar(5), cooperativa)
-        .query('SELECT 1 AS existe FROM dbo.BUSES WHERE ID_BUS = @bus AND ID_COP_PER = @cooperativa');
+        .query('SELECT EST_BUS FROM dbo.BUSES WHERE ID_BUS = @bus AND ID_COP_PER = @cooperativa');
 
     if (bus.recordset.length === 0) {
         return 'El bus seleccionado no pertenece a tu cooperativa.';
+    }
+    if (bus.recordset[0].EST_BUS === 'INACTIVO') {
+        return 'El bus seleccionado se encuentra inactivo y no puede asignarse a una hoja de ruta.';
     }
 
     const frecuencia = await pool.request()
         .input('frecuencia', sql.VarChar(5), datos.ID_FRE_PER)
         .input('cooperativa', sql.VarChar(5), cooperativa)
         .query(`
-            SELECT F.ID_FRE, F.EST_RES
+            SELECT F.ID_FRE, F.EST_RES, F.FEC_HOR_INI_FRE, F.FEC_HOR_FIN_FRE
             FROM dbo.FRECUENCIAS F
             INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
             WHERE F.ID_FRE = @frecuencia AND R.ID_COP_PER = @cooperativa
@@ -1222,6 +1225,12 @@ async function validarRelacionesHoja(pool, datos, cooperativa) {
     }
     if (frecuencia.recordset[0].EST_RES !== '1') {
         return 'La frecuencia seleccionada está inactiva.';
+    }
+    if (datos.FEC_PRO_HOJ < frecuencia.recordset[0].FEC_HOR_INI_FRE) {
+        return 'La fecha de programación debe ser mayor o igual a la fecha de inicio de vigencia de la frecuencia.';
+    }
+    if (frecuencia.recordset[0].FEC_HOR_FIN_FRE && datos.FEC_PRO_HOJ > frecuencia.recordset[0].FEC_HOR_FIN_FRE) {
+        return 'La fecha de programación debe be menor o igual a la fecha de fin de vigencia de la frecuencia.';
     }
 
     if (datos.ID_USU_CON) {
