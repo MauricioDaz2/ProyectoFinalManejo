@@ -334,9 +334,7 @@ async function crearBoletoVentanilla(req, res) {
 
         await transaccion.commit();
 
-        return res.status(201).json({
-            success: true,
-            message: 'Boleto emitido correctamente desde ventanilla.',
+        return formatearRespuestaExito(res, 201, 'Boleto emitido correctamente desde ventanilla.', {
             boleto: {
                 ID_BOL: idBoleto,
                 ID_HOJ_PER: idHoja,
