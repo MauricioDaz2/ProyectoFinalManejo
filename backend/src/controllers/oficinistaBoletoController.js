@@ -241,8 +241,9 @@ async function crearBoletoVentanilla(req, res) {
     if (!/^[A-Z0-9_-]{1,10}$/.test(idOficinista)) {
         return res.status(400).json({ success: false, message: 'Oficinista inválido.' });
     }
-    if (!METODOS_PAGO.includes(texto(MET_PAG_BOL).toUpperCase())) {
-        return res.status(400).json({ success: false, message: 'Método de pago inválido.' });
+    const metodo = texto(MET_PAG_BOL).toUpperCase();
+    if (!METODOS_PAGO.includes(metodo)) {
+        return res.status(400).json({ success: false, message: 'Método de pago inválido (EFECTIVO, TRANSFERENCIA o DEPOSITO).' });
     }
 
     const precio = Number(PRE_FIN_BOL);
