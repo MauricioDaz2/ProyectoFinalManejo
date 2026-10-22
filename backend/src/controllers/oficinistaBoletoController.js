@@ -30,7 +30,8 @@ function hoyISO() {
 
 function generarCodigoQR() {
     const token = crypto.randomBytes(16).toString('hex').toUpperCase();
-    return `QR-${token}`;
+    const fecha = hoyISO().replace(/-/g, '');
+    return `QR-${fecha}-${token}`;
 }
 
 function siguienteCodigoBoletos() {
