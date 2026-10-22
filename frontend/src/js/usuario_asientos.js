@@ -1,4 +1,4 @@
-const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE = window.API_BASE_URL || 'http://localhost:3001/api';
 const idHoja = new URLSearchParams(window.location.search).get('idHoja');
 const tripSummary = document.querySelector('#tripSummary');
 const floorTabs = document.querySelector('#floorTabs');
