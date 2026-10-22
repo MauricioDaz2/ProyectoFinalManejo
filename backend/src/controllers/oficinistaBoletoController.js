@@ -304,7 +304,7 @@ async function crearBoletoVentanilla(req, res) {
         const idBoleto = siguienteCodigoBoletos();
         const codigoQR = generarCodigoQR();
         const fechaCompra = hoyISO();
-        const metodoPago = texto(MET_PAG_BOL).toUpperCase();
+        const metodoPago = metodo;
 
         await new sql.Request(transaccion)
             .input('idBol', sql.VarChar(5), idBoleto)
