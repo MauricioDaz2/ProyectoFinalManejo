@@ -195,13 +195,17 @@ async function obtenerMapaAsientosHoja(req, res) {
             };
         });
 
+        const pisos = [1, 2]
+            .map((piso) => ({
+                piso,
+                asientos: asientos.filter((a) => a.PIS_ASI === piso)
+            }))
+            .filter((grupo) => grupo.asientos.length > 0);
+
         return res.status(200).json({
             success: true,
             hoja: hoja.recordset[0],
-            pisos: [
-                { piso: 1, asientos: asientos.filter((a) => a.PIS_ASI === 1) },
-                { piso: 2, asientos: asientos.filter((a) => a.PIS_ASI === 2) }
-            ],
+            pisos,
             asientos
         });
     } catch (error) {
