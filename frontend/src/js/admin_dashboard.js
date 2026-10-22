@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const API = 'http://localhost:3000/api/admin';
+  const API = 'http://localhost:3001/api/admin';
   const boton = document.getElementById('btnActualizarDashboard');
   const aviso = document.getElementById('estadoDashboard');
   let cargando = false;
