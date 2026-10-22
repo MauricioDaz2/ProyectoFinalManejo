@@ -39,6 +39,10 @@ function siguienteCodigoBoletos() {
     return `B${sufijo.padStart(5, '0').slice(-5)}`;
 }
 
+function formatearRespuestaExito(res, status, mensaje, datos = {}) {
+    return res.status(status).json({ success: true, message: mensaje, ...datos });
+}
+
 function manejarError(res, contexto, error) {
     console.error(`Error en ${contexto}:`, error);
     const numero = error.number ?? error.originalError?.info?.number;
