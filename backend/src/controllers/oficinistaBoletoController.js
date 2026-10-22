@@ -107,11 +107,23 @@ async function listarHojasParaVentanilla(req, res) {
                 ORDER BY C.NOM_COP, F.CIU_ORI_FRE, F.CIU_DES_FRE
             `);
 
+        const hojas = resultado.recordset.map((hoja) => {
+            const total = Number(hoja.TOTAL_ASIENTOS) || 0;
+            const ocupados = Number(hoja.ASIENTOS_OCUPADOS) || 0;
+            const disponibles = total - ocupados;
+            return {
+                ...hoja,
+                ASIENTOS_OCUPADOS: ocupados,
+                TOTAL_ASIENTOS: total,
+                ASIENTOS_DISPONIBLES: disponibles > 0 ? disponibles : 0
+            };
+        });
+
         return res.status(200).json({
             success: true,
             fecha: fechaFiltro,
-            total: resultado.recordset.length,
-            hojas: resultado.recordset
+            total: hojas.length,
+            hojas
         });
     } catch (error) {
         return manejarError(res, 'listado de hojas para ventanilla', error);
