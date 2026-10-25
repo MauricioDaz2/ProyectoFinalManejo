@@ -424,8 +424,7 @@ async function registrarPasajero(req, res) {
 
         const ocupado = await pool.request()
             .input('id', sql.VarChar(10), cedula)
-            .input('correo', sql.VarChar(40), correo || cedula)
-            .query('SELECT TOP (1) ID_USU, COR_USU FROM dbo.USUARIOS WHERE ID_USU = @id OR COR_USU = @correo');
+            .query('SELECT TOP (1) ID_USU, COR_USU FROM dbo.USUARIOS WHERE ID_USU = @id OR COR_USU = @id');
 
         if (ocupado.recordset.length > 0) {
             return res.status(409).json({
@@ -439,7 +438,7 @@ async function registrarPasajero(req, res) {
             .input('id', sql.VarChar(10), cedula)
             .input('nombre', sql.VarChar(15), nombre)
             .input('apellido', sql.VarChar(15), apellido)
-            .input('correo', sql.VarChar(40), correo || cedula)
+            .input('correo', sql.VarChar(40), cedula)
             .input('password', sql.VarChar(20), passwordTemporal)
             .input('telefono', sql.VarChar(20), telefono)
             .input('fecha', sql.Date, hoyISO())
