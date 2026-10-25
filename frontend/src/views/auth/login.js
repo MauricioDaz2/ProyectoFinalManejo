@@ -31,10 +31,10 @@ document.getElementById('loginForm').addEventListener('submit', async function (
                     window.location.href = '../admin/dashboard.html';
                     break;
                 case 'R002': 
-                    window.location.href = '../cooperativa/dashboard.html';
+                    window.location.href = '../cooperativa/dashboard_coop.html';
                     break;
                 case 'R003':
-                    window.location.href = '../oficinista/ventas.html';
+                    window.location.href = '../oficinista/ventanilla_boletos.html';
                     break;
                 case 'R004': 
                     window.location.href = '../controlador/escanner.html';
