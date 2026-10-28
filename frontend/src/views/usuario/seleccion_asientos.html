@@ -35,10 +35,10 @@
         <p id="reservationSummary" class="reservation-summary"></p>
         <form id="reservationForm">
           <div class="reservation-grid">
-            <div class="usuario-field"><label for="usuarioId">ID de usuario (opcional)</label><input id="usuarioId" name="usuarioId" maxlength="10" placeholder="Ej. USU01"></div>
+            <div class="usuario-field"><label for="cedula">Cédula del pasajero</label><input id="cedula" name="cedula" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" minlength="10" required placeholder="Ej. 1712345678"></div>
             <div class="usuario-field"><label for="metodoPago">Método de pago</label><select id="metodoPago" name="metodoPago" required><option value="">Selecciona una opción</option><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option></select></div>
           </div>
-          <p class="usuario-status">La base actual relaciona el boleto con un usuario mediante su ID. El comprobante de pago se valida posteriormente.</p>
+          <p class="usuario-status">La cédula identifica al pasajero y se valida antes de registrar la reserva. El comprobante de pago se valida posteriormente.</p>
           <button class="usuario-button" type="submit">Crear reserva pendiente</button>
         </form>
         <div id="qrResult" class="qr-result" hidden></div>

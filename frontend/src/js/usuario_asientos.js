@@ -26,14 +26,27 @@ const showError = (message) => {
 const renderFloor = (floor) => {
     activeFloor = floor;
     document.querySelectorAll('.floor-tab').forEach((tab) => tab.classList.toggle('active', Number(tab.dataset.floor) === floor));
-    const floorSeats = seats.filter((seat) => Number(seat.PIS_ASI) === floor);
-    seatGrid.innerHTML = floorSeats.map((seat) => {
-        const state = seatStatusClass(seat.ESTADO_ASIENTO);
-        const disabled = state !== 'libre' ? 'disabled' : '';
-        return `<button class="seat ${state}" data-seat="${escapeHtml(seat.ID_ASI)}" type="button" ${disabled} title="${escapeHtml(seat.NOM_TIP)}">${
-            escapeHtml(seat.ID_ASI)
-        }</button>`;
-    }).join('');
+    const floorSeats = seats
+        .filter((seat) => Number(seat.PIS_ASI) === floor)
+        .sort((first, second) => first.ID_ASI.localeCompare(second.ID_ASI, undefined, { numeric: true }));
+    const rows = [];
+    for (let index = 0; index < floorSeats.length; index += 4) {
+        const rowSeats = floorSeats.slice(index, index + 4);
+        rows.push(`<div class="bus-seat-row">${rowSeats.map((seat, seatIndex) => {
+            const state = seatStatusClass(seat.ESTADO_ASIENTO);
+            const disabled = state !== 'libre' ? 'disabled' : '';
+            const aisle = seatIndex === 2 ? '<span class="bus-aisle" aria-hidden="true"></span>' : '';
+            return `${seatIndex === 2 ? aisle : ''}<button class="seat ${state}" data-seat="${escapeHtml(seat.ID_ASI)}" type="button" ${disabled} title="${escapeHtml(seat.NOM_TIP)}">${
+                escapeHtml(seat.ID_ASI)
+            }</button>`;
+        }).join('')}</div>`);
+    }
+    seatGrid.innerHTML = `
+        <div class="bus-cabin">
+            <div class="bus-front"><span class="bus-driver">Conductor</span><span class="bus-windshield">Frente del bus</span></div>
+            <div class="bus-seat-rows">${rows.join('')}</div>
+            <div class="bus-rear">Salida de emergencia</div>
+        </div>`;
     if (!floorSeats.length) seatGrid.innerHTML = '<p class="usuario-empty">No hay asientos en esta planta.</p>';
     seatGrid.querySelectorAll('.seat.libre').forEach((button) => button.addEventListener('click', () => selectSeat(button.dataset.seat)));
 };
@@ -86,7 +99,7 @@ reservationForm.addEventListener('submit', async (event) => {
             body: JSON.stringify({
                 idHoja,
                 idAsiento: selectedSeat.ID_ASI,
-                usuarioId: values.get('usuarioId').trim(),
+                cedula: values.get('cedula').trim(),
                 metodoPago: values.get('metodoPago')
             })
         });

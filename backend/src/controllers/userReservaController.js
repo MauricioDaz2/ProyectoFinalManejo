@@ -89,13 +89,16 @@ const reservarAsiento = async (req, res) => {
     const idHoja = texto(req.body?.idHoja).toUpperCase();
     const idAsiento = texto(req.body?.idAsiento).toUpperCase();
     const metodoPago = texto(req.body?.metodoPago).toUpperCase();
-    const usuarioId = texto(req.body?.usuarioId) || null;
+    const cedula = texto(req.body?.cedula);
 
     if (!/^[A-Z0-9_-]{1,5}$/.test(idHoja) || !/^[A-Z0-9_-]{1,5}$/.test(idAsiento)) {
         return res.status(400).json({ success: false, message: 'La hoja de ruta y el asiento son obligatorios.' });
     }
     if (!metodosPago.includes(metodoPago)) {
         return res.status(400).json({ success: false, message: 'El método de pago indicado no es válido.' });
+    }
+    if (!/^\d{10}$/.test(cedula)) {
+        return res.status(400).json({ success: false, message: 'La cédula debe contener exactamente 10 dígitos.' });
     }
 
     const pool = await conectarBD();
@@ -142,17 +145,16 @@ const reservarAsiento = async (req, res) => {
             });
         }
 
-        if (usuarioId) {
-            const usuario = await transaccion.request()
-                .input('usuarioId', sql.VarChar(10), usuarioId)
-                .query('SELECT 1 AS existe FROM USUARIOS WHERE ID_USU = @usuarioId');
-            if (usuario.recordset.length === 0) {
-                await transaccion.rollback();
-                return res.status(404).json({ success: false, message: 'El usuario indicado no existe.' });
-            }
+        const usuario = await transaccion.request()
+            .input('cedula', sql.VarChar(10), cedula)
+            .query('SELECT ID_USU FROM USUARIOS WHERE CED_USU = @cedula AND ISNULL(EST_USU, \'1\') <> \'0\'');
+        if (usuario.recordset.length === 0) {
+            await transaccion.rollback();
+            return res.status(404).json({ success: false, message: 'La cédula indicada no está registrada.' });
         }
 
         const datos = asiento.recordset[0];
+        const usuarioId = usuario.recordset[0].ID_USU;
         const idBoleto = generarCodigo('R');
         const codigoQr = generarQr(idBoleto, idHoja, idAsiento);
 
