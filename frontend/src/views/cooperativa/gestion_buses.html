@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Flota | Transporte UTA</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <script src="../../js/api.js" defer></script>
+  <script src="../../js/panel_layout.js" defer></script>
+  <script src="../../js/coop_buses.js" defer></script>
+</head>
+<body data-app="cooperativa" data-page="buses">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+
+      <main id="main-content" class="admin-main">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Cooperativa / Flota</p>
+            <h1>Gestión de flota de buses</h1>
+            <p>Registra las unidades de la cooperativa, configura sus pisos y asientos, y controla el estado operativo de cada bus.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" type="button" id="btnRecargar">Actualizar</button>
+            <button class="btn btn-primary" type="button" id="btnNuevoBus">+ Nuevo bus</button>
+          </div>
+        </div>
+
+        <section class="stat-grid" id="statsBuses" aria-label="Resumen de flota">
+          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Buses registrados</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">✓</div><div class="stat-copy"><div class="stat-label">Activos</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">⚙</div><div class="stat-copy"><div class="stat-label">En taller</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">⏸</div><div class="stat-copy"><div class="stat-label">Inactivos</div><div class="stat-value">—</div></div></article>
+        </section>
+
+        <section class="panel mt-3">
+          <div class="panel-toolbar">
+            <div class="search-box">
+              <label class="sr-only" for="buscarBus">Buscar bus</label>
+              <input type="search" id="buscarBus" placeholder="Buscar por código, número o placa…" autocomplete="off">
+            </div>
+            <label class="sr-only" for="filtroEstado">Filtrar por estado</label>
+            <select class="filter-select" id="filtroEstado">
+              <option value="">Todos los estados</option>
+              <option value="ACTIVO">Activos</option>
+              <option value="TALLER">En taller</option>
+              <option value="INACTIVO">Inactivos</option>
+            </select>
+            <div class="spacer"></div>
+            <span class="muted" id="contadorBuses">—</span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Bus / Placa</th>
+                  <th>Año</th>
+                  <th>Pisos</th>
+                  <th>Asientos</th>
+                  <th>Estado</th>
+                  <th class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaBuses">
+                <tr class="loading-row"><td colspan="7"><span class="spinner"></span>Cargando flota…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal de registro / edición -->
+  <div class="modal" id="modalBus" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalBus">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloModalBus">Nuevo bus</h3>
+          <p id="subtituloModalBus">Completa los datos de la unidad y su distribución de asientos.</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+
+      <form id="formBus">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field">
+              <label for="codigoBus">Código del bus</label>
+              <input type="text" id="codigoBus" maxlength="5" placeholder="Automático" autocomplete="off">
+              <span class="help">Déjalo vacío para generar el consecutivo B0001.</span>
+            </div>
+            <div class="field">
+              <label for="numeroBus">Número de bus <span class="req">*</span></label>
+              <input type="text" id="numeroBus" maxlength="5" required autocomplete="off" placeholder="Ej. 12">
+            </div>
+            <div class="field">
+              <label for="placaBus">Placa <span class="req">*</span></label>
+              <input type="text" id="placaBus" maxlength="10" required autocomplete="off" placeholder="Ej. PBX-1234">
+            </div>
+            <div class="field">
+              <label for="anioBus">Año <span class="req">*</span></label>
+              <input type="number" id="anioBus" min="1980" max="2100" required placeholder="2024">
+            </div>
+            <div class="field">
+              <label for="pisosBus">Número de pisos <span class="req">*</span></label>
+              <select id="pisosBus" required>
+                <option value="1">1 piso</option>
+                <option value="2">2 pisos</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="estadoBus">Estado <span class="req">*</span></label>
+              <select id="estadoBus" required>
+                <option value="ACTIVO">Activo</option>
+                <option value="TALLER">En taller</option>
+                <option value="INACTIVO">Inactivo</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="asientosP1">Asientos piso 1 <span class="req">*</span></label>
+              <input type="number" id="asientosP1" min="4" max="60" required value="20">
+            </div>
+            <div class="field">
+              <label for="asientosP2">Asientos piso 2</label>
+              <input type="number" id="asientosP2" min="0" max="60" value="0" disabled>
+              <span class="help" id="ayudaAsientosP2">Disponible solo para buses de 2 pisos.</span>
+            </div>
+            <div class="field span-2">
+              <label for="imagenBus">URL de la imagen (opcional)</label>
+              <input type="url" id="imagenBus" maxlength="500" placeholder="https://…">
+            </div>
+          </div>
+
+          <div class="notice warning mt-2 hidden" id="avisoAsientos">
+            <span aria-hidden="true">!</span>
+            <span>Si el bus ya tiene boletos asociados no se podrá redistribuir la cantidad de asientos.</span>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
+          <button class="btn btn-primary" type="submit" id="btnGuardarBus">Guardar bus</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de asientos -->
+  <div class="modal" id="modalAsientos" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="tituloModalAsientos">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloModalAsientos">Distribución de asientos</h3>
+          <p id="subtituloModalAsientos">Selecciona un asiento para cambiar su tipo.</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body">
+        <div id="mapaAsientos">
+          <div class="empty-state"><div class="spinner"></div><p>Cargando asientos…</p></div>
+        </div>
+        <div class="seat-legend">
+          <span><i class="legend-dot"></i> Normal</span>
+          <span><i class="legend-dot vip"></i> VIP / Cama</span>
+          <span><i class="legend-dot occupied"></i> No editable</span>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cerrar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal de tipo de asiento -->
+  <div class="modal" id="modalTipoAsiento" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card modal-small" role="dialog" aria-modal="true" aria-labelledby="tituloTipoAsiento">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloTipoAsiento">Cambiar tipo de asiento</h3>
+          <p id="infoTipoAsiento">—</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="field">
+          <label for="selectTipoAsiento">Tipo de asiento</label>
+          <select id="selectTipoAsiento"></select>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
+        <button class="btn btn-primary" type="button" id="btnGuardarTipoAsiento">Guardar cambio</button>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

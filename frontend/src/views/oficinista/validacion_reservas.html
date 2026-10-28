@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validación de Reservas | Transporte UTA</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <script src="../../js/api.js" defer></script>
+  <script src="../../js/panel_layout.js" defer></script>
+  <script src="../../js/oficinista_validacion.js" defer></script>
+</head>
+<body data-app="oficinista" data-page="validacion">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+
+      <main id="main-content" class="admin-main">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Oficinista / Control de abordaje</p>
+            <h1>Validación de reservas</h1>
+            <p>Escanea el código QR del boleto o ingresa la cédula del pasajero. La validación marca el boleto como usado y registra la fecha de abordaje.</p>
+          </div>
+        </div>
+
+        <div id="avisoValidacion"></div>
+
+        <section class="scanner-card">
+          <form class="scanner-form" id="formValidacion">
+            <div class="search-box">
+              <label class="sr-only" for="codigoValidacion">Código QR o cédula</label>
+              <input class="scanner-input" type="text" id="codigoValidacion" maxlength="100" placeholder="Escanea el QR o escribe la cédula…" autocomplete="off" autofocus>
+            </div>
+            <button class="btn btn-success" type="submit" id="btnValidarBoleto">Validar boleto</button>
+            <button class="btn btn-secondary" type="button" id="btnEscanearCamara">Escanear con cámara</button>
+          </form>
+          <p class="scanner-hint">Compatible con lectores de código de barras tipo teclado: el código se captura automáticamente al presionar Enter. También puedes validar por cédula si el boleto está asociado a un pasajero registrado.</p>
+        </section>
+
+        <section class="validation-result" id="resultadoValidacion" hidden aria-live="polite"></section>
+
+        <div class="section-head">
+          <div>
+            <h2>Consulta y gestión de boletos</h2>
+            <p>Busca por código QR, código de boleto o cédula para revisar reservas y estados.</p>
+          </div>
+          <span class="muted" id="contadorBusqueda">—</span>
+        </div>
+
+        <section class="panel">
+          <div class="panel-toolbar">
+            <div class="search-box">
+              <label class="sr-only" for="busquedaBoletos">Buscar boletos</label>
+              <input type="search" id="busquedaBoletos" placeholder="Código QR, boleto o cédula…" autocomplete="off">
+            </div>
+            <button class="btn btn-secondary" type="button" id="btnBuscarBoletos">Buscar</button>
+            <div class="spacer"></div>
+            <span class="badge badge-neutral" id="totalResultados">0 resultados</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" aria-label="Boletos encontrados">
+              <thead>
+                <tr>
+                  <th>Boleto</th>
+                  <th>Pasajero</th>
+                  <th>Ruta</th>
+                  <th>Asiento</th>
+                  <th>Compra</th>
+                  <th>Estado</th>
+                  <th class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaBoletos">
+                <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⌕</div><h3>Realiza una búsqueda</h3><p>Ingresa un código QR, el código del boleto o la cédula del pasajero.</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="section-head">
+          <div>
+            <h2>Últimas validaciones</h2>
+            <p>Registro local de los abordajes confirmados en esta ventanilla.</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" type="button" id="btnLimpiarRecientes">Limpiar historial</button>
+        </div>
+
+        <section class="panel">
+          <div class="panel-body">
+            <div class="recent-list" id="validacionesRecientes">
+              <div class="empty-state"><div class="empty-icon">◉</div><p>Aún no se han validado boletos en esta sesión.</p></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal de cámara -->
+  <div class="modal" id="modalCamara" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloCamara">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloCamara">Escanear código QR</h3>
+          <p>Apunta la cámara al código QR del boleto.</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body">
+        <video id="videoCamara" playsinline muted style="width:100%;border-radius:10px;background:#101828;min-height:220px;"></video>
+        <p class="help mt-1" id="estadoCamara">Iniciando cámara…</p>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>
