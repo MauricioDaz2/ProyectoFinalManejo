@@ -15,8 +15,8 @@
         <span><span class="usuario-brand-name">Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
       </a>
       <nav class="usuario-navigation" aria-label="Navegación de reserva">
-        <a href="catalogo_viajes.html">Nueva búsqueda</a>
-        <a href="../auth/login.html">Volver al inicio</a>
+        <a class="usuario-nav-button" href="catalogo_viajes.html"><span aria-hidden="true">⌕</span>Nueva búsqueda</a>
+        <a class="usuario-nav-button usuario-nav-button-light" href="../auth/login.html"><span aria-hidden="true">⌂</span>Volver al inicio</a>
       </nav>
     </header>
     <main class="usuario-main">
@@ -45,7 +45,7 @@
           <p id="paymentHelp" class="usuario-status">La cédula identifica al pasajero y se valida antes de registrar la reserva.</p>
           <div class="reservation-actions">
             <button class="usuario-button" type="submit">Crear reserva pendiente</button>
-            <button id="cancelReservation" class="usuario-button usuario-button-secondary" type="button">Cancelar</button>
+            <button id="cancelReservation" class="usuario-button usuario-button-secondary" type="button"><span aria-hidden="true">×</span>Cancelar</button>
           </div>
         </form>
         <div id="qrResult" class="qr-result" hidden></div>

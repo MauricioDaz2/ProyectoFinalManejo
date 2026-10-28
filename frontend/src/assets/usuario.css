@@ -21,9 +21,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .usuario-brand-caption { margin-top: 3px; color: rgba(255,255,255,.78); font-size: 12px; }
 .usuario-logout { padding: 9px 14px; border: 1px solid rgba(255,255,255,.55); border-radius: 8px; color: #fff; background: transparent; font-weight: 700; cursor: pointer; }
 .usuario-logout:hover { background: rgba(255,255,255,.14); }
-.usuario-navigation { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 18px; }
-.usuario-navigation a { color: #fff; text-decoration: none; }
-.usuario-navigation a:hover { text-decoration: underline; }
+.usuario-navigation { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.usuario-nav-button { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border: 1px solid rgba(255,255,255,.55); border-radius: 9px; color: #fff; background: rgba(255,255,255,.12); font-size: 13px; font-weight: 750; text-decoration: none; transition: background .2s, transform .2s; }
+.usuario-nav-button:hover { background: rgba(255,255,255,.23); transform: translateY(-1px); }
+.usuario-nav-button-light { border-color: rgba(255,255,255,.28); background: transparent; }
 .usuario-main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 44px 0 64px; }
 .usuario-eyebrow { margin: 0 0 8px; color: var(--usuario-primary); font-size: 12px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
 .usuario-title { margin: 0; font-size: clamp(28px, 5vw, 44px); line-height: 1.1; }
@@ -40,6 +41,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .usuario-button:disabled { cursor: wait; opacity: .65; }
 .usuario-button-secondary { border: 1px solid var(--usuario-primary); color: var(--usuario-primary); background: #fff; }
 .usuario-button-secondary:hover:not(:disabled) { color: #fff; background: var(--usuario-primary); }
+.usuario-button-secondary span { margin-right: 5px; font-size: 18px; line-height: 0; vertical-align: -1px; }
 .usuario-status { min-height: 20px; margin: 18px 0 0; color: var(--usuario-muted); font-size: 14px; }
 .usuario-status.error { color: #9d1c28; }
 .usuario-results { display: grid; gap: 14px; }
@@ -81,6 +83,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .qr-result { margin-top: 18px; padding: 15px; border-radius: 8px; color: #205d3b; background: #e9f6ed; overflow-wrap: anywhere; }
 @media (max-width: 760px) {
     .usuario-header { align-items: flex-start; padding: 16px 20px; }
+    .usuario-navigation { width: 100%; justify-content: flex-start; }
+    .usuario-nav-button { flex: 1; justify-content: center; }
     .usuario-search, .viaje-card, .reservation-grid { grid-template-columns: 1fr; }
     .viaje-action { text-align: left; }
     .seat-grid { padding: 10px; }
