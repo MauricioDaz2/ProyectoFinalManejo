@@ -1,9 +1,10 @@
 const crypto = require('crypto');
+const fs = require('fs/promises');
 const { sql, conectarBD } = require('../config/db');
 
 const texto = (valor) => (typeof valor === 'string' ? valor.trim() : '');
 const estadosOcupados = ['EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO'];
-const metodosPago = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA'];
+const metodosPago = ['EFECTIVO', 'TRANSFERENCIA'];
 
 const generarCodigo = (prefijo) => `${prefijo}${crypto.randomBytes(3).toString('hex').toUpperCase()}`.slice(0, 5);
 const generarQr = (idBoleto, idHoja, idAsiento) => {
@@ -90,6 +91,8 @@ const reservarAsiento = async (req, res) => {
     const idAsiento = texto(req.body?.idAsiento).toUpperCase();
     const metodoPago = texto(req.body?.metodoPago).toUpperCase();
     const cedula = texto(req.body?.cedula);
+    const comprobanteUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const estadoBoleto = metodoPago === 'EFECTIVO' ? 'PENDIENTE' : 'RESERVADO';
 
     if (!/^[A-Z0-9_-]{1,5}$/.test(idHoja) || !/^[A-Z0-9_-]{1,5}$/.test(idAsiento)) {
         return res.status(400).json({ success: false, message: 'La hoja de ruta y el asiento son obligatorios.' });
@@ -99,6 +102,9 @@ const reservarAsiento = async (req, res) => {
     }
     if (!/^\d{10}$/.test(cedula)) {
         return res.status(400).json({ success: false, message: 'La cédula debe contener exactamente 10 dígitos.' });
+    }
+    if (metodoPago === 'TRANSFERENCIA' && !req.file) {
+        return res.status(400).json({ success: false, message: 'Adjunta el comprobante de transferencia para continuar.' });
     }
 
     const pool = await conectarBD();
@@ -165,6 +171,8 @@ const reservarAsiento = async (req, res) => {
             .input('precio', sql.Decimal(18, 0), datos.PRE_TIP)
             .input('metodoPago', sql.VarChar(15), metodoPago)
             .input('codigoQr', sql.VarChar(500), codigoQr)
+            .input('comprobanteUrl', sql.VarChar(500), comprobanteUrl)
+            .input('estadoBoleto', sql.VarChar(15), estadoBoleto)
             .input('idHoja', sql.VarChar(5), idHoja)
             .input('idAsiento', sql.VarChar(5), idAsiento)
             .input('usuarioId', sql.VarChar(10), usuarioId)
@@ -174,20 +182,29 @@ const reservarAsiento = async (req, res) => {
                      COM_PAG_URL, EST_BOL, COD_QR_BOL, FEC_COM_BOL, ID_HOJ_PER, ID_ASI_PER, ID_USU_FIN)
                 VALUES
                     (@idBoleto, @origen, @destino, 'PASAJERO', @precio, @metodoPago,
-                     NULL, 'RESERVADO', @codigoQr, CONVERT(date, GETDATE()), @idHoja, @idAsiento, @usuarioId)
+                     @comprobanteUrl, @estadoBoleto, @codigoQr, CONVERT(date, GETDATE()), @idHoja, @idAsiento, @usuarioId)
             `);
 
         await transaccion.commit();
         return res.status(201).json({
             success: true,
-            message: 'Reserva creada correctamente. Tiene estado pendiente de validación.',
-            reserva: { idBoleto, idHoja, idAsiento, estado: 'RESERVADO', codigoQr, precio: datos.PRE_TIP }
+            message: metodoPago === 'TRANSFERENCIA'
+                ? 'Reserva creada. El comprobante fue enviado para validación del administrador.'
+                : 'Reserva creada. Queda pendiente de pago en efectivo.',
+            reserva: { idBoleto, idHoja, idAsiento, estado: estadoBoleto, codigoQr, precio: datos.PRE_TIP, comprobanteUrl, pagoPendiente: metodoPago === 'EFECTIVO' }
         });
     } catch (error) {
         try {
             await transaccion.rollback();
         } catch (rollbackError) {
             console.error('Error al revertir reserva:', rollbackError);
+        }
+        if (req.file) {
+            try {
+                await fs.unlink(req.file.path);
+            } catch (cleanupError) {
+                if (cleanupError.code !== 'ENOENT') console.error('Error al eliminar comprobante rechazado:', cleanupError);
+            }
         }
         console.error('Error al reservar asiento:', error);
         return res.status(500).json({ success: false, message: 'No fue posible crear la reserva.' });
