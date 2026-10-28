@@ -3,6 +3,10 @@ const searchForm = document.querySelector('#searchForm');
 const results = document.querySelector('#results');
 const status = document.querySelector('#searchStatus');
 const dateInput = document.querySelector('#fecha');
+const origenInput = document.querySelector('#origen');
+const destinoInput = document.querySelector('#destino');
+const logoutButton = document.querySelector('#logoutButton');
+let rutas = [];
 
 const today = new Date();
 dateInput.min = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -12,6 +16,39 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 }[character]));
 
 const formatDate = (value) => value ? new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString('es-EC') : 'Fecha no disponible';
+
+const option = (value, label = value) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+
+const cargarRutas = async () => {
+    try {
+        const response = await fetch(`${API_BASE}/usuario/viajes/rutas`);
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || 'No fue posible cargar las rutas.');
+        rutas = data.rutas;
+        const origenes = [...new Set(rutas.map((ruta) => ruta.ORIGEN))];
+        origenInput.innerHTML = `<option value="">Selecciona una ciudad</option>${origenes.map((ciudad) => option(ciudad)).join('')}`;
+        status.textContent = `${data.total} ruta(s) disponible(s).`;
+    } catch (error) {
+        origenInput.innerHTML = '<option value="">No se pudieron cargar las rutas</option>';
+        status.className = 'usuario-status error';
+        status.textContent = error.message;
+    }
+};
+
+origenInput.addEventListener('change', () => {
+    const destinos = [...new Set(rutas
+        .filter((ruta) => ruta.ORIGEN === origenInput.value)
+        .map((ruta) => ruta.DESTINO))];
+    destinoInput.innerHTML = destinos.length
+        ? `<option value="">Selecciona una ciudad</option>${destinos.map((ciudad) => option(ciudad)).join('')}`
+        : '<option value="">No hay destinos disponibles</option>';
+    destinoInput.disabled = destinos.length === 0;
+});
+
+logoutButton.addEventListener('click', () => {
+    localStorage.removeItem('usuario');
+    window.location.href = '../auth/login.html';
+});
 
 const renderResults = (viajes) => {
     if (!viajes.length) {
@@ -43,6 +80,8 @@ searchForm.addEventListener('submit', async (event) => {
         destino: values.get('destino').trim(),
         fecha: values.get('fecha')
     });
+
+    cargarRutas();
     status.className = 'usuario-status';
     status.textContent = 'Consultando frecuencias...';
     results.innerHTML = '';

@@ -19,6 +19,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .usuario-brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 11px; background: rgba(255,255,255,.16); font-size: 22px; font-weight: 750; }
 .usuario-brand-name { font-size: 18px; font-weight: 750; }
 .usuario-brand-caption { margin-top: 3px; color: rgba(255,255,255,.78); font-size: 12px; }
+.usuario-logout { padding: 9px 14px; border: 1px solid rgba(255,255,255,.55); border-radius: 8px; color: #fff; background: transparent; font-weight: 700; cursor: pointer; }
+.usuario-logout:hover { background: rgba(255,255,255,.14); }
 .usuario-main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 44px 0 64px; }
 .usuario-eyebrow { margin: 0 0 8px; color: var(--usuario-primary); font-size: 12px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
 .usuario-title { margin: 0; font-size: clamp(28px, 5vw, 44px); line-height: 1.1; }
@@ -28,6 +30,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .usuario-field { display: flex; flex-direction: column; gap: 7px; }
 .usuario-field label { color: var(--usuario-muted); font-size: 13px; font-weight: 700; }
 .usuario-field input, .usuario-field select { width: 100%; padding: 11px 12px; border: 1px solid var(--usuario-border); border-radius: 8px; color: var(--usuario-text); background: #fff; }
+.usuario-field select:disabled { cursor: not-allowed; background: #f1f3f5; }
 .usuario-button { border: 0; border-radius: 8px; padding: 12px 18px; color: #fff; background: var(--usuario-primary); font-weight: 750; cursor: pointer; }
 .usuario-button:hover:not(:disabled) { background: var(--usuario-primary-dark); }
 .usuario-button:disabled { cursor: wait; opacity: .65; }
