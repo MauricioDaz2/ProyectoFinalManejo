@@ -146,6 +146,7 @@ passengerSetupForm.addEventListener('submit', (event) => {
     if (new Set(passengers.map((passenger) => passenger.cedula)).size !== passengers.length) return passengerStatus.textContent = 'Cada pasajero debe tener una cédula diferente.';
     if (passengers.length > seats.filter((seat) => seat.ESTADO_ASIENTO === 'LIBRE').length) return passengerStatus.textContent = 'La cantidad solicitada supera los asientos disponibles.';
     seatGrid.hidden = false;
+    renderFloor(activeFloor);
     seatStatus.textContent = `Selecciona exactamente ${passengers.length} asiento(s).`;
     passengerSetup.hidden = true;
     document.querySelector('.seat-legend').scrollIntoView({ behavior: 'smooth', block: 'start' });
