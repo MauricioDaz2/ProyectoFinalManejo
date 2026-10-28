@@ -12,6 +12,7 @@ const metodoPagoInput = document.querySelector('#metodoPago');
 const comprobanteField = document.querySelector('#comprobanteField');
 const comprobanteInput = document.querySelector('#comprobante');
 const paymentHelp = document.querySelector('#paymentHelp');
+const cancelReservation = document.querySelector('#cancelReservation');
 let seats = [];
 let selectedSeat = null;
 let activeFloor = 1;
@@ -69,6 +70,20 @@ const selectSeat = (seatId) => {
     reservationSummary.textContent = `Asiento ${selectedSeat.ID_ASI} · ${selectedSeat.NOM_TIP} · Precio: $${selectedSeat.PRE_TIP}`;
     qrResult.hidden = true;
     reservationPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+const cancelarReserva = () => {
+    document.querySelectorAll('.seat.selected').forEach((button) => button.classList.remove('selected'));
+    selectedSeat = null;
+    reservationForm.reset();
+    comprobanteField.hidden = true;
+    comprobanteInput.required = false;
+    paymentHelp.textContent = 'La cédula identifica al pasajero y se valida antes de registrar la reserva.';
+    reservationSummary.textContent = '';
+    qrResult.hidden = true;
+    reservationPanel.classList.remove('visible');
+    seatStatus.className = 'usuario-status';
+    seatStatus.textContent = 'Selección cancelada. Elige otro asiento cuando estés listo.';
 };
 
 const loadSeats = async () => {
@@ -129,4 +144,5 @@ metodoPagoInput.addEventListener('change', () => {
             : 'La cédula identifica al pasajero y se valida antes de registrar la reserva.';
 });
 
+cancelReservation.addEventListener('click', cancelarReserva);
 loadSeats();

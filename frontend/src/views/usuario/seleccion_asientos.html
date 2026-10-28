@@ -14,7 +14,10 @@
         <span class="usuario-brand-mark" aria-hidden="true">↗</span>
         <span><span class="usuario-brand-name">Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
       </a>
-      <a href="catalogo_viajes.html" style="color:#fff">Nueva búsqueda</a>
+      <nav class="usuario-navigation" aria-label="Navegación de reserva">
+        <a href="catalogo_viajes.html">Nueva búsqueda</a>
+        <a href="../auth/login.html">Volver al inicio</a>
+      </nav>
     </header>
     <main class="usuario-main">
       <p class="usuario-eyebrow">Selecciona tu lugar</p>
@@ -40,7 +43,10 @@
           </div>
           <div id="comprobanteField" class="usuario-field comprobante-field" hidden><label for="comprobante">Comprobante de transferencia (JPG, PNG o PDF, máximo 5 MB)</label><input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.pdf"></div>
           <p id="paymentHelp" class="usuario-status">La cédula identifica al pasajero y se valida antes de registrar la reserva.</p>
-          <button class="usuario-button" type="submit">Crear reserva pendiente</button>
+          <div class="reservation-actions">
+            <button class="usuario-button" type="submit">Crear reserva pendiente</button>
+            <button id="cancelReservation" class="usuario-button usuario-button-secondary" type="button">Cancelar</button>
+          </div>
         </form>
         <div id="qrResult" class="qr-result" hidden></div>
       </section>
