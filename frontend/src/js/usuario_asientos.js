@@ -8,6 +8,10 @@ const reservationPanel = document.querySelector('#reservationPanel');
 const reservationSummary = document.querySelector('#reservationSummary');
 const reservationForm = document.querySelector('#reservationForm');
 const qrResult = document.querySelector('#qrResult');
+const metodoPagoInput = document.querySelector('#metodoPago');
+const comprobanteField = document.querySelector('#comprobanteField');
+const comprobanteInput = document.querySelector('#comprobante');
+const paymentHelp = document.querySelector('#paymentHelp');
 let seats = [];
 let selectedSeat = null;
 let activeFloor = 1;
@@ -95,18 +99,12 @@ reservationForm.addEventListener('submit', async (event) => {
     try {
         const response = await fetch(`${API_BASE}/usuario/reservas`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                idHoja,
-                idAsiento: selectedSeat.ID_ASI,
-                cedula: values.get('cedula').trim(),
-                metodoPago: values.get('metodoPago')
-            })
+            body: values
         });
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.message || 'No fue posible crear la reserva.');
         qrResult.hidden = false;
-        qrResult.innerHTML = `<strong>Reserva ${escapeHtml(data.reserva.idBoleto)} creada.</strong><br>Estado: pendiente de validación.<br><small>QR temporal: ${escapeHtml(data.reserva.codigoQr)}</small>`;
+        qrResult.innerHTML = `<strong>Reserva ${escapeHtml(data.reserva.idBoleto)} creada.</strong><br>${escapeHtml(data.message)}<br><small>QR temporal: ${escapeHtml(data.reserva.codigoQr)}</small>`;
         selectedSeat.ESTADO_ASIENTO = 'RESERVADO';
         renderFloor(activeFloor);
         reservationForm.reset();
@@ -118,6 +116,17 @@ reservationForm.addEventListener('submit', async (event) => {
     } finally {
         button.disabled = false;
     }
+});
+
+metodoPagoInput.addEventListener('change', () => {
+    const transferencia = metodoPagoInput.value === 'TRANSFERENCIA';
+    comprobanteField.hidden = !transferencia;
+    comprobanteInput.required = transferencia;
+    paymentHelp.textContent = transferencia
+        ? 'Adjunta el comprobante para que el administrador valide la transferencia.'
+        : metodoPagoInput.value === 'EFECTIVO'
+            ? 'La reserva quedará pendiente de pago hasta que se confirme el efectivo.'
+            : 'La cédula identifica al pasajero y se valida antes de registrar la reserva.';
 });
 
 loadSeats();
