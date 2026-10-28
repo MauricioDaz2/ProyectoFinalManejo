@@ -78,11 +78,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .reservation-panel { display: none; margin-top: 22px; }
 .reservation-panel.visible { display: block; }
 .reservation-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.passenger-fields { display: grid; gap: 12px; margin: 18px 0; }
+.passenger-row { display: grid; grid-template-columns: minmax(100px, .7fr) repeat(2, 1fr); align-items: end; gap: 12px; padding: 14px; border: 1px solid var(--usuario-border); border-radius: 10px; background: #fafbfc; }
+.passenger-row strong { color: var(--usuario-primary); font-size: 14px; }
 .reservation-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .reservation-summary { margin: 0 0 18px; color: var(--usuario-muted); }
 .qr-result { margin-top: 18px; padding: 15px; border-radius: 8px; color: #205d3b; background: #e9f6ed; overflow-wrap: anywhere; }
 @media (max-width: 760px) {
     .usuario-header { align-items: flex-start; padding: 16px 20px; }
+    .passenger-row, .reservation-grid { grid-template-columns: 1fr; }
     .usuario-navigation { width: 100%; justify-content: flex-start; }
     .usuario-nav-button { flex: 1; justify-content: center; }
     .usuario-search, .viaje-card, .reservation-grid { grid-template-columns: 1fr; }

@@ -23,6 +23,25 @@
       <p class="usuario-eyebrow">Selecciona tu lugar</p>
       <h1 class="usuario-title">Mapa de asientos</h1>
       <p id="tripSummary" class="usuario-subtitle">Cargando información del bus...</p>
+      <section id="passengerSetup" class="usuario-card">
+        <h2>¿Cuántos pasajeros viajarán?</h2>
+        <p class="reservation-summary">Registra una cédula válida y el tipo de cada pasajero antes de elegir los asientos.</p>
+        <form id="passengerSetupForm">
+          <div class="reservation-grid">
+            <div class="usuario-field">
+              <label for="passengerCount">Cantidad de asientos</label>
+              <input id="passengerCount" name="passengerCount" type="number" min="1" max="10" value="1" required>
+            </div>
+            <div class="usuario-field">
+              <label for="invoiceOwner">Cédula del titular de la cuenta</label>
+              <input id="invoiceOwner" name="invoiceOwner" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" minlength="10" required placeholder="Cédula para la factura">
+            </div>
+          </div>
+          <div id="passengerFields" class="passenger-fields"></div>
+          <p id="passengerStatus" class="usuario-status" role="status"></p>
+          <button class="usuario-button" type="submit">Continuar a selección de asientos</button>
+        </form>
+      </section>
       <section class="usuario-card">
         <div class="seat-legend" aria-label="Estados de los asientos">
           <span class="legend-item"><span class="legend-color libre"></span>Libre</span>
@@ -30,7 +49,7 @@
           <span class="legend-item"><span class="legend-color ocupado"></span>Ocupado</span>
         </div>
         <div id="floorTabs" class="floor-tabs" role="tablist"></div>
-        <div id="seatGrid" class="seat-grid" aria-live="polite"></div>
+        <div id="seatGrid" class="seat-grid" aria-live="polite" hidden></div>
         <p id="seatStatus" class="usuario-status" role="status"></p>
       </section>
       <section id="reservationPanel" class="usuario-card reservation-panel" aria-labelledby="reservationTitle">
@@ -38,7 +57,6 @@
         <p id="reservationSummary" class="reservation-summary"></p>
         <form id="reservationForm">
           <div class="reservation-grid">
-            <div class="usuario-field"><label for="cedula">Cédula del pasajero</label><input id="cedula" name="cedula" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" minlength="10" required placeholder="Ej. 1712345678"></div>
             <div class="usuario-field"><label for="metodoPago">Método de pago</label><select id="metodoPago" name="metodoPago" required><option value="">Selecciona una opción</option><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option></select></div>
           </div>
           <div id="comprobanteField" class="usuario-field comprobante-field" hidden><label for="comprobante">Comprobante de transferencia (JPG, PNG o PDF, máximo 5 MB)</label><input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.pdf"></div>
