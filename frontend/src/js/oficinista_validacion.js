@@ -195,6 +195,9 @@
   }
 
   function filaBoleto(boleto) {
+    const comprobante = boleto.COM_PAG_URL
+      ? `<a href="http://127.0.0.1:3001${App.escapar(boleto.COM_PAG_URL)}" target="_blank" rel="noopener">Ver comprobante</a>`
+      : 'Sin comprobante';
     return `
       <tr>
         <td>
@@ -222,7 +225,7 @@
             <span>${App.escapar(boleto.ASIENTO?.TIPO || '—')}</span>
           </div>
         </td>
-        <td class="nowrap">${App.fecha(boleto.FEC_COM_BOL)}</td>
+        <td class="nowrap">${App.fecha(boleto.FEC_COM_BOL)}<br><small>${comprobante}</small></td>
         <td>${App.insignia(boleto.EST_BOL)}</td>
         <td>
           <div class="actions">${accionesBoleto(boleto)}</div>

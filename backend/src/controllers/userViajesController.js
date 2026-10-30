@@ -6,6 +6,33 @@ const fechaISO = (valor) => {
     return /^\d{4}-\d{2}-\d{2}$/.test(normalizada) ? normalizada : null;
 };
 
+const listarRutas = async (req, res) => {
+    try {
+        const pool = await conectarBD();
+        const resultado = await pool.request().query(`
+            SELECT DISTINCT
+                   F.CIU_ORI_FRE AS ORIGEN,
+                   F.CIU_DES_FRE AS DESTINO
+            FROM FRECUENCIAS F
+            INNER JOIN HOJAS_RUTAS H ON H.ID_FRE_PER = F.ID_FRE
+            INNER JOIN BUSES B ON B.ID_BUS = H.ID_BUS_PER
+            WHERE ISNULL(H.EST_VIA_HOJ, 'PROGRAMADO') NOT IN ('CANCELADA', 'CANCELADO')
+              AND ISNULL(B.EST_BUS, 'ACTIVO') <> 'INACTIVO'
+              AND ISNULL(F.EST_RES, '1') <> '0'
+            ORDER BY F.CIU_ORI_FRE, F.CIU_DES_FRE
+        `);
+
+        return res.status(200).json({
+            success: true,
+            total: resultado.recordset.length,
+            rutas: resultado.recordset
+        });
+    } catch (error) {
+        console.error('Error al listar rutas del usuario:', error);
+        return res.status(500).json({ success: false, message: 'No fue posible consultar las rutas disponibles.' });
+    }
+};
+
 const buscarViajes = async (req, res) => {
     const origen = texto(req.query.origen);
     const destino = texto(req.query.destino);
@@ -72,3 +99,4 @@ const buscarViajes = async (req, res) => {
 };
 
 module.exports = { buscarViajes };
+module.exports = { listarRutas, buscarViajes };

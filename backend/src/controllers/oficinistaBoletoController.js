@@ -11,12 +11,13 @@ const crypto = require('crypto');
 
 const CODIGO_RE = /^[A-Z0-9_-]{1,10}$/;
 const CODIGO_CORTO_RE = /^[A-Z0-9_-]{1,5}$/;
-const ESTADOS_BOLETO = ['RESERVADO', 'EMITIDO', 'PAGADO', 'USADO', 'CANCELADO', 'ANULADO'];
-const ESTADOS_ACTIVOS = ['RESERVADO', 'EMITIDO', 'PAGADO', 'USADO'];
+const ESTADOS_BOLETO = ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO', 'USADO', 'CANCELADO', 'ANULADO'];
+const ESTADOS_ACTIVOS = ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO', 'USADO'];
 const ESTADOS_VIAJE = ['PROGRAMADA', 'EN CURSO'];
 const METODOS_PAGO = ['EFECTIVO', 'TRANSFERENCIA', 'DEPOSITO'];
 
 const TRANSICIONES = {
+    PENDIENTE: ['PAGADO', 'USADO', 'CANCELADO', 'ANULADO'],
     RESERVADO: ['PAGADO', 'USADO', 'CANCELADO', 'ANULADO'],
     EMITIDO: ['PAGADO', 'USADO', 'CANCELADO', 'ANULADO'],
     PAGADO: ['USADO', 'ANULADO'],
@@ -250,7 +251,7 @@ async function listarHojasParaVentanilla(req, res) {
                        (SELECT COUNT(*) FROM dbo.ASIENTOS_BUS A WHERE A.ID_BUS_PER = B.ID_BUS) AS TOTAL_ASIENTOS,
                        (SELECT COUNT(*) FROM dbo.BOLETOS BO
                          WHERE BO.ID_HOJ_PER = H.ID_HOJ
-                           AND BO.EST_BOL IN ('RESERVADO','EMITIDO','PAGADO','USADO')) AS ASIENTOS_OCUPADOS
+                           AND BO.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')) AS ASIENTOS_OCUPADOS
                 FROM dbo.HOJAS_RUTAS H
                 INNER JOIN dbo.BUSES B ON B.ID_BUS = H.ID_BUS_PER
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
@@ -324,7 +325,7 @@ async function obtenerMapaAsientosHoja(req, res) {
                 INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_BUS_PER = A.ID_BUS_PER
                 LEFT JOIN dbo.BOLETOS BOL ON BOL.ID_ASI_PER = A.ID_ASI
                      AND BOL.ID_HOJ_PER = H.ID_HOJ
-                     AND BOL.EST_BOL IN ('RESERVADO','EMITIDO','PAGADO','USADO')
+                     AND BOL.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')
                 LEFT JOIN dbo.USUARIOS USU ON USU.ID_USU = BOL.ID_USU_FIN
                 WHERE H.ID_HOJ = @hoja
                 ORDER BY A.PIS_ASI, TRY_CAST(A.ID_ASI AS INT), A.ID_ASI
@@ -602,7 +603,7 @@ async function crearBoletoVentanilla(req, res) {
                 FROM dbo.BOLETOS WITH (UPDLOCK, HOLDLOCK)
                 WHERE ID_ASI_PER = @asiento
                   AND ID_HOJ_PER = @hoja
-                  AND EST_BOL IN ('RESERVADO','EMITIDO','PAGADO','USADO')
+                  AND EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')
             `);
 
         if (ocupados.recordset[0].total > 0) {
@@ -868,7 +869,7 @@ async function validarBoleto(req, res) {
         }
 
         const utilizables = encontrados.recordset.filter((boleto) =>
-            ['RESERVADO', 'EMITIDO', 'PAGADO'].includes(boleto.EST_BOL)
+            ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO'].includes(boleto.EST_BOL)
         );
 
         if (utilizables.length > 1) {
@@ -970,7 +971,7 @@ async function resumenOficinista(req, res) {
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
                        INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                       WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL = 'RESERVADO'
+                       WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL IN ('PENDIENTE', 'RESERVADO')
                          AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS RESERVADOS_HOY,
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
