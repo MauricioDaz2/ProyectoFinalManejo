@@ -1,4 +1,10 @@
 const express = require('express');
+const { obtenerAsientos, reservarAsiento } = require('../controllers/userReservaController');
+
+const router = express.Router();
+
+router.get('/:idHoja/asientos', obtenerAsientos);
+router.post('/', reservarAsiento);
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');

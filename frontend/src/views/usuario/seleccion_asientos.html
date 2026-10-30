@@ -14,6 +14,7 @@
         <span class="usuario-brand-mark" aria-hidden="true">↗</span>
         <span><span class="usuario-brand-name">Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
       </a>
+      <a href="catalogo_viajes.html" style="color:#fff">Nueva búsqueda</a>
       <nav class="usuario-navigation" aria-label="Navegación de reserva">
         <a class="usuario-nav-button" href="catalogo_viajes.html"><span aria-hidden="true">⌕</span>Nueva búsqueda</a>
         <a class="usuario-nav-button usuario-nav-button-light" href="catalogo_viajes.html"><span aria-hidden="true">⌂</span>Volver al inicio</a>
@@ -49,6 +50,7 @@
           <span class="legend-item"><span class="legend-color ocupado"></span>Ocupado</span>
         </div>
         <div id="floorTabs" class="floor-tabs" role="tablist"></div>
+        <div id="seatGrid" class="seat-grid" aria-live="polite"></div>
         <div id="seatGrid" class="seat-grid" aria-live="polite" hidden></div>
         <p id="seatStatus" class="usuario-status" role="status"></p>
       </section>
@@ -57,6 +59,11 @@
         <p id="reservationSummary" class="reservation-summary"></p>
         <form id="reservationForm">
           <div class="reservation-grid">
+            <div class="usuario-field"><label for="usuarioId">ID de usuario (opcional)</label><input id="usuarioId" name="usuarioId" maxlength="10" placeholder="Ej. USU01"></div>
+            <div class="usuario-field"><label for="metodoPago">Método de pago</label><select id="metodoPago" name="metodoPago" required><option value="">Selecciona una opción</option><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option></select></div>
+          </div>
+          <p class="usuario-status">La base actual relaciona el boleto con un usuario mediante su ID. El comprobante de pago se valida posteriormente.</p>
+          <button class="usuario-button" type="submit">Crear reserva pendiente</button>
             <div class="usuario-field"><label for="metodoPago">Método de pago</label><select id="metodoPago" name="metodoPago" required><option value="">Selecciona una opción</option><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option></select></div>
           </div>
           <div id="comprobanteField" class="usuario-field comprobante-field" hidden><label for="comprobante">Comprobante de transferencia (JPG, PNG o PDF, máximo 5 MB)</label><input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.pdf"></div>

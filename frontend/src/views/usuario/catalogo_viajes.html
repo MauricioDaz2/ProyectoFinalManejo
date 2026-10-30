@@ -14,6 +14,7 @@
         <span class="usuario-brand-mark" aria-hidden="true">↗</span>
         <span><span class="usuario-brand-name">Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
       </a>
+      <span>Usuario final</span>
       <button id="logoutButton" class="usuario-logout" type="button">Cerrar sesión</button>
     </header>
     <main class="usuario-main">
@@ -22,6 +23,8 @@
       <p class="usuario-subtitle">Consulta horarios disponibles y elige tu asiento directamente desde el mapa del bus.</p>
       <section class="usuario-card">
         <form id="searchForm" class="usuario-search">
+          <div class="usuario-field"><label for="origen">Ciudad de origen</label><input id="origen" name="origen" maxlength="15" required autocomplete="address-level2"></div>
+          <div class="usuario-field"><label for="destino">Ciudad de destino</label><input id="destino" name="destino" maxlength="15" required autocomplete="address-level2"></div>
           <div class="usuario-field"><label for="origen">Ciudad de origen</label><select id="origen" name="origen" required><option value="">Cargando ciudades...</option></select></div>
           <div class="usuario-field"><label for="destino">Ciudad de destino</label><select id="destino" name="destino" required disabled><option value="">Selecciona primero el origen</option></select></div>
           <div class="usuario-field"><label for="fecha">Fecha de viaje</label><input id="fecha" name="fecha" type="date" required></div>
