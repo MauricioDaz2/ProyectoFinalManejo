@@ -9,7 +9,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
 
     try {
         
-        const response = await fetch('http://localhost:3000/api/auth/login', {
+        const response = await fetch('http://localhost:3001/api/auth/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -40,7 +40,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
                     window.location.href = '../controlador/escanner.html';
                     break;
                 case 'R005': 
-                    window.location.href = '../cliente/catalogo.html';
+                    window.location.href = '../usuario/catalogo_viajes.html';
                     break;
                 default:
                     mensajeError.textContent = "Rol de usuario no reconocido.";

@@ -1,7 +1,7 @@
 // Lógica de administración del módulo logístico operativo (Dev 2).
 // Consume los endpoints de /api/admin/rutas y /api/admin/parada.
 
-const API = 'http://localhost:3000/api';
+const API = 'http://localhost:3001/api';
 
 // ---------------------------------------------------------------------------
 // Utilidades
@@ -470,6 +470,5 @@ document.addEventListener('DOMContentLoaded', () => {
         inicializarParada();
     }
 });
-
 
 

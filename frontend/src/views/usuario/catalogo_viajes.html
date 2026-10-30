@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscar viajes | Transporte</title>
+  <link rel="stylesheet" href="../../assets/usuario.css">
+  <script src="../../js/user_viajes.js" defer></script>
+</head>
+<body>
+  <div class="usuario-shell">
+    <header class="usuario-header">
+      <a class="usuario-brand" href="catalogo_viajes.html">
+        <span class="usuario-brand-mark" aria-hidden="true">↗</span>
+        <span><span class="usuario-brand-name">Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
+      </a>
+      <button id="logoutButton" class="usuario-logout" type="button">Cerrar sesión</button>
+    </header>
+    <main class="usuario-main">
+      <p class="usuario-eyebrow">Planifica tu viaje</p>
+      <h1 class="usuario-title">Encuentra tu próxima frecuencia</h1>
+      <p class="usuario-subtitle">Consulta horarios disponibles y elige tu asiento directamente desde el mapa del bus.</p>
+      <section class="usuario-card">
+        <form id="searchForm" class="usuario-search">
+          <div class="usuario-field"><label for="origen">Ciudad de origen</label><select id="origen" name="origen" required><option value="">Cargando ciudades...</option></select></div>
+          <div class="usuario-field"><label for="destino">Ciudad de destino</label><select id="destino" name="destino" required disabled><option value="">Selecciona primero el origen</option></select></div>
+          <div class="usuario-field"><label for="fecha">Fecha de viaje</label><input id="fecha" name="fecha" type="date" required></div>
+          <button class="usuario-button" type="submit">Buscar viajes</button>
+        </form>
+        <p id="searchStatus" class="usuario-status" role="status"></p>
+      </section>
+      <section class="usuario-card" aria-labelledby="resultsTitle">
+        <h2 id="resultsTitle">Frecuencias disponibles</h2>
+        <div id="results" class="usuario-results"><p class="usuario-empty">Completa el buscador para consultar las salidas.</p></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
