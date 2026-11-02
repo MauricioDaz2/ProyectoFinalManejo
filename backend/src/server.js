@@ -12,7 +12,7 @@ const coopBusRoutes = require('./routes/coopBusRoutes');
 const userViajesRoutes = require('./routes/userViajesRoutes');
 const userReservaRoutes = require('./routes/userReservaRoutes');
 const oficinistaBoletoRoutes = require('./routes/oficinistaBoletoRoutes');
-
+const controladorRoutes = require('./routes/controladorRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
