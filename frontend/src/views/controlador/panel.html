@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel del Controlador | Transporte</title>
+    <!-- Librería para escanear QR usando la cámara del celular (cargada primero en el head) -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #f4f6f9; color: #333; padding: 15px; }
@@ -58,14 +60,16 @@
             <div class="qr-preview" id="contenedorQr"></div>
         </div>
 
-        <!-- SECCIÓN 2: ESCANEO Y VALIDACIÓN DE QR -->
+        <!-- SECCIÓN 2: ESCANEO Y VALIDACIÓN DE QR CON LA CÁMARA -->
         <div class="card">
-            <h2>Escanear / Validar Boleto (QR o ID)</h2>
-            <div class="form-group">
-                <label for="inputBoletoId">ID del Boleto o Contenido del QR</label>
-                <input type="text" id="inputBoletoId" placeholder="Ej: BOL01">
-            </div>
-            <button class="btn" onclick="validarBoletoQr()">Validar Abordaje</button>
+            <h2>Escanear Código QR con la Cámara</h2>
+            
+            <!-- Contenedor donde se mostrará la vista previa de la cámara -->
+            <div id="reader" style="width: 100%; max-width: 400px; margin: 0 auto 15px auto;"></div>
+            
+            <button class="btn" id="btnIniciarEscaner" onclick="iniciarEscaner()">Activar Cámara</button>
+            <button class="btn" id="btnDetenerEscaner" onclick="detenerEscaner()" style="background: #6c757d; margin-top: 10px; display: none;">Apagar Cámara</button>
+            
             <div id="alertaValidacion" class="alert"></div>
         </div>
     </div>
@@ -138,10 +142,55 @@
             }
         }
 
-        async function validarBoletoQr() {
-            const alerta = document.getElementById('alertaValidacion');
-            const idBoleto = document.getElementById('inputBoletoId').value.trim();
+        // ==========================================
+        // FUNCIONES DE CONTROL DE CÁMARA Y ESCANEO QR
+        // ==========================================
+        let html5QrcodeScanner = null;
 
+        function iniciarEscaner() {
+            const alerta = document.getElementById('alertaValidacion');
+            alerta.style.display = 'none';
+
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, // Usa la cámara trasera por defecto en celulares
+                config,
+                async (decodedText, decodedResult) => {
+                    console.log(`Código detectado: ${decodedText}`);
+                    await detenerEscaner();
+                    await validarBoletoAutomatico(decodedText);
+                },
+                (errorMessage) => {
+                    // Errores de lectura continua se pueden omitir en consola
+                }
+            ).then(() => {
+                document.getElementById('btnIniciarEscaner').style.display = 'none';
+                document.getElementById('btnDetenerEscaner').style.display = 'block';
+            }).catch(err => {
+                console.error("No se pudo iniciar la cámara:", err);
+                alerta.className = 'alert error';
+                alerta.textContent = 'No se pudo acceder a la cámara. Asegúrate de dar permisos o usar localhost/HTTPS.';
+            });
+        }
+
+        async function detenerEscaner() {
+            if (html5QrcodeScanner) {
+                try {
+                    await html5QrcodeScanner.stop();
+                    html5QrcodeScanner.clear();
+                } catch (err) {
+                    console.error("Error al detener la cámara:", err);
+                }
+            }
+            document.getElementById('btnIniciarEscaner').style.display = 'block';
+            document.getElementById('btnDetenerEscaner').style.display = 'none';
+        }
+
+        async function validarBoletoAutomatico(idBoleto) {
+            const alerta = document.getElementById('alertaValidacion');
             try {
                 const res = await fetch(`${API}/validar-qr`, {
                     method: 'POST',
@@ -159,11 +208,11 @@
                 }
             } catch (err) {
                 alerta.className = 'alert error';
-                alerta.textContent = 'Error al validar el boleto.';
+                alerta.textContent = 'Error de conexión al validar el boleto.';
             }
         }
 
-        // Inicializar al cargar
+        // Inicializar al cargar la página
         cargarHojasAsignadas();
     </script>
 </body>

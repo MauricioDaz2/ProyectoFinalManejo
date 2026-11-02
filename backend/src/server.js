@@ -31,6 +31,7 @@ app.use('/api/coop', coopBusRoutes);
 app.use('/api/usuario/viajes', userViajesRoutes);
 app.use('/api/usuario/reservas', userReservaRoutes);
 app.use('/api/oficinista', oficinistaBoletoRoutes);
+app.use('/api/controlador', require('./routes/controladorRoutes'));
 
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
