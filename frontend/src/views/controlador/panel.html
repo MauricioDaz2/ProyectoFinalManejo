@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel del Controlador | Transporte</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f6f9; color: #333; padding: 15px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        header { background: #8B0000; color: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        h2 { color: #8B0000; margin-bottom: 12px; font-size: 18px; }
+        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+        .btn { background: #8B0000; color: #fff; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .btn:hover { background: #a00000; }
+        .alert { padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 14px; display: none; }
+        .alert.success { background: #d4edda; color: #155724; display: block; }
+        .alert.error { background: #f8d7da; color: #721c24; display: block; }
+        .qr-preview { text-align: center; margin-top: 15px; }
+        .qr-preview img { max-width: 150px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Portal del Controlador</h1>
+            <span id="nombreControlador">Controlador</span>
+        </header>
+
+        <!-- SECCIÓN 1: VENTA DE BOLETOS A BORDO -->
+        <div class="card">
+            <h2>Vender Boleto a Bordo</h2>
+            <div class="form-group">
+                <label for="selectHoja">Hoja de Ruta Asignada</label>
+                <select id="selectHoja" onchange="cargarAsientosLibres()"></select>
+            </div>
+            <div class="form-group">
+                <label for="selectAsiento">Asiento Disponible</label>
+                <select id="selectAsiento"></select>
+            </div>
+            <div class="form-group">
+                <label for="oriTra">Origen del Trayecto</label>
+                <input type="text" id="oriTra" placeholder="Ej: Ambato">
+            </div>
+            <div class="form-group">
+                <label for="desTra">Destino del Trayecto</label>
+                <input type="text" id="desTra" placeholder="Ej: Latacunga">
+            </div>
+            <div class="form-group">
+                <label for="preFin">Precio Cobrado ($)</label>
+                <input type="number" step="0.01" id="preFin" placeholder="3.50">
+            </div>
+            <button class="btn" onclick="venderBoleto()">Registrar Venta en Efectivo</button>
+            <div id="alertaVenta" class="alert"></div>
+            <div class="qr-preview" id="contenedorQr"></div>
+        </div>
+
+        <!-- SECCIÓN 2: ESCANEO Y VALIDACIÓN DE QR -->
+        <div class="card">
+            <h2>Escanear / Validar Boleto (QR o ID)</h2>
+            <div class="form-group">
+                <label for="inputBoletoId">ID del Boleto o Contenido del QR</label>
+                <input type="text" id="inputBoletoId" placeholder="Ej: BOL01">
+            </div>
+            <button class="btn" onclick="validarBoletoQr()">Validar Abordaje</button>
+            <div id="alertaValidacion" class="alert"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:3000/api/controlador';
+        // Simulando que el ID del usuario con rol R004 logueado es '3214569870' (Matias Toasa)
+        const usuarioSesion = JSON.parse(localStorage.getItem('usuario')) || { ID: '3214569870', nombre: 'Matias Toasa' };
+
+        document.getElementById('nombreControlador').textContent = usuarioSesion.nombre || 'Controlador';
+
+        async function cargarHojasAsignadas() {
+            try {
+                const res = await fetch(`${API}/hojas/${usuarioSesion.ID}`);
+                const data = await res.json();
+                const select = document.getElementById('selectHoja');
+                select.innerHTML = '<option value="">Seleccione ruta activa...</option>' +
+                    data.hojas.map(h => `<option value="${h.ID_HOJ}">${h.CIU_ORI_FRE} → ${h.CIU_DES_FRE} (Bus: ${h.NUM_BUS})</option>`).join('');
+            } catch (err) {
+                console.error('Error cargando hojas:', err);
+            }
+        }
+
+        async function cargarAsientosLibres() {
+            const idHoj = document.getElementById('selectHoja').value;
+            const selectAsiento = document.getElementById('selectAsiento');
+            if (!idHoj) { selectAsiento.innerHTML = ''; return; }
+
+            try {
+                const res = await fetch(`${API}/asientos/${idHoj}`);
+                const data = await res.json();
+                selectAsiento.innerHTML = '<option value="">Seleccione asiento...</option>' +
+                    data.asientos.map(a => `<option value="${a.ID_ASI}">Asiento ${a.ID_ASI} (Piso ${a.PIS_ASI} - ${a.NOM_TIP} : $${a.PRE_TIP})</option>`).join('');
+            } catch (err) {
+                console.error('Error cargando asientos:', err);
+            }
+        }
+
+        async function venderBoleto() {
+            const alerta = document.getElementById('alertaVenta');
+            const payload = {
+                idHoj: document.getElementById('selectHoja').value,
+                idAsi: document.getElementById('selectAsiento').value,
+                oriTra: document.getElementById('oriTra').value,
+                desTra: document.getElementById('desTra').value,
+                preFin: document.getElementById('preFin').value,
+                idUsuCon: usuarioSesion.ID
+            };
+
+            try {
+                const res = await fetch(`${API}/vender`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    alerta.className = 'alert success';
+                    alerta.textContent = `${data.message} ID: ${data.idBoleto}`;
+                    document.getElementById('contenedorQr').innerHTML = `<p>Código QR Generado:</p><img src="${data.codigoQrUrl}" alt="QR Boleto">`;
+                    cargarAsientosLibres(); // Actualizar asientos disponibles
+                } else {
+                    alerta.className = 'alert error';
+                    alerta.textContent = data.message || 'Error al procesar venta.';
+                }
+            } catch (err) {
+                alerta.className = 'alert error';
+                alerta.textContent = 'Error de conexión con el servidor.';
+            }
+        }
+
+        async function validarBoletoQr() {
+            const alerta = document.getElementById('alertaValidacion');
+            const idBoleto = document.getElementById('inputBoletoId').value.trim();
+
+            try {
+                const res = await fetch(`${API}/validar-qr`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idBoleto, idUsuCon: usuarioSesion.ID })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    alerta.className = 'alert success';
+                    alerta.textContent = data.message;
+                } else {
+                    alerta.className = 'alert error';
+                    alerta.textContent = data.message || 'Boleto inválido o ya usado.';
+                }
+            } catch (err) {
+                alerta.className = 'alert error';
+                alerta.textContent = 'Error al validar el boleto.';
+            }
+        }
+
+        // Inicializar al cargar
+        cargarHojasAsignadas();
+    </script>
+</body>
+</html>
