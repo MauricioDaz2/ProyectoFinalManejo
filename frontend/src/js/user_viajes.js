@@ -1,5 +1,4 @@
-const API_BASE = window.API_BASE_URL || 'http://localhost:3001/api';
-const API_BASE = window.API_BASE_URL || 'http://127.0.0.1:3001/api';
+const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api';
 const searchForm = document.querySelector('#searchForm');
 const results = document.querySelector('#results');
 const status = document.querySelector('#searchStatus');
@@ -62,7 +61,7 @@ const renderResults = (viajes) => {
                 <div class="viaje-route">${escapeHtml(viaje.CIU_ORI_FRE)} &rarr; ${escapeHtml(viaje.CIU_DES_FRE)}</div>
                 <div class="viaje-detail">${escapeHtml(viaje.NOM_COP)} · Bus ${escapeHtml(viaje.NUM_BUS)} · ${escapeHtml(viaje.TOTAL_ASIENTOS)} asientos</div>
             </div>
-            <div class="viaje-detail">
+            <div>
                 <strong>Salida:</strong> ${formatDate(viaje.FEC_HOR_INI_FRE)}<br>
                 <strong>Viaje:</strong> ${formatDate(viaje.FEC_PRO_HOJ)} · ${escapeHtml(viaje.NUM_PIS)} piso(s)
             </div>
@@ -82,7 +81,6 @@ searchForm.addEventListener('submit', async (event) => {
         fecha: values.get('fecha')
     });
 
-    cargarRutas();
     status.className = 'usuario-status';
     status.textContent = 'Consultando frecuencias...';
     results.innerHTML = '';

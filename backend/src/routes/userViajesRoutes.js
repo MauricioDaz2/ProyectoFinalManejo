@@ -1,8 +1,4 @@
 const express = require('express');
-const { buscarViajes } = require('../controllers/userViajesController');
-
-const router = express.Router();
-
 const { listarRutas, buscarViajes } = require('../controllers/userViajesController');
 
 const router = express.Router();

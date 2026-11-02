@@ -98,5 +98,4 @@ const buscarViajes = async (req, res) => {
     }
 };
 
-module.exports = { buscarViajes };
 module.exports = { listarRutas, buscarViajes };
