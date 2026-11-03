@@ -1,16 +1,12 @@
 const express = require('express');
-const { obtenerAsientos, reservarAsiento } = require('../controllers/userReservaController');
-
-const router = express.Router();
-
-router.get('/:idHoja/asientos', obtenerAsientos);
-router.post('/', reservarAsiento);
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const { obtenerAsientos, reservarAsiento } = require('../controllers/userReservaController');
 
 const router = express.Router();
+
+// Configuración de Multer para el comprobante de pago
 const tiposPermitidos = new Set(['image/jpeg', 'image/png', 'application/pdf']);
 const upload = multer({
     storage: multer.diskStorage({
@@ -26,7 +22,9 @@ const upload = multer({
     }
 });
 
+// Rutas de asientos y reservas
 router.get('/:idHoja/asientos', obtenerAsientos);
+
 router.post('/', (req, res, next) => upload.single('comprobante')(req, res, (error) => {
     if (error) {
         return res.status(400).json({ success: false, message: 'El comprobante debe ser JPG, PNG o PDF de máximo 5 MB.' });

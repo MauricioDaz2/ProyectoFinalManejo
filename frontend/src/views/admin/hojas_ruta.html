@@ -101,21 +101,20 @@
                     <button class="btn btn-primary" id="btnNuevaHoja">+ Nueva Hoja de Ruta</button>
                 </div>
 
-                <div class="card">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Fecha programada</th>
-                                <th>Ruta</th>
-                                <th>Bus</th>
-                                <th>Bus reemplazo</th>
-                                <th>Estado</th>
-                                <th>Cooperativa</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaHojas">
+                <table class="card">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Fecha</th>
+            <th>Ruta</th>
+            <th>Bus</th>
+            <th>Chofer</th>
+            <th>Controlador</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody id="tablaHojas">
                             <tr><td colspan="8" class="empty">Cargando hojas de ruta...</td></tr>
                         </tbody>
                     </table>
@@ -125,32 +124,43 @@
     </div>
 
     <!-- Modal: nueva hoja de ruta -->
-    <div class="modal-overlay" id="modalHoja">
-        <div class="modal">
-            <h2>Nueva Hoja de Ruta</h2>
-            <div class="form-group">
-                <label for="hojaFecha">Fecha programada</label>
-                <input type="date" id="hojaFecha">
-            </div>
-            <div class="form-group">
-                <label for="hojaBus">Bus</label>
-                <select id="hojaBus"></select>
-            </div>
-            <div class="form-group">
-                <label for="hojaFrecuencia">Frecuencia (ruta)</label>
-                <select id="hojaFrecuencia"></select>
-            </div>
-            <div class="form-group">
-                <label for="hojaObs">Observación</label>
-                <input type="text" id="hojaObs" maxlength="50" placeholder="Opcional">
-            </div>
-            <div class="error" id="errorHoja"></div>
-            <div class="actions">
-                <button class="btn btn-secondary" data-cerrar="modalHoja">Cancelar</button>
-                <button class="btn btn-primary" id="btnGuardarHoja">Guardar</button>
-            </div>
+    <!-- Dentro del archivo frontend/src/views/admin/hojas_ruta.html, actualiza el modal y la tabla -->
+
+<!-- Modal: nueva hoja de ruta (Reemplaza la sección del modal existente) -->
+<div class="modal-overlay" id="modalHoja">
+    <div class="modal">
+        <h2>Nueva Hoja de Ruta</h2>
+        <div class="form-group">
+            <label for="hojaFecha">Fecha programada</label>
+            <input type="date" id="hojaFecha">
+        </div>
+        <div class="form-group">
+            <label for="hojaBus">Bus</label>
+            <select id="hojaBus"></select>
+        </div>
+        <div class="form-group">
+            <label for="hojaFrecuencia">Frecuencia (ruta)</label>
+            <select id="hojaFrecuencia"></select>
+        </div>
+        <div class="form-group">
+            <label for="hojaChofer">Chofer (Conductor)</label>
+            <select id="hojaChofer"></select>
+        </div>
+        <div class="form-group">
+            <label for="hojaControlador">Controlador (Cobrador)</label>
+            <select id="hojaControlador"></select>
+        </div>
+        <div class="form-group">
+            <label for="hojaObs">Observación</label>
+            <input type="text" id="hojaObs" maxlength="50" placeholder="Opcional">
+        </div>
+        <div class="error" id="errorHoja"></div>
+        <div class="actions">
+            <button class="btn btn-secondary" data-cerrar="modalHoja">Cancelar</button>
+            <button class="btn btn-primary" id="btnGuardarHoja">Guardar</button>
         </div>
     </div>
+</div>
 
     <!-- Modal: vincular frecuencia -->
     <div class="modal-overlay" id="modalFrecuencia">

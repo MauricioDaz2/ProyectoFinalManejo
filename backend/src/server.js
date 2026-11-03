@@ -12,7 +12,7 @@ const coopBusRoutes = require('./routes/coopBusRoutes');
 const userViajesRoutes = require('./routes/userViajesRoutes');
 const userReservaRoutes = require('./routes/userReservaRoutes');
 const oficinistaBoletoRoutes = require('./routes/oficinistaBoletoRoutes');
-
+const controladorRoutes = require('./routes/controladorRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -31,6 +31,7 @@ app.use('/api/coop', coopBusRoutes);
 app.use('/api/usuario/viajes', userViajesRoutes);
 app.use('/api/usuario/reservas', userReservaRoutes);
 app.use('/api/oficinista', oficinistaBoletoRoutes);
+app.use('/api/controlador', require('./routes/controladorRoutes'));
 
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
