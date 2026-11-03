@@ -49,7 +49,7 @@ const listarAsientosDisponibles = async (req, res) => {
                 WHERE H.ID_HOJ = @idHoj 
                   AND A.ID_ASI NOT IN (
                       SELECT ID_ASI_PER FROM BOLETOS 
-                      WHERE ID_HOJ_PER = @idHoj AND EST_BOL IN ('Reservado', 'Confirmado_Pagado', 'Usado')
+                      WHERE ID_HOJ_PER = @idHoj AND EST_BOL IN ('Reservado', 'OK', 'Usado')
                   )
             `);
 
@@ -86,7 +86,7 @@ const venderBoletoABordo = async (req, res) => {
             .input('tipDes', sql.VarChar, 'Ninguno')
             .input('pre', sql.Decimal(10, 2), preFin)
             .input('met', sql.VarChar, 'Efectivo')
-            .input('est', sql.VarChar, 'Confirmado_Pagado')
+            .input('est', sql.VarChar, 'OK')
             .input('qr', sql.VarChar, urlQr)
             .input('fecCom', sql.DateTime, new Date())
             .input('idHoj', sql.VarChar, idHoj)
