@@ -14,7 +14,6 @@
         <span class="usuario-brand-mark" aria-hidden="true">↗</span>
         <span><span class="usuario-brand-name">Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
       </a>
-      <a href="catalogo_viajes.html" style="color:#fff">Nueva búsqueda</a>
       <nav class="usuario-navigation" aria-label="Navegación de reserva">
         <a class="usuario-nav-button" href="catalogo_viajes.html"><span aria-hidden="true">⌕</span>Nueva búsqueda</a>
         <a class="usuario-nav-button usuario-nav-button-light" href="catalogo_viajes.html"><span aria-hidden="true">⌂</span>Volver al inicio</a>
@@ -23,26 +22,13 @@
     <main class="usuario-main">
       <p class="usuario-eyebrow">Selecciona tu lugar</p>
       <h1 class="usuario-title">Mapa de asientos</h1>
-      <p id="tripSummary" class="usuario-subtitle">Cargando información del bus...</p>
-      <section id="passengerSetup" class="usuario-card">
-        <h2>¿Cuántos pasajeros viajarán?</h2>
-        <p class="reservation-summary">Registra una cédula válida y el tipo de cada pasajero antes de elegir los asientos.</p>
-        <form id="passengerSetupForm">
-          <div class="reservation-grid">
-            <div class="usuario-field">
-              <label for="passengerCount">Cantidad de asientos</label>
-              <input id="passengerCount" name="passengerCount" type="number" min="1" max="10" value="1" required>
-            </div>
-            <div class="usuario-field">
-              <label for="invoiceOwner">Cédula del titular de la cuenta</label>
-              <input id="invoiceOwner" name="invoiceOwner" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" minlength="10" required placeholder="Cédula para la factura">
-            </div>
-          </div>
-          <div id="passengerFields" class="passenger-fields"></div>
-          <p id="passengerStatus" class="usuario-status" role="status"></p>
-          <button class="usuario-button" type="submit">Continuar a selección de asientos</button>
-        </form>
-      </section>
+      
+      <!-- Resumen del viaje con la imagen del bus incluida -->
+      <div id="tripSummary" class="usuario-subtitle" style="display: flex; gap: 20px; align-items: center; background: #fff; padding: 15px; border-radius: 12px; border: 1px solid var(--usuario-border);">
+        <p>Cargando información del bus...</p>
+      </div>
+
+      <!-- Mapa geométrico del bus -->
       <section class="usuario-card">
         <div class="seat-legend" aria-label="Estados de los asientos">
           <span class="legend-item"><span class="legend-color libre"></span>Libre</span>
@@ -51,26 +37,62 @@
         </div>
         <div id="floorTabs" class="floor-tabs" role="tablist"></div>
         <div id="seatGrid" class="seat-grid" aria-live="polite"></div>
-        <div id="seatGrid" class="seat-grid" aria-live="polite" hidden></div>
         <p id="seatStatus" class="usuario-status" role="status"></p>
       </section>
+
+      <!-- Panel de pago dinámico -->
       <section id="reservationPanel" class="usuario-card reservation-panel" aria-labelledby="reservationTitle">
-        <h2 id="reservationTitle">Confirmar reserva</h2>
+        <h2 id="reservationTitle">Finalizar Operación</h2>
         <p id="reservationSummary" class="reservation-summary"></p>
+        
+        <!-- Configuración de tipo de pasajero por cada asiento seleccionado -->
+        <div id="passengerTypesContainer" style="margin-bottom: 20px;"></div>
+
         <form id="reservationForm">
           <div class="reservation-grid">
-            <div class="usuario-field"><label for="usuarioId">ID de usuario (opcional)</label><input id="usuarioId" name="usuarioId" maxlength="10" placeholder="Ej. USU01"></div>
-            <div class="usuario-field"><label for="metodoPago">Método de pago</label><select id="metodoPago" name="metodoPago" required><option value="">Selecciona una opción</option><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option></select></div>
+            <div class="usuario-field">
+              <label for="metodoPago">Método de pago</label>
+              <select id="metodoPago" name="metodoPago" required>
+                <option value="">Selecciona un método</option>
+                <option value="EFECTIVO">Efectivo (Pago en ventanilla)</option>
+                <option value="DEPOSITO">Depósito Bancario</option>
+                <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+              </select>
+            </div>
           </div>
-          <p class="usuario-status">La base actual relaciona el boleto con un usuario mediante su ID. El comprobante de pago se valida posteriormente.</p>
-          <button class="usuario-button" type="submit">Crear reserva pendiente</button>
-            <div class="usuario-field"><label for="metodoPago">Método de pago</label><select id="metodoPago" name="metodoPago" required><option value="">Selecciona una opción</option><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option></select></div>
+
+          <!-- Campos dinámicos para Depósito -->
+          <div id="depositoInfo" class="usuario-field" hidden style="margin-top: 15px; padding: 12px; background: #f8fafc; border: 1px solid var(--usuario-border); border-radius: 8px;">
+            <strong>Datos para Depósito:</strong>
+            <p style="margin: 5px 0 0; font-size: 14px; color: var(--usuario-muted);">
+              Realiza el depósito a nombre de la empresa en el <strong>BANCO PICHINCHA</strong>.<br>
+              Cuenta Corriente N°: <strong>2100458963</strong>.<br>
+              <em>Tus boletos quedarán en estado PAGADO automáticamente.</em>
+            </p>
           </div>
-          <div id="comprobanteField" class="usuario-field comprobante-field" hidden><label for="comprobante">Comprobante de transferencia (JPG, PNG o PDF, máximo 5 MB)</label><input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.pdf"></div>
-          <p id="paymentHelp" class="usuario-status">La cédula identifica al pasajero y se valida antes de registrar la reserva.</p>
-          <div class="reservation-actions">
-            <button class="usuario-button" type="submit">Crear reserva pendiente</button>
-            <button id="cancelReservation" class="usuario-button usuario-button-secondary" type="button"><span aria-hidden="true">×</span>Cancelar</button>
+
+          <!-- Campos dinámicos para Transferencia -->
+          <div id="transferenciaInfo" class="usuario-field" hidden style="margin-top: 15px; display: grid; gap: 10px;">
+            <div class="usuario-field">
+              <label for="bancoOrigen">Banco desde el que transfiere (Tu banco)</label>
+              <input id="bancoOrigen" name="bancoOrigen" placeholder="Ej. Banco Guayaquil, Produbanco...">
+            </div>
+            <div class="usuario-field">
+              <label>Banco de destino (Empresa)</label>
+              <input type="text" value="BANCO PICHINCHA (Cuenta Corriente: 2100458963)" disabled style="background: #f1f3f5;">
+            </div>
+            <div class="usuario-field">
+              <label for="comprobante">Comprobante de transferencia (JPG, PNG o PDF)</label>
+              <input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.pdf">
+            </div>
+            <p style="margin: 0; font-size: 13px; color: var(--usuario-muted);">
+              <em>Tus boletos quedarán en estado RESERVADO hasta que la oficinista valide el comprobante.</em>
+            </p>
+          </div>
+
+          <div class="reservation-actions" style="margin-top: 20px;">
+            <button class="usuario-button" type="submit" id="btnSubmitAccion">Generar solicitud de viaje</button>
+            <button id="cancelReservation" class="usuario-button usuario-button-secondary" type="button">Cancelar selección</button>
           </div>
         </form>
         <div id="qrResult" class="qr-result" hidden></div>
