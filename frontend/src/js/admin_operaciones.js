@@ -73,7 +73,7 @@ const cargarFrecuencias = async () => {
 // Cargar Choferes (R006) y Controladores (R004) para el formulario
 const cargarPersonalOperativoModal = async () => {
     try {
-        const respuesta = await fetch(`${API}/admin/usuarios`); // Ajusta la ruta si tu endpoint de listar usuarios es distinto
+       const respuesta = await fetch(`${API}/admin/rutas/usuarios`);// Ajusta la ruta si tu endpoint de listar usuarios es distinto
         const data = await respuesta.json();
         
         // Si tu API devuelve los usuarios en data.usuarios o directamente en data
