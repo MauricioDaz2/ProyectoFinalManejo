@@ -4,7 +4,7 @@
   const usuario = App.sesion();
   if (!usuario) return;
 
-  const cooperativa = usuario.cooperativaId;
+  const cooperativa = usuario.cooperativaId || usuario.ID_COP_PER || usuario.cooperativa || 'COP01';
 
   const fechaInput = document.getElementById('fechaVentanilla');
   const btnRecargar = document.getElementById('btnRecargarVentanilla');

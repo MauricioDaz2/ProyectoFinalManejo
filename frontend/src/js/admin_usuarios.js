@@ -23,11 +23,22 @@
   let temporizadorNotificacion;
 
   function tipoActual() {
-    return window.location.hash === '#controladores' ? 'R004' : 'R003';
+    const hash = window.location.hash;
+    if (hash === '#choferes') return 'R006';
+    if (hash === '#controladores') return 'R004';
+    if (hash === '#cooperativa') return 'R002';
+    if (hash === '#finales') return 'R005';
+    return 'R003'; // Por defecto oficinistas
   }
 
   function etiquetaRol(rol) {
-    return rol === 'R004' ? 'controlador' : 'oficinista';
+    switch (rol) {
+      case 'R006': return 'chofer';
+      case 'R004': return 'controlador';
+      case 'R002': return 'usuario de cooperativa';
+      case 'R005': return 'usuario final';
+      default: return 'oficinista';
+    }
   }
 
   function normalizar(texto) {
@@ -130,7 +141,7 @@
     const nombreCooperativa = estado.cooperativas.get(usuario.ID_COP_PER) || usuario.NOM_COP;
     fila.append(celda(nombreCooperativa
       ? `${nombreCooperativa} (${usuario.ID_COP_PER})`
-      : usuario.ID_COP_PER));
+      : (usuario.ID_COP_PER || 'N/A')));
     fila.append(celda(usuario.TEL_USU));
 
     const estadoCelda = document.createElement('td');
@@ -158,7 +169,13 @@
     const rol = tipoActual();
     const busqueda = normalizar($('buscarPersonal').value);
     const filtroEstado = $('filtroEstadoPersonal').value;
-    const tipo = rol === 'R004' ? 'Controladores' : 'Oficinistas';
+    
+    let tipo = 'Oficinistas';
+    if (rol === 'R006') tipo = 'Choferes';
+    else if (rol === 'R004') tipo = 'Controladores';
+    else if (rol === 'R002') tipo = 'Usuarios de Cooperativa';
+    else if (rol === 'R005') tipo = 'Usuarios Finales';
+
     const usuariosRol = estado.usuarios.filter((usuario) => usuario.ID_ROL_PER === rol);
 
     const filtrados = usuariosRol.filter((usuario) => {
@@ -184,8 +201,13 @@
     $('totalPersonal').textContent = estado.usuarios.length;
     $('totalActivos').textContent = estado.usuarios.filter((u) => u.EST_USU === '1').length;
     $('totalInactivos').textContent = estado.usuarios.filter((u) => u.EST_USU === '0').length;
+    
+    $('cantidadChoferes').textContent = estado.usuarios.filter((u) => u.ID_ROL_PER === 'R006').length;
     $('cantidadOficinistas').textContent = estado.usuarios.filter((u) => u.ID_ROL_PER === 'R003').length;
     $('cantidadControladores').textContent = estado.usuarios.filter((u) => u.ID_ROL_PER === 'R004').length;
+    $('cantidadUsuariosCoop').textContent = estado.usuarios.filter((u) => u.ID_ROL_PER === 'R002').length;
+    $('cantidadUsuariosFinales').textContent = estado.usuarios.filter((u) => u.ID_ROL_PER === 'R005').length;
+
     $('etiquetaTipoPersonal').textContent = tipo;
     $('contadorPersonal').textContent = `${filtrados.length} resultados de ${usuariosRol.length}`;
 
@@ -212,11 +234,19 @@
   }
 
   function actualizarPestanas() {
-    const controladores = tipoActual() === 'R004';
-    $('tabOficinistas').classList.toggle('active', !controladores);
-    $('tabControladores').classList.toggle('active', controladores);
-    $('tabOficinistas').setAttribute('aria-current', controladores ? 'false' : 'page');
-    $('tabControladores').setAttribute('aria-current', controladores ? 'page' : 'false');
+    const rolActual = tipoActual();
+    $('tabChoferes').classList.toggle('active', rolActual === 'R006');
+    $('tabOficinistas').classList.toggle('active', rolActual === 'R003');
+    $('tabControladores').classList.toggle('active', rolActual === 'R004');
+    $('tabUsuariosCoop').classList.toggle('active', rolActual === 'R002');
+    $('tabUsuariosFinales').classList.toggle('active', rolActual === 'R005');
+
+    $('tabChoferes').setAttribute('aria-current', rolActual === 'R006' ? 'page' : 'false');
+    $('tabOficinistas').setAttribute('aria-current', rolActual === 'R003' ? 'page' : 'false');
+    $('tabControladores').setAttribute('aria-current', rolActual === 'R004' ? 'page' : 'false');
+    $('tabUsuariosCoop').setAttribute('aria-current', rolActual === 'R002' ? 'page' : 'false');
+    $('tabUsuariosFinales').setAttribute('aria-current', rolActual === 'R005' ? 'page' : 'false');
+    
     renderizar();
   }
 
@@ -227,7 +257,7 @@
     estado.errorConexion = false;
     $('btnActualizarPersonal').disabled = true;
     $('btnActualizarPersonal').textContent = 'Actualizando...';
-    mostrarAviso('Consultando personal operativo en SQL Server...');
+    mostrarAviso('Consultando usuarios en SQL Server...');
     renderizar();
 
     try {
@@ -290,6 +320,21 @@
     }
   }
 
+  function verificarRequisitosCooperativa() {
+    const rolSeleccionado = $('rolUsuario').value;
+    const campoCooperativa = $('cooperativaUsuario');
+    const grupoCooperativa = $('grupoCooperativa');
+    
+    // Los usuarios finales (R005) no requieren cooperativa obligatoria
+    if (rolSeleccionado === 'R005') {
+      campoCooperativa.required = false;
+      grupoCooperativa.style.opacity = '0.6';
+    } else {
+      campoCooperativa.required = true;
+      grupoCooperativa.style.opacity = '1';
+    }
+  }
+
   function abrirFormulario(usuario = null) {
     if (estado.cargando || estado.guardando || estado.cambiandoEstado || estado.errorConexion) return;
 
@@ -297,12 +342,13 @@
     $('errorPersonal').hidden = true;
     estado.identificacionEditada = usuario?.ID_USU ?? null;
 
+    const rolForm = usuario?.ID_ROL_PER ?? tipoActual();
     $('tituloModalPersonal').textContent = usuario
-      ? `Editar ${etiquetaRol(usuario.ID_ROL_PER)}`
+      ? `Editar ${etiquetaRol(rolForm)}`
       : `Nuevo ${etiquetaRol(tipoActual())}`;
     $('btnGuardarPersonal').textContent = usuario ? 'Guardar cambios' : 'Guardar registro';
     $('idUsuario').readOnly = Boolean(usuario);
-    $('rolUsuario').value = usuario?.ID_ROL_PER ?? tipoActual();
+    $('rolUsuario').value = rolForm;
     $('estadoUsuario').value = usuario?.EST_USU ?? '1';
 
     $('grupoClaveUsuario').hidden = Boolean(usuario);
@@ -315,6 +361,7 @@
       }
     }
 
+    verificarRequisitosCooperativa();
     modal.showModal();
     $('idUsuario').focus();
   }
@@ -329,7 +376,7 @@
     const campos = ['ID_USU', 'NOM_USU', 'APE_USU', 'COR_USU', 'TEL_USU', 'ID_COP_PER', 'ID_ROL_PER', 'EST_USU'];
     const datos = Object.fromEntries(campos.map((campo) => [campo, formulario.elements.namedItem(campo).value.trim()]));
     datos.ID_USU = datos.ID_USU.toUpperCase();
-    datos.ID_COP_PER = datos.ID_COP_PER.toUpperCase();
+    if (datos.ID_COP_PER) datos.ID_COP_PER = datos.ID_COP_PER.toUpperCase();
     datos.COR_USU = datos.COR_USU.toLowerCase();
     return datos;
   }
@@ -344,12 +391,14 @@
         : 'Ya existe un usuario con ese correo electrónico.';
     }
 
-    if (!/^[A-Z0-9]{1,5}$/.test(datos.ID_COP_PER)) {
-      return 'El código de cooperativa debe contener entre 1 y 5 letras o números.';
-    }
+    if (datos.ID_ROL_PER !== 'R005') {
+      if (!/^[A-Z0-9]{1,5}$/.test(datos.ID_COP_PER)) {
+        return 'El código de cooperativa debe contener entre 1 y 5 letras o números.';
+      }
 
-    if (estado.cooperativas.size > 0 && !estado.cooperativas.has(datos.ID_COP_PER)) {
-      return 'Selecciona una cooperativa registrada.';
+      if (estado.cooperativas.size > 0 && !estado.cooperativas.has(datos.ID_COP_PER)) {
+        return 'Selecciona una cooperativa registrada.';
+      }
     }
 
     return '';
@@ -381,7 +430,14 @@
     try {
       const resultado = await solicitar(ruta, editando ? 'PUT' : 'POST', datos);
       cerrarFormularioExitoso();
-      window.location.hash = datos.ID_ROL_PER === 'R004' ? '#controladores' : '#oficinistas';
+      
+      // Asignar el hash correspondiente según el rol guardado
+      if (datos.ID_ROL_PER === 'R006') window.location.hash = '#choferes';
+      else if (datos.ID_ROL_PER === 'R004') window.location.hash = '#controladores';
+      else if (datos.ID_ROL_PER === 'R002') window.location.hash = '#cooperativa';
+      else if (datos.ID_ROL_PER === 'R005') window.location.hash = '#finales';
+      else window.location.hash = '#oficinistas';
+
       actualizarPestanas();
       avisar(resultado.message || (editando ? 'Usuario actualizado correctamente.' : 'Usuario registrado correctamente.'));
     } catch (problema) {
@@ -452,6 +508,7 @@
   $('btnCancelarPersonal').addEventListener('click', cerrarFormulario);
   $('buscarPersonal').addEventListener('input', renderizar);
   $('filtroEstadoPersonal').addEventListener('change', renderizar);
+  $('rolUsuario').addEventListener('change', verificarRequisitosCooperativa);
   formulario.addEventListener('submit', guardarUsuario);
   tabla.addEventListener('click', gestionarAccion);
   modal.addEventListener('cancel', (evento) => {

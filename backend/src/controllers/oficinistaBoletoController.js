@@ -258,7 +258,7 @@ async function listarHojasParaVentanilla(req, res) {
                 INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                 INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
                 WHERE H.FEC_PRO_HOJ = @fecha
-                  AND H.EST_VIA_HOJ IN ('PROGRAMADA','EN CURSO')
+                  AND UPPER(H.EST_VIA_HOJ) IN ('PROGRAMADA','PROGRAMADO','EN CURSO')
                   AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
                 ORDER BY C.NOM_COP, F.CIU_ORI_FRE, F.CIU_DES_FRE
             `);

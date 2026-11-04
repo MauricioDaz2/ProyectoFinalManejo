@@ -37,7 +37,7 @@ document.getElementById('loginForm').addEventListener('submit', async function (
                     window.location.href = '../oficinista/ventanilla_boletos.html';
                     break;
                 case 'R004': 
-                    window.location.href = '../controlador/escanner.html';
+                    window.location.href = '../controlador/panel.html';
                     break;
                 case 'R005': 
                     window.location.href = '../usuario/catalogo_viajes.html';

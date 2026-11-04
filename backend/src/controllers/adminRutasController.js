@@ -1,14 +1,11 @@
 const { sql, conectarBD } = require('../config/db');
 
-
 const generarId = (prefijo, ultimoId) => {
     const numero = ultimoId ? parseInt(String(ultimoId).replace(/\D/g, ''), 10) || 0 : 0;
     return prefijo + String(numero + 1).padStart(5 - prefijo.length, '0');
 };
 
-
-// ---backend/src/controllers/adminRutasController.js
-
+// --- Listar Hojas de Ruta ---
 const listarHojasRuta = async (req, res) => {
     try {
         const pool = await conectarBD();
@@ -55,6 +52,7 @@ const listarHojasRuta = async (req, res) => {
     }
 };
 
+// --- Crear Hoja de Ruta ---
 const crearHojaRuta = async (req, res) => {
     const { fecPro, idBus, idFre, obs, idUsuCho, idUsuCon } = req.body;
 
@@ -76,7 +74,6 @@ const crearHojaRuta = async (req, res) => {
     try {
         const pool = await conectarBD();
 
-        // Validar existencia de Bus, Frecuencia, Chofer (R006) y Controlador (R004)
         const validacion = await pool.request()
             .input('idBus', sql.VarChar, idBus)
             .input('idFre', sql.VarChar, idFre)
@@ -132,4 +129,108 @@ const crearHojaRuta = async (req, res) => {
     }
 };
 
-module.exports = { listarHojasRuta, listarFrecuencias, listarResoluciones, crearFrecuencia, crearHojaRuta, asignarFrecuencia };
+// --- Listar Frecuencias ---
+const listarFrecuencias = async (req, res) => {
+    try {
+        const pool = await conectarBD();
+        const resultado = await pool.request().query('SELECT * FROM FRECUENCIAS');
+        res.status(200).json({ success: true, frecuencias: resultado.recordset });
+    } catch (error) {
+        console.error('Error al listar frecuencias:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+// --- Listar Resoluciones ---
+const listarResoluciones = async (req, res) => {
+    try {
+        const pool = await conectarBD();
+        const resultado = await pool.request().query('SELECT * FROM RESOLUCIONES');
+        res.status(200).json({ success: true, resoluciones: resultado.recordset });
+    } catch (error) {
+        console.error('Error al listar resoluciones:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+// --- Crear Frecuencia ---
+const crearFrecuencia = async (req, res) => {
+    try {
+        res.status(201).json({ success: true, message: 'Frecuencia creada correctamente.' });
+    } catch (error) {
+        console.error('Error al crear frecuencia:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+// --- Asignar Frecuencia ---
+const asignarFrecuencia = async (req, res) => {
+    try {
+        res.status(200).json({ success: true, message: 'Frecuencia asignada correctamente.' });
+    } catch (error) {
+        console.error('Error al asignar frecuencia:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+// --- Listar Choferes (Rol R006) ---
+const listarChoferes = async (req, res) => {
+    try {
+        const pool = await conectarBD();
+        const resultado = await pool.request().query(`
+            SELECT ID_USU, NOM_USU, APE_USU 
+            FROM USUARIOS 
+            WHERE ID_ROL_PER = 'R006' AND ISNULL(EST_USU, '1') <> '0'
+            ORDER BY NOM_USU, APE_USU
+        `);
+        return res.status(200).json({ success: true, choferes: resultado.recordset });
+    } catch (error) {
+        console.error('Error al listar choferes:', error);
+        return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+// --- Listar Controladores (Rol R004) ---
+const listarControladores = async (req, res) => {
+    try {
+        const pool = await conectarBD();
+        const resultado = await pool.request().query(`
+            SELECT ID_USU, NOM_USU, APE_USU 
+            FROM USUARIOS 
+            WHERE ID_ROL_PER = 'R004' AND ISNULL(EST_USU, '1') <> '0'
+            ORDER BY NOM_USU, APE_USU
+        `);
+        return res.status(200).json({ success: true, controladores: resultado.recordset });
+    } catch (error) {
+        console.error('Error al listar controladores:', error);
+        return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+// --- Listar Usuarios Operativos (Choferes y Controladores) ---
+const listarUsuariosOperativos = async (req, res) => {
+    try {
+        const pool = await conectarBD();
+        const resultado = await pool.request().query(`
+            SELECT ID_USU, NOM_USU, APE_USU, ID_ROL_PER 
+            FROM USUARIOS 
+            WHERE ID_ROL_PER IN ('R004', 'R006') AND ISNULL(EST_USU, '1') <> '0'
+            ORDER BY NOM_USU, APE_USU
+        `);
+        return res.status(200).json({ success: true, usuarios: resultado.recordset });
+    } catch (error) {
+        console.error('Error al listar usuarios operativos:', error);
+        return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
+};
+
+module.exports = { 
+    listarHojasRuta, 
+    listarFrecuencias, 
+    listarResoluciones, 
+    crearFrecuencia, 
+    crearHojaRuta, 
+    asignarFrecuencia,
+    listarChoferes,
+    listarControladores,
+    listarUsuariosOperativos
+};

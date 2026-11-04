@@ -2,7 +2,12 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
-const { obtenerAsientos, reservarAsiento } = require('../controllers/userReservaController');
+const { 
+    obtenerAsientos, 
+    reservarAsiento, 
+    obtenerMisBoletos, 
+    cancelarReservaUsuario 
+} = require('../controllers/userReservaController');
 
 const router = express.Router();
 
@@ -21,6 +26,10 @@ const upload = multer({
         return callback(null, true);
     }
 });
+
+// Nuevas rutas para el historial y cancelación de boletos
+router.get('/mis-boletos/:cedula', obtenerMisBoletos);
+router.put('/:idBoleto/cancelar', cancelarReservaUsuario);
 
 // Rutas de asientos y reservas
 router.get('/:idHoja/asientos', obtenerAsientos);
