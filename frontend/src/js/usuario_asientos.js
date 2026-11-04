@@ -103,8 +103,8 @@ const selectSeat = (seatId) => {
 const cancelarReserva = () => {
     selectedSeats = [];
     reservationForm.reset();
-    depositoInfo.hidden = true;
-    transferenciaInfo.hidden = true;
+    depositoInfo.style.display = 'none';
+    transferenciaInfo.style.display = 'none';
     passengerTypesContainer.innerHTML = '';
     reservationPanel.classList.remove('visible');
     renderFloor(activeFloor);
@@ -139,10 +139,13 @@ const loadSeats = async () => {
     }
 };
 
+// Control dinámico de los métodos de pago
 metodoPagoInput.addEventListener('change', () => {
     const metodo = metodoPagoInput.value;
-    depositoInfo.hidden = metodo !== 'DEPOSITO';
-    transferenciaInfo.hidden = metodo !== 'TRANSFERENCIA';
+    
+    depositoInfo.style.display = metodo === 'DEPOSITO' ? 'block' : 'none';
+    transferenciaInfo.style.display = metodo === 'TRANSFERENCIA' ? 'block' : 'none';
+    
     bancoOrigenInput.required = metodo === 'TRANSFERENCIA';
     comprobanteInput.required = metodo === 'TRANSFERENCIA';
 });
@@ -160,32 +163,39 @@ reservationForm.addEventListener('submit', async (event) => {
         };
     });
 
+    const metodoPagoSeleccionado = metodoPagoInput.value;
+    const estadoBoleto = metodoPagoSeleccionado === 'DEPOSITO' ? 'PAGADO' : 'RESERVADO';
+
     btnSubmitAccion.disabled = true;
     seatStatus.textContent = 'Procesando pago y generando boletos...';
     
+    // FormData extrae automáticamente el campo metodoPago desde el <select name="metodoPago"> del HTML
     const values = new FormData(reservationForm);
     values.append('idHoja', idHoja);
     values.append('idAsientos', JSON.stringify(selectedSeats.map((seat) => seat.ID_ASI)));
     values.append('pasajeros', JSON.stringify(pasajeros));
     values.append('cedulaTitular', cedulaTitular);
-    values.append('metodoPago', metodoPagoInput.value);
+    values.append('estado', estadoBoleto);
 
     try {
-        const response = await fetch(`${API_BASE}/usuario/reservas`, { method: 'POST', body: values });
+        const response = await fetch(`${API_BASE}/usuario/reservas`, { 
+            method: 'POST', 
+            body: values 
+        });
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.message || 'No fue posible procesar la solicitud.');
         
         qrResult.hidden = false;
-        qrResult.innerHTML = `<strong>¡Operación exitosa!</strong><br>${escapeHtml(data.message)}<br><small>Titular: ${cedulaTitular}</small>`;
+        qrResult.innerHTML = `<strong>¡Operación exitosa!</strong><br>${escapeHtml(data.message)}<br><small>Titular: ${cedulaTitular} - Estado: ${estadoBoleto}</small>`;
         
         selectedSeats.forEach((seat) => { 
-            seat.ESTADO_ASIENTO = metodoPagoInput.value === 'DEPOSITO' ? 'OCUPADO' : 'RESERVADO'; 
+            seat.ESTADO_ASIENTO = estadoBoleto; 
         });
         renderFloor(activeFloor);
         selectedSeats = [];
         passengerTypesContainer.innerHTML = '';
         reservationPanel.classList.remove('visible');
-        seatStatus.textContent = 'Boletos generados correctamente en la base de datos.';
+        seatStatus.textContent = `Boletos generados correctamente (${estadoBoleto}).`;
     } catch (error) {
         showError(error.message);
     } finally {

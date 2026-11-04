@@ -14,11 +14,15 @@
         <span class="usuario-brand-mark" aria-hidden="true">↗</span>
         <span><span class="usuario-brand-name">Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
       </a>
-      <nav class="usuario-navigation" aria-label="Navegación de reserva">
-        <a class="usuario-nav-button" href="catalogo_viajes.html"><span aria-hidden="true">⌕</span>Nueva búsqueda</a>
+      
+      <!-- Navegación corregida dentro del header con el enlace a Mis Boletos -->
+      <nav class="usuario-navigation" aria-label="Navegación de usuario">
+        <a class="usuario-nav-button" href="mis_boletos.html"><span aria-hidden="true">🎫</span>Mis Boletos</a>
+        <a class="usuario-nav-button usuario-nav-button-light" href="catalogo_viajes.html"><span aria-hidden="true">⌕</span>Nueva búsqueda</a>
         <a class="usuario-nav-button usuario-nav-button-light" href="catalogo_viajes.html"><span aria-hidden="true">⌂</span>Volver al inicio</a>
       </nav>
     </header>
+
     <main class="usuario-main">
       <p class="usuario-eyebrow">Selecciona tu lugar</p>
       <h1 class="usuario-title">Mapa de asientos</h1>
@@ -62,7 +66,7 @@
           </div>
 
           <!-- Campos dinámicos para Depósito -->
-          <div id="depositoInfo" class="usuario-field" hidden style="margin-top: 15px; padding: 12px; background: #f8fafc; border: 1px solid var(--usuario-border); border-radius: 8px;">
+          <div id="depositoInfo" class="usuario-field" style="display: none; margin-top: 15px; padding: 12px; background: #f8fafc; border: 1px solid var(--usuario-border); border-radius: 8px;">
             <strong>Datos para Depósito:</strong>
             <p style="margin: 5px 0 0; font-size: 14px; color: var(--usuario-muted);">
               Realiza el depósito a nombre de la empresa en el <strong>BANCO PICHINCHA</strong>.<br>
@@ -72,16 +76,16 @@
           </div>
 
           <!-- Campos dinámicos para Transferencia -->
-          <div id="transferenciaInfo" class="usuario-field" hidden style="margin-top: 15px; display: grid; gap: 10px;">
-            <div class="usuario-field">
+          <div id="transferenciaInfo" class="usuario-field" style="display: none; margin-top: 15px; gap: 10px;">
+            <div class="usuario-field" style="margin-bottom: 10px;">
               <label for="bancoOrigen">Banco desde el que transfiere (Tu banco)</label>
               <input id="bancoOrigen" name="bancoOrigen" placeholder="Ej. Banco Guayaquil, Produbanco...">
             </div>
-            <div class="usuario-field">
+            <div class="usuario-field" style="margin-bottom: 10px;">
               <label>Banco de destino (Empresa)</label>
               <input type="text" value="BANCO PICHINCHA (Cuenta Corriente: 2100458963)" disabled style="background: #f1f3f5;">
             </div>
-            <div class="usuario-field">
+            <div class="usuario-field" style="margin-bottom: 10px;">
               <label for="comprobante">Comprobante de transferencia (JPG, PNG o PDF)</label>
               <input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.pdf">
             </div>
