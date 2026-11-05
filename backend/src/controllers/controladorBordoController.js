@@ -61,6 +61,8 @@ const listarAsientosDisponibles = async (req, res) => {
 };
 
 // 3. Venta de boleto a bordo por el controlador (Efectivo)
+
+// 3. Venta de boleto a bordo por el controlador (Efectivo)
 const venderBoletoABordo = async (req, res) => {
     const { idHoj, idAsi, oriTra, desTra, preFin, idUsuCon } = req.body;
 
@@ -71,9 +73,26 @@ const venderBoletoABordo = async (req, res) => {
     try {
         const pool = await conectarBD();
 
-        // Generar ID único para el boleto
-        const ultimo = await pool.request().query('SELECT MAX(ID_BOL) AS ultimo FROM BOLETOS');
-        const nuevoId = generarId('BOL', ultimo.recordset[0].ultimo);
+        // 1. Consultar todos los IDs que comiencen con 'BOL' de forma segura
+        const resultadoBoletos = await pool.request().query(`
+            SELECT ID_BOL 
+            FROM BOLETOS 
+            WHERE ID_BOL LIKE 'BOL%'
+        `);
+
+        // 2. Calcular el número máximo de forma limpia en JavaScript
+        let maxNum = 0;
+        resultadoBoletos.recordset.forEach(row => {
+            const match = row.ID_BOL.match(/^BOL(\d+)$/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        });
+
+        const nuevoId = `BOL${maxNum + 1}`;
 
         // Generar URL del código QR externo (Ej: api.qrserver.com con los datos del boleto)
         const datosQr = `Boleto:${nuevoId}|Hoja:${idHoj}|Asiento:${idAsi}`;
@@ -110,7 +129,6 @@ const venderBoletoABordo = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error interno del servidor.' });
     }
 };
-
 // 4. Escanear y validar código QR (Cambiar estado a 'Usado')
 const escanerValidarBoleto = async (req, res) => {
     const { idBoleto, idUsuCon } = req.body;
