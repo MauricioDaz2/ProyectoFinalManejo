@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ventanilla de Boletos | Transporte UTA</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <script src="../../js/api.js" defer></script>
+  <script src="../../js/panel_layout.js" defer></script>
+  <script src="../../js/oficinista_ventanilla.js" defer></script>
+</head>
+<body data-app="oficinista" data-page="ventanilla">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+
+      <main id="main-content" class="admin-main">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Oficinista / Ventanilla</p>
+            <h1>Venta de boletos en ventanilla</h1>
+            <p>Selecciona una hoja de ruta y un asiento disponible, registra al pasajero y emite el boleto con su código QR.</p>
+          </div>
+          <div class="page-actions">
+            <label class="sr-only" for="fechaVentanilla">Fecha de operación</label>
+            <input class="filter-select" type="date" id="fechaVentanilla">
+            <button class="btn btn-secondary" type="button" id="btnRecargarVentanilla">Actualizar</button>
+          </div>
+        </div>
+
+        <div id="avisoVentanilla"></div>
+
+        <section class="stat-grid" id="statsVentanilla" aria-label="Resumen de ventanilla">
+          <article class="stat-card"><div class="stat-icon">▣</div><div class="stat-copy"><div class="stat-label">Boletos hoy</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">✓</div><div class="stat-copy"><div class="stat-label">Vendidos</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">◉</div><div class="stat-copy"><div class="stat-label">Validados</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">$</div><div class="stat-copy"><div class="stat-label">Ingresos</div><div class="stat-value">—</div></div></article>
+        </section>
+
+        <div class="sale-grid mt-3">
+          <div>
+            <section class="panel">
+              <div class="panel-toolbar">
+                <div>
+                  <h2 class="mb-0" style="font-size:16px;">Hojas de ruta del día</h2>
+                  <span class="muted" id="subtituloHojas">—</span>
+                </div>
+                <div class="spacer"></div>
+                <span class="badge badge-info" id="contadorHojas">—</span>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table" aria-label="Hojas de ruta disponibles">
+                  <thead>
+                    <tr>
+                      <th>Ruta</th>
+                      <th>Bus</th>
+                      <th>Fecha</th>
+                      <th>Disponibles</th>
+                      <th>Estado</th>
+                      <th class="text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaHojas">
+                    <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando hojas de ruta…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel mt-2" id="panelAsientos" hidden>
+              <div class="panel-toolbar">
+                <div>
+                  <h2 class="mb-0" style="font-size:16px;" id="tituloAsientos">Mapa de asientos</h2>
+                  <span class="muted" id="subtituloAsientos">Selecciona un asiento disponible.</span>
+                </div>
+                <div class="spacer"></div>
+                <span class="badge badge-success" id="resumenDisponibles">—</span>
+              </div>
+              <div class="panel-body">
+                <div id="mapaAsientosVenta">
+                  <div class="empty-state"><div class="empty-icon">▤</div><p>Selecciona una hoja de ruta para ver sus asientos.</p></div>
+                </div>
+                <div class="seat-legend">
+                  <span><i class="legend-dot"></i> Normal</span>
+                  <span><i class="legend-dot vip"></i> VIP / Cama</span>
+                  <span><i class="legend-dot occupied"></i> Ocupado</span>
+                  <span><i class="legend-dot selected"></i> Seleccionado</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="panel sale-summary">
+            <div class="panel-body">
+              <h2 class="mt-0" style="font-size:16px;">Resumen de venta</h2>
+
+              <div class="sale-seat-chip" id="resumenAsiento">
+                <div>
+                  <strong>Sin asiento</strong>
+                  <span>Selecciona un asiento del mapa</span>
+                </div>
+                <span class="badge badge-neutral">—</span>
+              </div>
+
+              <div class="form-grid">
+                <div class="field">
+                  <label for="precioBoleto">Precio final <span class="req">*</span></label>
+                  <input type="number" id="precioBoleto" min="1" step="1" placeholder="0" disabled>
+                </div>
+                <div class="field">
+                  <label for="metodoPago">Método de pago <span class="req">*</span></label>
+                  <select id="metodoPago" disabled>
+                    <option value="">Selecciona…</option>
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="DEPOSITO">Depósito</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="section-head" style="margin:22px 0 10px;">
+                <div>
+                  <h2 style="font-size:15px;">Pasajero</h2>
+                  <p>Opcional. Si registras la cédula podrás validar el boleto por documento.</p>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="cedulaPasajero">Cédula del pasajero</label>
+                <div class="inline-actions" style="flex-wrap:nowrap;">
+                  <input type="text" id="cedulaPasajero" maxlength="10" inputmode="numeric" placeholder="Ej. 1800000001" autocomplete="off">
+                  <button class="btn btn-secondary" type="button" id="btnBuscarPasajero">Buscar</button>
+                </div>
+              </div>
+
+              <div id="resultadosPasajero" class="stack-2 mt-1"></div>
+              <div id="pasajeroSeleccionado" class="mt-1"></div>
+
+              <div id="formRegistroPasajero" class="hidden mt-1">
+                <div class="notice warning mb-2">
+                  <span aria-hidden="true">!</span>
+                  <span>El pasajero no está registrado. Completa sus datos para crear la cuenta de usuario final.</span>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="nombrePasajero">Nombres <span class="req">*</span></label>
+                    <input type="text" id="nombrePasajero" maxlength="15" autocomplete="off">
+                  </div>
+                  <div class="field">
+                    <label for="apellidoPasajero">Apellidos <span class="req">*</span></label>
+                    <input type="text" id="apellidoPasajero" maxlength="15" autocomplete="off">
+                  </div>
+                  <div class="field span-2">
+                    <label for="telefonoPasajero">Teléfono <span class="req">*</span></label>
+                    <input type="tel" id="telefonoPasajero" maxlength="10" inputmode="numeric" placeholder="0999999999" autocomplete="off">
+                  </div>
+                  <div class="field span-2">
+                    <label for="correoPasajero">Correo (opcional)</label>
+                    <input type="email" id="correoPasajero" maxlength="40" autocomplete="off">
+                  </div>
+                </div>
+                <button class="btn btn-secondary btn-block mt-1" type="button" id="btnRegistrarPasajero">Registrar pasajero</button>
+              </div>
+
+              <button class="btn btn-primary btn-block mt-2" type="button" id="btnEmitirBoleto" disabled>Emitir boleto</button>
+              <p class="help mt-1">El boleto se emite con estado EMITIDO y un código QR único. Si no registras pasajero, la venta quedará como anónima.</p>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal del boleto emitido -->
+  <div class="modal" id="modalBoleto" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalBoleto">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloModalBoleto">Boleto emitido</h3>
+          <p>Entrega este comprobante al pasajero.</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body" id="ticketContenido"></div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cerrar</button>
+        <button class="btn btn-primary" type="button" id="btnImprimirBoleto">Imprimir boleto</button>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

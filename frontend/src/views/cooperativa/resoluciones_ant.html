@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resoluciones ANT y Frecuencias | Transporte UTA</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <script src="../../js/api.js" defer></script>
+  <script src="../../js/panel_layout.js" defer></script>
+  <script src="../../js/coop_resoluciones.js" defer></script>
+</head>
+<body data-app="cooperativa" data-page="resoluciones">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+
+      <main id="main-content" class="admin-main">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Cooperativa / Operación</p>
+            <h1>Resoluciones ANT y frecuencias</h1>
+            <p>Administra el cupo autorizado por la ANT y las rutas que tu cooperativa puede operar. Cada frecuencia debe estar respaldada por una resolución vigente.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" type="button" id="btnRecargar">Actualizar</button>
+            <button class="btn btn-primary" type="button" id="btnNuevaResolucion">+ Nueva resolución</button>
+            <button class="btn btn-primary hidden" type="button" id="btnNuevaFrecuencia">+ Nueva frecuencia</button>
+          </div>
+        </div>
+
+        <div id="avisoGlobal"></div>
+
+        <div class="tabs" role="tablist" aria-label="Secciones de operación">
+          <button class="tab active" type="button" role="tab" aria-selected="true" aria-controls="panelResoluciones" id="tabResoluciones" data-tab="resoluciones">Resoluciones ANT</button>
+          <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="panelFrecuencias" id="tabFrecuencias" data-tab="frecuencias">Frecuencias</button>
+        </div>
+
+        <section id="panelResoluciones" class="tab-panel" role="tabpanel" aria-labelledby="tabResoluciones">
+          <section class="stat-grid" id="statsResoluciones" aria-label="Resumen de resoluciones">
+            <article class="stat-card"><div class="stat-icon">▧</div><div class="stat-copy"><div class="stat-label">Resoluciones</div><div class="stat-value">—</div></div></article>
+            <article class="stat-card"><div class="stat-icon">Σ</div><div class="stat-copy"><div class="stat-label">Cupo autorizado</div><div class="stat-value">—</div></div></article>
+            <article class="stat-card"><div class="stat-icon">⇄</div><div class="stat-copy"><div class="stat-label">Frecuencias asignadas</div><div class="stat-value">—</div></div></article>
+            <article class="stat-card"><div class="stat-icon">✓</div><div class="stat-copy"><div class="stat-label">Cupo disponible</div><div class="stat-value">—</div></div></article>
+          </section>
+
+          <section class="panel mt-3">
+            <div class="panel-toolbar">
+              <h2 class="mb-0" style="font-size:16px;">Resoluciones registradas</h2>
+              <div class="spacer"></div>
+              <span class="muted" id="contadorResoluciones">—</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" aria-label="Resoluciones ANT">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Emisión</th>
+                    <th>Cupo máximo</th>
+                    <th>Frecuencias</th>
+                    <th>Documento</th>
+                    <th class="text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaResoluciones">
+                  <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando resoluciones…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section id="panelFrecuencias" class="tab-panel" role="tabpanel" aria-labelledby="tabFrecuencias" hidden>
+          <section class="panel">
+            <div class="panel-toolbar">
+              <div class="search-box">
+                <label class="sr-only" for="filtroOrigen">Filtrar por origen</label>
+                <input type="search" id="filtroOrigen" placeholder="Origen…" autocomplete="off">
+              </div>
+              <div class="search-box">
+                <label class="sr-only" for="filtroDestino">Filtrar por destino</label>
+                <input type="search" id="filtroDestino" placeholder="Destino…" autocomplete="off">
+              </div>
+              <label class="sr-only" for="filtroEstadoFrecuencia">Filtrar por estado</label>
+              <select class="filter-select" id="filtroEstadoFrecuencia">
+                <option value="">Todas</option>
+                <option value="1">Activas</option>
+                <option value="0">Inactivas</option>
+              </select>
+              <div class="spacer"></div>
+              <span class="muted" id="contadorFrecuencias">—</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" aria-label="Frecuencias de la cooperativa">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Ruta</th>
+                    <th>Vigencia</th>
+                    <th>Días</th>
+                    <th>Hojas</th>
+                    <th>Resolución</th>
+                    <th>Estado</th>
+                    <th class="text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaFrecuencias">
+                  <tr class="loading-row"><td colspan="8"><span class="spinner"></span>Cargando frecuencias…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal de resolución -->
+  <div class="modal" id="modalResolucion" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalResolucion">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloModalResolucion">Nueva resolución ANT</h3>
+          <p>Registra el cupo de frecuencias autorizado para la cooperativa.</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+      <form id="formResolucion">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field">
+              <label for="codigoResolucion">Código</label>
+              <input type="text" id="codigoResolucion" maxlength="5" placeholder="Automático (R0001)" autocomplete="off">
+              <span class="help">Déjalo vacío para generar el consecutivo.</span>
+            </div>
+            <div class="field">
+              <label for="fechaResolucion">Fecha de emisión <span class="req">*</span></label>
+              <input type="date" id="fechaResolucion" required>
+            </div>
+            <div class="field">
+              <label for="cupoResolucion">Cupo máximo de frecuencias <span class="req">*</span></label>
+              <input type="number" id="cupoResolucion" min="1" max="999" required value="10">
+              <span class="help">Entre 1 y 999 frecuencias.</span>
+            </div>
+            <div class="field">
+              <label for="documentoResolucion">URL del documento</label>
+              <input type="url" id="documentoResolucion" maxlength="500" placeholder="https://…">
+            </div>
+          </div>
+        </div>
+        <footer class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
+          <button class="btn btn-primary" type="submit" id="btnGuardarResolucion">Guardar resolución</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de frecuencia -->
+  <div class="modal" id="modalFrecuencia" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalFrecuencia">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloModalFrecuencia">Nueva frecuencia</h3>
+          <p>Define la ruta, la vigencia y la resolución que la respalda.</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+      <form id="formFrecuencia">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field">
+              <label for="codigoFrecuencia">Código</label>
+              <input type="text" id="codigoFrecuencia" maxlength="5" placeholder="Automático (F0001)" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="resolucionFrecuencia">Resolución ANT <span class="req">*</span></label>
+              <select id="resolucionFrecuencia" required></select>
+            </div>
+            <div class="field">
+              <label for="origenFrecuencia">Ciudad de origen <span class="req">*</span></label>
+              <input type="text" id="origenFrecuencia" maxlength="15" required placeholder="Ej. AMBATO" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="destinoFrecuencia">Ciudad de destino <span class="req">*</span></label>
+              <input type="text" id="destinoFrecuencia" maxlength="15" required placeholder="Ej. QUITO" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="inicioFrecuencia">Inicio de vigencia <span class="req">*</span></label>
+              <input type="date" id="inicioFrecuencia" required>
+            </div>
+            <div class="field">
+              <label for="finFrecuencia">Fin de vigencia</label>
+              <input type="date" id="finFrecuencia">
+              <span class="help">Opcional. Si se deja vacío, la frecuencia no tiene fecha de cierre.</span>
+            </div>
+            <div class="field">
+              <label for="estadoFrecuencia">Estado</label>
+              <select id="estadoFrecuencia">
+                <option value="1">Activa</option>
+                <option value="0">Inactiva</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <footer class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
+          <button class="btn btn-primary" type="submit" id="btnGuardarFrecuencia">Guardar frecuencia</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

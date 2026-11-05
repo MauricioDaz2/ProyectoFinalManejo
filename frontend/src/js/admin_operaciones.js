@@ -39,10 +39,10 @@ const etiquetaFrecuencia = (f) =>
     `${f.CIU_ORI_FRE} → ${f.CIU_DES_FRE} (${f.FEC_HOR_INI_FRE || 'sin fecha'})`;
 
 const etiquetaBus = (b) =>
-    `${b.NUM_BUS} - ${b.NUM_BUS} [${b.EST_BUS || 's/estado'}]`;
+    `${b.NUM_BUS} - ${b.PLA_BUS} [${b.EST_BUS || 's/estado'}]`;
 
 // ---------------------------------------------------------------------------
-// Carga de datos
+// Carga de datos para Hojas de Ruta (Buses, Frecuencias y Personal)
 // ---------------------------------------------------------------------------
 const cargarFlota = async () => {
     const respuesta = await fetch(`${API}/admin/parada/flota`);
@@ -50,8 +50,10 @@ const cargarFlota = async () => {
     if (!data.success) throw new Error(data.message || 'No se pudo cargar la flota.');
 
     const select = document.getElementById('hojaBus');
-    select.innerHTML = '<option value="">Seleccione un bus...</option>' +
-        data.buses.map((b) => `<option value="${escapeHtml(b.ID_BUS)}">${escapeHtml(etiquetaBus(b))}</option>`).join('');
+    if (select) {
+        select.innerHTML = '<option value="">Seleccione un bus...</option>' +
+            data.buses.map((b) => `<option value="${escapeHtml(b.ID_BUS)}">${escapeHtml(etiquetaBus(b))}</option>`).join('');
+    }
 };
 
 const cargarFrecuencias = async () => {
@@ -68,6 +70,35 @@ const cargarFrecuencias = async () => {
     if (selectVincular) selectVincular.innerHTML = opciones;
 };
 
+// Cargar Choferes (R006) y Controladores (R004) para el formulario
+const cargarPersonalOperativoModal = async () => {
+    try {
+       const respuesta = await fetch(`${API}/admin/rutas/usuarios`);// Ajusta la ruta si tu endpoint de listar usuarios es distinto
+        const data = await respuesta.json();
+        
+        // Si tu API devuelve los usuarios en data.usuarios o directamente en data
+        const usuarios = data.usuarios || data.data || [];
+
+        const choferesSelect = document.getElementById('hojaChofer');
+        const controladoresSelect = document.getElementById('hojaControlador');
+
+        const choferes = usuarios.filter(u => u.ID_ROL_PER === 'R006');
+        const controladores = usuarios.filter(u => u.ID_ROL_PER === 'R004');
+
+        if (choferesSelect) {
+            choferesSelect.innerHTML = '<option value="">Seleccione un chofer...</option>' +
+                choferes.map(c => `<option value="${escapeHtml(c.ID_USU)}">${escapeHtml(c.NOM_USU)} ${escapeHtml(c.APE_USU)}</option>`).join('');
+        }
+
+        if (controladoresSelect) {
+            controladoresSelect.innerHTML = '<option value="">Seleccione un controlador...</option>' +
+                controladores.map(c => `<option value="${escapeHtml(c.ID_USU)}">${escapeHtml(c.NOM_USU)} ${escapeHtml(c.APE_USU)}</option>`).join('');
+        }
+    } catch (error) {
+        console.error('Error al cargar personal operativo:', error);
+    }
+};
+
 const cargarHojas = async () => {
     const tbody = document.getElementById('tablaHojas');
     try {
@@ -77,13 +108,14 @@ const cargarHojas = async () => {
         renderHojas(data.hojas);
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = '<tr><td colspan="8" class="empty">No se pudieron cargar las hojas de ruta.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty">No se pudieron cargar las hojas de ruta.</td></tr>';
         mostrarToast(error.message, true);
     }
 };
 
 const renderHojas = (hojas) => {
     const tbody = document.getElementById('tablaHojas');
+    if (!tbody) return;
 
     if (!hojas || hojas.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="empty">No hay hojas de ruta registradas.</td></tr>';
@@ -96,11 +128,9 @@ const renderHojas = (hojas) => {
             <td>${escapeHtml(h.FEC_PRO_HOJ)}</td>
             <td>${escapeHtml(h.CIU_ORI_FRE)} → ${escapeHtml(h.CIU_DES_FRE)}</td>
             <td><span class="badge badge-bus">${escapeHtml(h.NUM_BUS_PER)} · ${escapeHtml(h.PLA_BUS_PER)}</span></td>
-            <td>${h.ID_BUS_REE
-                ? `<span class="badge badge-ree">${escapeHtml(h.NUM_BUS_REE)} · ${escapeHtml(h.PLA_BUS_REE)}</span>`
-                : '<span class="badge badge-sin">Sin reemplazo</span>'}</td>
-            <td><span class="badge badge-estado">${escapeHtml(h.EST_VIA_HO || 'S/E')}</span></td>
-            <td>${escapeHtml(h.NOM_COP)}</td>
+            <td>${escapeHtml(h.NOM_CHOFER || 'N/A')} ${escapeHtml(h.APE_CHOFER || '')}</td>
+            <td>${escapeHtml(h.NOM_CONT || 'N/A')} ${escapeHtml(h.APE_CONT || '')}</td>
+            <td><span class="badge badge-estado">${escapeHtml(h.EST_VIA_HOJ || 'S/E')}</span></td>
             <td>
                 <button class="btn btn-secondary btn-sm" data-vincular="${escapeHtml(h.ID_HOJ)}">Vincular frecuencia</button>
             </td>
@@ -308,10 +338,12 @@ const crearHoja = async () => {
     const fecPro = document.getElementById('hojaFecha').value;
     const idBus = document.getElementById('hojaBus').value;
     const idFre = document.getElementById('hojaFrecuencia').value;
+    const idUsuCho = document.getElementById('hojaChofer').value;
+    const idUsuCon = document.getElementById('hojaControlador').value;
     const obs = document.getElementById('hojaObs').value.trim();
 
-    if (!fecPro || !idBus || !idFre) {
-        errorBox.textContent = 'Complete fecha, bus y frecuencia.';
+    if (!fecPro || !idBus || !idFre || !idUsuCho || !idUsuCon) {
+        errorBox.textContent = 'Complete fecha, bus, frecuencia, chofer y controlador.';
         return;
     }
 
@@ -319,7 +351,7 @@ const crearHoja = async () => {
         const respuesta = await fetch(`${API}/admin/rutas/hojas`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fecPro, idBus, idFre, obs, usuarioId: usuarioActual().ID })
+            body: JSON.stringify({ fecPro, idBus, idFre, obs, idUsuCho, idUsuCon })
         });
         const data = await respuesta.json();
 
@@ -332,6 +364,8 @@ const crearHoja = async () => {
         document.getElementById('hojaFecha').value = '';
         document.getElementById('hojaBus').value = '';
         document.getElementById('hojaFrecuencia').value = '';
+        document.getElementById('hojaChofer').value = '';
+        document.getElementById('hojaControlador').value = '';
         document.getElementById('hojaObs').value = '';
         mostrarToast(data.message);
         cargarHojas();
@@ -376,6 +410,7 @@ const asignarFrecuencia = async () => {
         cerrarModal('modalFrecuencia');
         mostrarToast(data.message);
         cargarFrecuencias();
+        cargarHojas();
     } catch (error) {
         console.error(error);
         errorBox.textContent = 'No se pudo conectar con el servidor.';
@@ -395,7 +430,11 @@ const inicializarHojasRuta = async () => {
         window.location.href = '../auth/login.html';
     });
 
-    document.getElementById('btnNuevaHoja')?.addEventListener('click', () => abrirModal('modalHoja'));
+    document.getElementById('btnNuevaHoja')?.addEventListener('click', () => {
+        abrirModal('modalHoja');
+        cargarPersonalOperativoModal(); // Carga dinámicamente choferes y controladores al abrir el modal
+    });
+
     document.getElementById('btnGuardarHoja')?.addEventListener('click', crearHoja);
     document.getElementById('btnGuardarFrecuencia')?.addEventListener('click', asignarFrecuencia);
 
@@ -409,7 +448,7 @@ const inicializarHojasRuta = async () => {
     });
 
     document.getElementById('buscar')?.addEventListener('input', () => {
-        const texto = document.getElementById('buscar').value;
+        const texto = document.getElementById('buscar').value.toLowerCase();
         document.querySelectorAll('#tablaHojas tr').forEach((fila) => {
             fila.style.display = fila.textContent.toLowerCase().includes(texto) ? '' : 'none';
         });
@@ -460,16 +499,11 @@ const inicializarParada = async () => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Solo se inicializa si la vista de hojas de ruta está presente en el DOM.
     if (document.getElementById('tablaHojas')) {
         inicializarHojasRuta();
     }
 
-    // Solo se inicializa si la vista de Parada/Flota está presente en el DOM.
     if (document.getElementById('tablaParada') || document.getElementById('tablaFlota')) {
         inicializarParada();
     }
 });
-
-
-

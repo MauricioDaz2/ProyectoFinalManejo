@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de la Cooperativa | Transporte UTA</title>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <script src="../../js/api.js" defer></script>
+  <script src="../../js/panel_layout.js" defer></script>
+  <script src="../../js/coop_dashboard.js" defer></script>
+</head>
+<body data-app="cooperativa" data-page="dashboard">
+  <div class="admin-shell">
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
+    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
+
+    <div class="admin-workspace">
+      <header id="adminTopbar" class="admin-topbar"></header>
+
+      <main id="main-content" class="admin-main">
+        <section class="hero-banner">
+          <div>
+            <p class="hero-kicker">Resumen operativo del día</p>
+            <h2 id="heroNombre">Cooperativa</h2>
+            <p>Consulta el estado de la flota, las frecuencias vigentes y el movimiento de boletos de hoy en un solo lugar.</p>
+          </div>
+          <div class="hero-stat">
+            <strong id="heroHojas">—</strong>
+            <span>Hojas de ruta hoy</span>
+          </div>
+        </section>
+
+        <div id="avisoPanel"></div>
+
+        <section class="stat-grid" id="statGrid" aria-label="Indicadores del día">
+          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
+        </section>
+
+        <div class="section-head">
+          <div>
+            <h2>Próximas salidas</h2>
+            <p>Hojas de ruta programadas o en curso, ordenadas por fecha.</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" type="button" id="btnActualizar">Actualizar</button>
+        </div>
+
+        <section class="panel">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Hoja</th>
+                  <th>Fecha</th>
+                  <th>Ruta</th>
+                  <th>Bus</th>
+                  <th>Ocupación</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tablaSalidas">
+                <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando próximas salidas…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="section-head">
+          <div>
+            <h2>Accesos rápidos</h2>
+            <p>Continúa con la administración de tu cooperativa.</p>
+          </div>
+        </div>
+
+        <section class="quick-grid">
+          <a class="quick-card" href="gestion_buses.html">
+            <span class="quick-icon" aria-hidden="true">▤</span>
+            <span>
+              <strong>Flota de Buses</strong>
+              <span>Registra unidades, configura pisos y asientos, y controla su estado operativo.</span>
+            </span>
+          </a>
+          <a class="quick-card" href="resoluciones_ant.html">
+            <span class="quick-icon" aria-hidden="true">▧</span>
+            <span>
+              <strong>Resoluciones y Frecuencias</strong>
+              <span>Gestiona el cupo autorizado por la ANT y las frecuencias de viaje vigentes.</span>
+            </span>
+          </a>
+          <a class="quick-card" href="resoluciones_ant.html#frecuencias">
+            <span class="quick-icon" aria-hidden="true">⇄</span>
+            <span>
+              <strong>Frecuencias activas</strong>
+              <span>Consulta rutas, vigencias y cupos disponibles antes de programar una salida.</span>
+            </span>
+          </a>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
