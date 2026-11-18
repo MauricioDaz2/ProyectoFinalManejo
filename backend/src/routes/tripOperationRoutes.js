@@ -1,7 +1,8 @@
 const router=require('express').Router();
 const {requireSession,requireRole}=require('../middleware/session');
 const service=require('../services/tripOperations');
-const run=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{res.json({success:true,...await fn(req)});}catch(e){res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo confirmar la operación. Actualiza e inténtalo nuevamente.'});}};
+const cc=require('../services/frequencyControl');
+const run=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{res.json({success:true,...await fn(req)});}catch(e){return cc.respond(res,e)||res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo confirmar la operación. Actualiza e inténtalo nuevamente.'});}};
 router.use(requireSession);
 router.post('/asignaciones',requireRole('R001','R002'),run(req=>service.assign(req.auth,req.body)));
 router.get('/asignaciones/opciones',requireRole('R001','R002'),run(req=>service.assignmentOptions(req.auth)));

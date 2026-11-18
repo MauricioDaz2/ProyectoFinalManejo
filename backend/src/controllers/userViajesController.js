@@ -1,9 +1,10 @@
 const { sql, conectarBD } = require('../config/db');
+const cc = require('../services/frequencyControl');
 
 const texto = (valor) => (typeof valor === 'string' ? valor.trim() : '');
 const fechaISO = (valor) => {
     const normalizada = texto(valor);
-    return /^\d{4}-\d{2}-\d{2}$/.test(normalizada) ? normalizada : null;
+    return cc.date(normalizada);
 };
 
 const listarRutas = async (req, res) => {
@@ -17,14 +18,17 @@ const listarRutas = async (req, res) => {
                    F.CIU_DES_FRE AS DESTINO
             FROM FRECUENCIAS F
             INNER JOIN HOJAS_RUTAS H ON H.ID_FRE_PER = F.ID_FRE
-            INNER JOIN BUSES B ON B.ID_BUS = H.ID_BUS_PER
+             INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
             INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
             INNER JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
             WHERE UPPER(ISNULL(H.EST_VIA_HOJ, 'PROGRAMADO')) NOT IN ('CANCELADA', 'CANCELADO')
               AND C.EST_COP = '1' AND B.ID_COP_PER = C.ID_COP
               AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
               AND UPPER(ISNULL(B.EST_BUS, 'ACTIVO')) <> 'INACTIVO'
-              AND ISNULL(F.EST_RES, '1') <> '0'
+               AND ISNULL(F.EST_RES, '1') <> '0'
+               ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet}
+                 AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADA','PROGRAMADO')
+                 AND UPPER(LTRIM(RTRIM(B.EST_BUS))) IN ('ACTIVO','1','OPERANDO')` : ''}
             ORDER BY F.CIU_ORI_FRE, F.CIU_DES_FRE
         `);
 
@@ -85,7 +89,7 @@ const buscarViajes = async (req, res) => {
                        (SELECT COUNT(*) FROM ASIENTOS_BUS A WHERE A.ID_BUS_PER = B.ID_BUS) AS TOTAL_ASIENTOS
                 FROM HOJAS_RUTAS H
                 INNER JOIN FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                INNER JOIN BUSES B ON B.ID_BUS = H.ID_BUS_PER
+                 INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
                 INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                 INNER JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
                 WHERE F.CIU_ORI_FRE = @origen
@@ -95,7 +99,10 @@ const buscarViajes = async (req, res) => {
                   AND H.FEC_PRO_HOJ = @fecha
                   AND UPPER(ISNULL(H.EST_VIA_HOJ, 'PROGRAMADO')) NOT IN ('CANCELADA', 'CANCELADO')
                   AND UPPER(ISNULL(B.EST_BUS, 'ACTIVO')) <> 'INACTIVO'
-                  AND ISNULL(F.EST_RES, '1') <> '0'
+                   AND ISNULL(F.EST_RES, '1') <> '0'
+                   ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet}
+                      AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADA','PROGRAMADO')
+                      AND UPPER(LTRIM(RTRIM(B.EST_BUS))) IN ('ACTIVO','1','OPERANDO')` : ''}
                 ORDER BY F.FEC_HOR_INI_FRE, H.ID_HOJ
             `);
 

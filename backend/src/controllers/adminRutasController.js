@@ -1,4 +1,5 @@
 const { sql, conectarBD } = require('../config/db');
+const cc = require('../services/frequencyControl');
 
 const generarId = (prefijo, ultimoId) => {
     const numero = ultimoId ? parseInt(String(ultimoId).replace(/\D/g, ''), 10) || 0 : 0;
@@ -56,7 +57,7 @@ const listarHojasRuta = async (req, res) => {
 // --- Crear Hoja de Ruta ---
 const crearHojaRuta = async (req,res) => {
     try {const result=await require('../services/tripOperations').assign(req.auth,req.body);res.status(201).json({success:true,...result});}
-    catch(e){res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo programar el viaje.'});}
+    catch(e){return cc.respond(res,e)||res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo programar el viaje.'});}
 };
 
 const listarFrecuencias = async (req, res) => {
@@ -74,7 +75,7 @@ const listarFrecuencias = async (req, res) => {
 const listarResoluciones = async (req, res) => {
     try {
         const pool = await conectarBD();
-        const resultado = await pool.request().query('SELECT * FROM RESOLUCIONES');
+        const resultado = await pool.request().query('SELECT * FROM dbo.RESOLUCIONES_ANT');
         res.status(200).json({ success: true, resoluciones: resultado.recordset });
     } catch (error) {
         console.error('Error al listar resoluciones:', error);
@@ -84,22 +85,12 @@ const listarResoluciones = async (req, res) => {
 
 // --- Crear Frecuencia ---
 const crearFrecuencia = async (req, res) => {
-    try {
-        res.status(201).json({ success: true, message: 'Frecuencia creada correctamente.' });
-    } catch (error) {
-        console.error('Error al crear frecuencia:', error);
-        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
-    }
+    res.status(405).json({ success: false, message: 'Registra las frecuencias desde el módulo Resoluciones ANT de la cooperativa.' });
 };
 
 // --- Asignar Frecuencia ---
 const asignarFrecuencia = async (req, res) => {
-    try {
-        res.status(200).json({ success: true, message: 'Frecuencia asignada correctamente.' });
-    } catch (error) {
-        console.error('Error al asignar frecuencia:', error);
-        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
-    }
+    res.status(405).json({ success: false, message: 'Programa la frecuencia desde la pantalla de asignación operativa.' });
 };
 
 // --- Listar Choferes (Rol R006) ---
