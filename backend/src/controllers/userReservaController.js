@@ -16,6 +16,8 @@ const generarQr = (idBoleto, idHoja, idAsiento) => {
 };
 
 const obtenerAsientos = async (req, res) => {
+    const cooperativa = texto(req.query.cooperativa).toUpperCase();
+    if (req.query.cooperativa !== undefined && !/^[A-Z0-9_-]{1,5}$/.test(cooperativa)) return res.status(400).json({ success: false, message: 'Cooperativa no válida.' });
     const idHoja = texto(req.params.idHoja).toUpperCase();
     if (!/^[A-Z0-9_-]{1,5}$/.test(idHoja)) {
         return res.status(400).json({ success: false, message: 'La hoja de ruta indicada no es válida.' });
@@ -25,6 +27,7 @@ const obtenerAsientos = async (req, res) => {
         const pool = await conectarBD();
         const resultado = await pool.request()
             .input('idHoja', sql.VarChar(5), idHoja)
+            .input('cooperativa', sql.VarChar(5), cooperativa || null)
             .query(`
                 SELECT H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ, B.ID_BUS, B.NUM_BUS, B.NUM_PIS, B.IMG_URL_BUS,
                    A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER, T.NOM_TIP, T.PRE_TIP,
@@ -53,6 +56,13 @@ const obtenerAsientos = async (req, res) => {
                     BO.FEC_COM_BOL DESC
             ) O
             WHERE H.ID_HOJ = @idHoja
+              AND (@cooperativa IS NULL OR EXISTS (
+                  SELECT 1 FROM FRECUENCIAS F
+                  JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
+                  JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
+                  WHERE F.ID_FRE = H.ID_FRE_PER AND C.ID_COP = @cooperativa
+                    AND B.ID_COP_PER = C.ID_COP AND C.EST_COP = '1'
+              ))
             ORDER BY A.PIS_ASI, A.ID_ASI
             `);
 

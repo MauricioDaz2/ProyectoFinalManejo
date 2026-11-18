@@ -11,80 +11,6 @@ const codigo = (valor) => texto(valor).toUpperCase();
 
 // Permitimos todos los roles excepto el Administrador (R001)
 const rolesPermitidos = new Set(['R002', 'R003', 'R004', 'R005', 'R006']);
-const rolesConCooperativa = new Set(['R002', 'R003', 'R004', 'R006']);
-
-function datosUsuario(body, id = null) {
-    const datos = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
-
-    return {
-        ID_USU: id === null ? codigo(datos.ID_USU) : codigo(id),
-        NOM_USU: texto(datos.NOM_USU),
-        APE_USU: texto(datos.APE_USU),
-        COR_USU: texto(datos.COR_USU).toLowerCase(),
-        TEL_USU: texto(datos.TEL_USU),
-        EST_USU: datos.EST_USU === undefined ? '1' : texto(datos.EST_USU),
-        ID_ROL_PER: codigo(datos.ID_ROL_PER),
-        ID_COP_PER: codigo(datos.ID_COP_PER),
-        password: datos.password
-    };
-}
-
-function validarUsuario(datos, creando = false) {
-    
-    if (!/^[A-Z0-9]{5,10}$/.test(datos.ID_USU)) {
-        return 'La identificación debe tener entre 5 y 10 caracteres alfanuméricos.';
-    }
-    if (!datos.NOM_USU || datos.NOM_USU.length > 15) {
-        return 'Los nombres son obligatorios y deben tener máximo 15 caracteres.';
-    }
-    if (!datos.APE_USU || datos.APE_USU.length > 15) {
-        return 'Los apellidos son obligatorios y deben tener máximo 15 caracteres.';
-    }
-    if (datos.COR_USU.length > 40 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.COR_USU)) {
-        return 'Ingresa un correo electrónico válido de máximo 40 caracteres.';
-    }
-    if (!/^\d{7,10}$/.test(datos.TEL_USU)) {
-        return 'El teléfono debe contener entre 7 y 10 dígitos.';
-    }
-    if (!rolesPermitidos.has(datos.ID_ROL_PER)) {
-        return 'El rol seleccionado no es válido o no está permitido.';
-    }
-
-    // Si el rol pertenece al personal interno de cooperativa, la cooperativa es obligatoria
-    if (rolesConCooperativa.has(datos.ID_ROL_PER)) {
-        if (!/^[A-Z0-9]{1,5}$/.test(datos.ID_COP_PER)) {
-            return 'El código de cooperativa es obligatorio para este tipo de usuario.';
-        }
-    } else {
-        // Para usuario final (R005), la cooperativa es opcional pero si se llena debe ser válida
-        if (datos.ID_COP_PER && !/^[A-Z0-9]{1,5}$/.test(datos.ID_COP_PER)) {
-            return 'El código de cooperativa no es válido.';
-        }
-    }
-
-    if (!['0', '1'].includes(datos.EST_USU)) {
-        return 'El estado debe ser 1 (activo) o 0 (inactivo).';
-    }
-    if (creando && (typeof datos.password !== 'string' ||
-        !/^[\x21-\x7E]{8,20}$/.test(datos.password))) {
-        return 'La contraseña debe tener entre 8 y 20 caracteres, sin espacios ni tildes.';
-    }
-    return null;
-}
-
-function entradasUsuario(request, datos) {
-    const cooperativaValida = rolesConCooperativa.has(datos.ID_ROL_PER) && datos.ID_COP_PER ? datos.ID_COP_PER : null;
-
-    return request
-        .input('id', sql.VarChar(10), datos.ID_USU)
-        .input('nombre', sql.VarChar(15), datos.NOM_USU)
-        .input('apellido', sql.VarChar(15), datos.APE_USU)
-        .input('correo', sql.VarChar(40), datos.COR_USU)
-        .input('telefono', sql.VarChar(20), datos.TEL_USU)
-        .input('estado', sql.Char(1), datos.EST_USU)
-        .input('rol', sql.VarChar(5), datos.ID_ROL_PER)
-        .input('cooperativa', sql.VarChar(5), cooperativaValida);
-}
 
 async function obtenerUsuarioGestionable(pool, id) {
     const resultado = await pool.request()
@@ -96,38 +22,6 @@ async function obtenerUsuarioGestionable(pool, id) {
             WHERE U.ID_USU = @id AND U.ID_ROL_PER IN ('R002', 'R003', 'R004', 'R005', 'R006')
         `);
     return resultado.recordset[0] ?? null;
-}
-
-async function validarCooperativa(pool, id, exigirActiva) {
-    if (!id) return null;
-    const resultado = await pool.request()
-        .input('id', sql.VarChar(5), id)
-        .query('SELECT EST_COP FROM dbo.COOPERATIVAS WHERE ID_COP = @id');
-    const cooperativa = resultado.recordset[0];
-    if (!cooperativa) return 'La cooperativa seleccionada no existe.';
-    if (exigirActiva && cooperativa.EST_COP !== '1') {
-        return 'No se puede asignar personal a una cooperativa inactiva.';
-    }
-    return null;
-}
-
-async function validarDuplicado(pool, datos, idActual = null) {
-    const resultado = await pool.request()
-        .input('id', sql.VarChar(10), datos.ID_USU)
-        .input('correo', sql.VarChar(40), datos.COR_USU)
-        .input('idActual', sql.VarChar(10), idActual)
-        .query(`
-            SELECT TOP (1) ID_USU, COR_USU
-            FROM dbo.USUARIOS
-            WHERE (ID_USU = @id OR LOWER(COR_USU) = LOWER(@correo))
-              AND (@idActual IS NULL OR ID_USU <> @idActual)
-        `);
-
-    const usuario = resultado.recordset[0];
-    if (!usuario) return null;
-    return usuario.ID_USU === datos.ID_USU
-        ? 'Ya existe un usuario con esa identificación.'
-        : 'Ya existe un usuario con ese correo electrónico.';
 }
 
 function manejarError(res, error) {
@@ -184,6 +78,10 @@ async function listarUsuarios(req, res) {
                 ORDER BY U.NOM_USU, U.APE_USU, U.ID_USU
             `);
 
+        if (await require('../security/permissions').installed(pool)) {
+            const principals = (await pool.request().query('SELECT ID_USU FROM dbo.COOPERATIVA_RESPONSABLES')).recordset;
+            for (const row of resultado.recordset) row.PRINCIPAL = principals.some((p) => p.ID_USU === row.ID_USU);
+        }
         return res.status(200).json({
             success: true,
             total: resultado.recordset.length,
@@ -210,136 +108,5 @@ async function consultarUsuario(req, res) {
     }
 }
 
-async function registrarUsuario(req, res) {
-    const datos = datosUsuario(req.body);
-    const error = validarUsuario(datos, true);
-    if (error) return res.status(400).json({ success: false, message: error });
-
-    try {
-        const pool = await conectarBD();
-        if (rolesConCooperativa.has(datos.ID_ROL_PER)) {
-            const problemaCooperativa = await validarCooperativa(pool, datos.ID_COP_PER, true);
-            if (problemaCooperativa) return res.status(400).json({ success: false, message: problemaCooperativa });
-        }
-        const duplicado = await validarDuplicado(pool, datos);
-        if (duplicado) return res.status(409).json({ success: false, message: duplicado });
-
-        const resultado = await entradasUsuario(pool.request(), datos)
-            .input('clave', sql.VarChar(20), datos.password)
-            .query(`
-                INSERT INTO dbo.USUARIOS
-                    (ID_USU, NOM_USU, APE_USU, COR_USU, CON_USU, TEL_USU,
-                     FEC_REG_USU, EST_USU, ID_ROL_PER, ID_COP_PER)
-                OUTPUT INSERTED.ID_USU, INSERTED.NOM_USU, INSERTED.APE_USU,
-                       INSERTED.COR_USU, INSERTED.TEL_USU, INSERTED.FEC_REG_USU,
-                       INSERTED.EST_USU, INSERTED.ID_ROL_PER, INSERTED.ID_COP_PER
-                VALUES (@id, @nombre, @apellido, @correo, @clave, @telefono,
-                        GETDATE(), @estado, @rol, @cooperativa)
-            `);
-
-        return res.status(201).json({
-            success: true,
-            message: 'Usuario registrado correctamente.',
-            usuario: resultado.recordset[0]
-        });
-    } catch (error) {
-        return manejarError(res, error);
-    }
-}
-
-async function editarUsuario(req, res) {
-    const id = codigo(req.params.id);
-    if (req.body?.ID_USU !== undefined && codigo(req.body.ID_USU) !== id) {
-        return res.status(400).json({ success: false, message: 'No se puede modificar la identificación.' });
-    }
-
-    const datos = datosUsuario(req.body, id);
-    const error = validarUsuario(datos);
-    if (error) return res.status(400).json({ success: false, message: error });
-
-    try {
-        const pool = await conectarBD();
-        const actual = await obtenerUsuarioGestionable(pool, id);
-        if (!actual) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
-
-        if (rolesConCooperativa.has(datos.ID_ROL_PER)) {
-            const problemaCooperativa = await validarCooperativa(
-                pool, datos.ID_COP_PER, actual.ID_COP_PER !== datos.ID_COP_PER
-            );
-            if (problemaCooperativa) return res.status(400).json({ success: false, message: problemaCooperativa });
-        }
-
-        const duplicado = await validarDuplicado(pool, datos, id);
-        if (duplicado) return res.status(409).json({ success: false, message: duplicado });
-
-        const resultado = await entradasUsuario(pool.request(), datos).query(`
-            UPDATE dbo.USUARIOS
-            SET NOM_USU = @nombre,
-                APE_USU = @apellido,
-                COR_USU = @correo,
-                TEL_USU = @telefono,
-                EST_USU = @estado,
-                ID_ROL_PER = @rol,
-                ID_COP_PER = @cooperativa
-            OUTPUT INSERTED.ID_USU, INSERTED.NOM_USU, INSERTED.APE_USU,
-                   INSERTED.COR_USU, INSERTED.TEL_USU, INSERTED.FEC_REG_USU,
-                   INSERTED.EST_USU, INSERTED.ID_ROL_PER, INSERTED.ID_COP_PER
-            WHERE ID_USU = @id AND ID_ROL_PER IN ('R002', 'R003', 'R004', 'R005', 'R006')
-        `);
-        if (!resultado.recordset.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
-
-        return res.status(200).json({
-            success: true,
-            message: 'Usuario actualizado correctamente.',
-            usuario: resultado.recordset[0]
-        });
-    } catch (error) {
-        return manejarError(res, error);
-    }
-}
-
-async function cambiarEstadoUsuario(req, res) {
-    const id = codigo(req.params.id);
-    const estado = req.body?.EST_USU ?? req.body?.estado;
-    if (!/^[A-Z0-9]{5,10}$/.test(id) || !['0', '1'].includes(estado)) {
-        return res.status(400).json({ success: false, message: 'Identificación o estado inválidos.' });
-    }
-
-    try {
-        const pool = await conectarBD();
-        const resultado = await pool.request()
-            .input('id', sql.VarChar(10), id)
-            .input('estado', sql.Char(1), estado)
-            .query(`
-                UPDATE dbo.USUARIOS
-                SET EST_USU = @estado
-                OUTPUT INSERTED.ID_USU, INSERTED.NOM_USU, INSERTED.APE_USU,
-                       INSERTED.COR_USU, INSERTED.TEL_USU, INSERTED.FEC_REG_USU,
-                       INSERTED.EST_USU, INSERTED.ID_ROL_PER, INSERTED.ID_COP_PER
-                WHERE ID_USU = @id AND ID_ROL_PER IN ('R002', 'R003', 'R004', 'R005', 'R006')
-            `);
-        if (!resultado.recordset.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
-
-        return res.status(200).json({
-            success: true,
-            message: estado === '1' ? 'Usuario activado correctamente.' : 'Usuario desactivado correctamente.',
-            usuario: resultado.recordset[0]
-        });
-    } catch (error) {
-        return manejarError(res, error);
-    }
-}
-
-async function desactivarUsuario(req, res) {
-    req.body = { EST_USU: '0' };
-    return cambiarEstadoUsuario(req, res);
-}
-
-module.exports = {
-    listarUsuarios,
-    consultarUsuario,
-    registrarUsuario,
-    editarUsuario,
-    cambiarEstadoUsuario,
-    desactivarUsuario
-};
+const accounts = require('./accountController');
+module.exports = { listarUsuarios, consultarUsuario, registrarUsuario: accounts.create, editarUsuario: accounts.edit, cambiarEstadoUsuario: accounts.state, desactivarUsuario: accounts.deactivate };

@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const { cooperativaScope } = require('../middleware/cooperativaScope');
+router.use(cooperativaScope);
+router.use((req, res, next) => {
+    const resource = req.path.split('/')[1];
+    const permission = { buses: 'buses', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'hojas-ruta': req.method === 'GET' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
+    if (!permission) return next();
+    require('../security/permissions').requirePermission(permission)(req, res, next);
+});
 
 /**
  * Rutas del módulo Cooperativa
@@ -33,17 +41,6 @@ const {
     eliminarHojaRuta,
     resumenCooperativa
 } = require('../controllers/coopBusController');
-
-router.use((req, res, next) => {
-    const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip);
-    if (!local && process.env.NODE_ENV === 'production') {
-        return res.status(403).json({
-            success: false,
-            message: 'Acceso deshabilitado hasta configurar la autenticación de la cooperativa.'
-        });
-    }
-    next();
-});
 
 router.get('/resumen', resumenCooperativa);
 

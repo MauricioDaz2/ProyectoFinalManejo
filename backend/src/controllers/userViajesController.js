@@ -7,16 +7,22 @@ const fechaISO = (valor) => {
 };
 
 const listarRutas = async (req, res) => {
+    const cooperativa = texto(req.query.cooperativa).toUpperCase();
+    if (req.query.cooperativa !== undefined && !/^[A-Z0-9_-]{1,5}$/.test(cooperativa)) return res.status(400).json({ success: false, message: 'Cooperativa no válida.' });
     try {
         const pool = await conectarBD();
-        const resultado = await pool.request().query(`
+        const resultado = await pool.request().input('cooperativa', sql.VarChar(5), cooperativa || null).query(`
             SELECT DISTINCT
                    F.CIU_ORI_FRE AS ORIGEN,
                    F.CIU_DES_FRE AS DESTINO
             FROM FRECUENCIAS F
             INNER JOIN HOJAS_RUTAS H ON H.ID_FRE_PER = F.ID_FRE
             INNER JOIN BUSES B ON B.ID_BUS = H.ID_BUS_PER
+            INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
+            INNER JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
             WHERE UPPER(ISNULL(H.EST_VIA_HOJ, 'PROGRAMADO')) NOT IN ('CANCELADA', 'CANCELADO')
+              AND C.EST_COP = '1' AND B.ID_COP_PER = C.ID_COP
+              AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
               AND UPPER(ISNULL(B.EST_BUS, 'ACTIVO')) <> 'INACTIVO'
               AND ISNULL(F.EST_RES, '1') <> '0'
             ORDER BY F.CIU_ORI_FRE, F.CIU_DES_FRE
@@ -34,6 +40,8 @@ const listarRutas = async (req, res) => {
 };
 
 const buscarViajes = async (req, res) => {
+    const cooperativa = texto(req.query.cooperativa).toUpperCase();
+    if (req.query.cooperativa !== undefined && !/^[A-Z0-9_-]{1,5}$/.test(cooperativa)) return res.status(400).json({ success: false, message: 'Cooperativa no válida.' });
     const origen = texto(req.query.origen);
     const destino = texto(req.query.destino);
     const fecha = fechaISO(req.query.fecha);
@@ -58,6 +66,7 @@ const buscarViajes = async (req, res) => {
             .input('origen', sql.VarChar(15), origen)
             .input('destino', sql.VarChar(15), destino)
             .input('fecha', sql.Date, fecha)
+            .input('cooperativa', sql.VarChar(5), cooperativa || null)
             .query(`
                 SELECT H.ID_HOJ,
                        H.FEC_PRO_HOJ,
@@ -80,6 +89,8 @@ const buscarViajes = async (req, res) => {
                 INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                 INNER JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
                 WHERE F.CIU_ORI_FRE = @origen
+                  AND C.EST_COP = '1' AND B.ID_COP_PER = C.ID_COP
+                  AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
                   AND F.CIU_DES_FRE = @destino
                   AND H.FEC_PRO_HOJ = @fecha
                   AND UPPER(ISNULL(H.EST_VIA_HOJ, 'PROGRAMADO')) NOT IN ('CANCELADA', 'CANCELADO')
