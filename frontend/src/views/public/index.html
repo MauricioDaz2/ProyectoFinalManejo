@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <script src="../../js/transport_session.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Consulta rutas, cooperativas y viajes interprovinciales. Encuentra tu viaje y reserva con el sistema de transporte de la Universidad Técnica de Ambato.">
+  <title>Sistema de Transporte Interprovincial | UTA</title>
+  <link rel="icon" href="../../assets/images/transport-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../assets/public_home.css">
+  <link rel="stylesheet" href="../../assets/login_modal.css">
+  <script src="../../js/public_home.js" defer></script>
+  <script src="../auth/login.js" defer></script>
+  <script src="../../js/login_modal.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <header class="header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html"><img src="../../assets/images/transport-logo.svg" alt="" width="64" height="52"><span>Sistema de Transporte<small>INTERPROVINCIAL</small></span></a>
+      <button class="menu-toggle" id="menuToggle" aria-controls="navigation" aria-expanded="false" aria-label="Abrir menú">☰</button>
+      <nav id="navigation" aria-label="Navegación principal"><a class="active" href="index.html" aria-current="page">Inicio</a><a href="#rutas">Rutas</a><a href="#cooperativas">Cooperativas</a><a href="#como-reservar">Cómo reservar</a></nav>
+      <a class="button outline login" href="../auth/login.html">Iniciar sesión</a>
+      <a class="button header-buy" href="#buscador">Comprar boleto <span aria-hidden="true">→</span></a>
+    </div>
+  </header>
+  <main id="main">
+    <section class="hero" aria-labelledby="heroTitle">
+      <div class="container hero-content"><div class="hero-copy"><p class="eyebrow">DESCUBRE EL ECUADOR, UN VIAJE A LA VEZ</p><h1 id="heroTitle">Reserva tu viaje<br>interprovincial en minutos</h1><p>Conecta ciudades, provincias y nuevos destinos.<br>Tu próximo viaje empieza aquí.</p></div></div>
+    </section>
+    <div class="container">
+      <section class="search-panel" id="buscador" aria-label="Buscar viajes">
+        <form id="publicSearch">
+          <label><span>⌖ &nbsp; Origen</span><select name="origen" id="origen" required disabled><option value="">Cargando ciudades…</option></select></label>
+          <button class="swap" id="swap" type="button" aria-label="Intercambiar origen y destino">⇄</button>
+          <label><span>⌖ &nbsp; Destino</span><select name="destino" id="destino" required disabled><option value="">Selecciona el origen</option></select></label>
+          <label><span>▦ &nbsp; Fecha de viaje</span><input type="date" id="fecha" name="fecha" required></label>
+          <label><span>♙ &nbsp; Pasajeros</span><select name="pasajeros" id="pasajeros"><option value="1">1 pasajero</option><option value="2">2 pasajeros</option><option value="3">3 pasajeros</option><option value="4">4 pasajeros</option><option value="5">5 pasajeros</option><option value="6">6 pasajeros</option></select></label>
+          <button class="button search-button" id="searchButton" disabled>Buscar viajes <span aria-hidden="true">→</span></button>
+        </form>
+        <p id="searchStatus" class="search-status" role="status">Consultando rutas registradas…</p>
+      </section>
+      <section class="benefits" aria-label="Servicios">
+        <article><span class="benefit-icon" aria-hidden="true">◇</span><div><h2>Reserva desde aquí</h2><p>Continúa en nuestro módulo de boletos.</p></div></article>
+        <article><span class="benefit-icon" aria-hidden="true">◷</span><div><h2>Consulta tus viajes</h2><p>Revisa las salidas registradas.</p></div></article>
+        <article><span class="benefit-icon" aria-hidden="true">✧</span><div><h2>Conoce las cooperativas</h2><p>Explora las opciones del sistema.</p></div></article>
+        <article><span class="benefit-icon" aria-hidden="true">▱</span><div><h2>Elige tu asiento</h2><p>Consulta disponibilidad antes de reservar.</p></div></article>
+      </section>
+      <section class="section" id="rutas" aria-labelledby="routesTitle">
+        <div class="section-heading"><div><h2 id="routesTitle">Rutas destacadas</h2><p>Encuentra un nuevo destino entre las rutas registradas.</p></div><a class="text-link" href="../usuario/catalogo_viajes.html">Ver todas las rutas <span aria-hidden="true">→</span></a></div>
+        <div class="routes-grid" id="routes" aria-live="polite"><p class="empty">Cargando rutas…</p></div>
+      </section>
+      <section class="section departures-section" id="salidas" aria-labelledby="departuresTitle">
+        <div class="section-heading"><div><h2 id="departuresTitle">Próximas salidas</h2><p>Viajes programados para que puedas planificarte.</p></div><a class="text-link" href="#buscador">Consultar una fecha <span aria-hidden="true">→</span></a></div>
+        <div id="departures" class="departures" aria-live="polite"><p class="empty">Consultando próximas salidas…</p></div>
+      </section>
+      <section class="section" id="cooperativas" aria-labelledby="coopsTitle">
+        <div class="section-heading"><div><h2 id="coopsTitle">Cooperativas disponibles</h2><p>Conoce las cooperativas activas en nuestro sistema.</p></div></div>
+        <div class="coops-grid" id="coops" aria-live="polite"><p class="empty">Consultando cooperativas…</p></div>
+      </section>
+      <section class="section booking" id="como-reservar" aria-labelledby="bookingTitle">
+        <div class="section-heading"><div><h2 id="bookingTitle">Tu boleto, paso a paso</h2><p>Todo listo para tu próxima salida.</p></div></div>
+        <ol class="steps"><li><span>01</span><div><h3>Busca tu viaje</h3><p>Elige origen, destino, fecha y pasajeros.</p></div></li><li><span>02</span><div><h3>Inicia sesión y elige</h3><p>Consulta los asientos y selecciona los que necesitas.</p></div></li><li><span>03</span><div><h3>Completa tu reserva</h3><p>Sigue las indicaciones de pago del módulo de boletos.</p></div></li></ol>
+      </section>
+      <section class="cta"><div><h2>¿Listo para viajar?</h2><p>Encuentra tu próxima ruta y empieza a planificar tu viaje.</p></div><a class="button light" href="../auth/login.html">Iniciar sesión</a><a class="button white-outline" href="#buscador">Buscar mi viaje →</a></section>
+    </div>
+  </main>
+  <footer><div class="container footer-main"><a class="brand" href="index.html"><img src="../../assets/images/transport-logo.svg" alt="" width="60" height="48"><span>Sistema de Transporte<small>INTERPROVINCIAL</small></span></a><p>Proyecto académico<br>Universidad Técnica de Ambato</p><nav aria-label="Enlaces del pie"><a href="#rutas">Rutas</a><a href="#salidas">Próximas salidas</a><a href="#cooperativas">Cooperativas</a><a href="#como-reservar">Cómo reservar</a></nav><p class="footer-country">Hecho para conectar.<br><strong>Ecuador</strong></p></div><div class="footer-bottom"><div class="container">Sistema de Transporte Interprovincial <span>Universidad Técnica de Ambato</span></div></div></footer>
+  <dialog id="loginDialog" class="login-dialog" aria-labelledby="loginTitle" aria-describedby="loginDescription">
+    <div class="login-dialog-content">
+      <button type="button" id="closeLogin" class="login-close" aria-label="Cerrar inicio de sesión">×</button>
+      <div class="login-identity"><img src="../../assets/images/transport-logo.svg" alt="" width="68" height="56"><span>Sistema de Transporte<small>INTERPROVINCIAL</small></span></div>
+      <h2 id="loginTitle">Bienvenido de nuevo</h2>
+      <p id="loginDescription">Inicia sesión para continuar tu viaje.</p>
+      <form id="loginForm">
+        <label for="correo">Correo electrónico</label>
+        <input type="email" id="correo" name="correo" autocomplete="username" placeholder="tu.correo@ejemplo.com" required autofocus>
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Ingresa tu contraseña" required>
+        <p id="mensajeError" class="login-error" role="alert" aria-live="polite"></p>
+        <button type="submit" class="button login-submit">Ingresar</button>
+      </form>
+      <p class="login-footnote">Tu próxima ruta empieza aquí.</p>
+    </div>
+  </dialog>
+</body>
+</html>

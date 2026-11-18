@@ -1,7 +1,9 @@
 const { sql, conectarBD } = require('../config/db');
+const { issueSession } = require('../middleware/session');
 
 const login = async (req, res) => {
-    const { correo, password } = req.body;
+    const { correo, password } = req.body || {};
+    if (typeof correo !== 'string' || typeof password !== 'string' || !correo.trim() || !password) return res.status(400).json({ success: false, message: 'Correo y contraseña son obligatorios.' });
 
     try {
         const pool = await conectarBD();
@@ -29,11 +31,12 @@ const login = async (req, res) => {
         }
 
         
-        if (usuario.CON_USU !== password) {
+        if (!await require('../security/passwords').verify(password, usuario.CON_USU)) {
             return res.status(401).json({ success: false, message: "Contraseña incorrecta." });
         }
 
         
+        issueSession(req, res, usuario.ID_USU);
         res.status(200).json({
             success: true,
             message: "Inicio de sesión exitoso.",
@@ -48,7 +51,7 @@ const login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error en el servidor durante el login:", error);
+        console.error('Error al consultar la autenticación.');
         res.status(500).json({ success: false, message: "Error interno del servidor." });
     }
 };
