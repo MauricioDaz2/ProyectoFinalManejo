@@ -1,5 +1,10 @@
 const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api';
 const idHoja = new URLSearchParams(window.location.search).get('idHoja');
+const searchContext = new URLSearchParams(window.location.search);
+searchContext.delete('idHoja');
+document.querySelectorAll('a[href="catalogo_viajes.html"]').forEach((link) => {
+    if (searchContext.has('cooperativa')) link.href = `catalogo_viajes.html?${searchContext}`;
+});
 
 const usuarioSesion = JSON.parse(localStorage.getItem('usuario') || 'null');
 const cedulaTitular = usuarioSesion?.id || usuarioSesion?.COR_USU || usuarioSesion?.cedula || '';
@@ -114,7 +119,8 @@ const cancelarReserva = () => {
 const loadSeats = async () => {
     if (!idHoja) return showError('Falta seleccionar una hoja de ruta.');
     try {
-        const response = await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(idHoja)}/asientos`);
+        const cooperativeQuery = searchContext.has('cooperativa') ? `?${new URLSearchParams({ cooperativa: searchContext.get('cooperativa') })}` : '';
+        const response = await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(idHoja)}/asientos${cooperativeQuery}`);
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.message || 'No fue posible cargar los asientos.');
         seats = data.asientos;

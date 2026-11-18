@@ -7,6 +7,34 @@ const origenInput = document.querySelector('#origen');
 const destinoInput = document.querySelector('#destino');
 const logoutButton = document.querySelector('#logoutButton');
 let rutas = [];
+let passengers = 1;
+let pending = new URLSearchParams(window.location.search);
+if (!window.location.search) {
+    try { pending = new URLSearchParams(sessionStorage.getItem('publicTripSearch') || ''); } catch {}
+}
+const cooperative = pending.has('cooperativa') ? pending.get('cooperativa').trim().toUpperCase() : null;
+const cooperativeQuery = cooperative !== null ? `?${new URLSearchParams({ cooperativa: cooperative })}` : '';
+document.querySelectorAll('a[href="catalogo_viajes.html"]').forEach((link) => { link.href += cooperativeQuery; });
+const profileLink = document.querySelector('#cooperativeProfileLink');
+if (cooperative !== null && profileLink) {
+    profileLink.hidden = false;
+    profileLink.href = `../public/cooperativa.html?${new URLSearchParams({ id: cooperative })}`;
+}
+function searchContext() {
+    const query = new URLSearchParams({ origen: origenInput.value, destino: destinoInput.value, fecha: dateInput.value, pasajeros: String(passengers) });
+    if (cooperative !== null) query.set('cooperativa', cooperative);
+    return query;
+}
+passengers = Math.min(6, Math.max(1, Number(pending.get('pasajeros')) || 1));
+const passengersInput = document.querySelector('#cantidadPasajeros');
+passengersInput.value = String(passengers);
+let catalogUser;
+try { catalogUser = JSON.parse(localStorage.getItem('usuario') || 'null'); } catch {}
+if (!catalogUser) {
+    document.querySelector('#catalogSessionLabel').textContent = 'Visitante';
+    logoutButton.textContent = 'Iniciar sesión';
+    document.querySelector('a[href="mis_boletos.html"]').hidden = true;
+}
 
 const today = new Date();
 dateInput.min = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -21,13 +49,20 @@ const option = (value, label = value) => `<option value="${escapeHtml(value)}">$
 
 const cargarRutas = async () => {
     try {
-        const response = await fetch(`${API_BASE}/usuario/viajes/rutas`);
+        const response = await fetch(`${API_BASE}/usuario/viajes/rutas${cooperativeQuery}`);
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.message || 'No fue posible cargar las rutas.');
         rutas = data.rutas;
         const origenes = [...new Set(rutas.map((ruta) => ruta.ORIGEN))];
         origenInput.innerHTML = `<option value="">Selecciona una ciudad</option>${origenes.map((ciudad) => option(ciudad)).join('')}`;
         status.textContent = `${data.total} ruta(s) disponible(s).`;
+        if (pending.get('origen')) {
+            origenInput.value = pending.get('origen');
+            origenInput.dispatchEvent(new Event('change'));
+            destinoInput.value = pending.get('destino');
+            dateInput.value = pending.get('fecha') >= dateInput.min ? pending.get('fecha') : dateInput.min;
+            if (origenInput.value && destinoInput.value && dateInput.value) searchForm.requestSubmit();
+        }
     } catch (error) {
         origenInput.innerHTML = '<option value="">No se pudieron cargar las rutas</option>';
         status.className = 'usuario-status error';
@@ -46,6 +81,8 @@ origenInput.addEventListener('change', () => {
 });
 
 logoutButton.addEventListener('click', () => {
+    if (catalogUser) { window.TransportSession.logout().catch((error) => { status.textContent = error.message; }); return; }
+    if (!catalogUser) { try { sessionStorage.setItem('publicTripSearch', searchContext().toString()); } catch {} }
     localStorage.removeItem('usuario');
     window.location.href = '../auth/login.html';
 });
@@ -66,20 +103,35 @@ const renderResults = (viajes) => {
                 <strong>Viaje:</strong> ${formatDate(viaje.FEC_PRO_HOJ)} · ${escapeHtml(viaje.NUM_PIS)} piso(s)
             </div>
             <div class="viaje-action">
-                <a class="usuario-button" href="seleccion_asientos.html?idHoja=${encodeURIComponent(viaje.ID_HOJ)}">Elegir asiento</a>
+                <a class="usuario-button" href="seleccion_asientos.html?idHoja=${encodeURIComponent(viaje.ID_HOJ)}&amp;${escapeHtml(searchContext().toString())}">Elegir asiento</a>
             </div>
         </article>
     `).join('');
 };
 
+results.addEventListener('click', (event) => {
+    const link = event.target.closest('a[href^="seleccion_asientos.html"]');
+    if (!link) return;
+    let user;
+    try { user = JSON.parse(localStorage.getItem('usuario') || 'null'); } catch {}
+    if (user?.rolId === 'R005') return;
+    event.preventDefault();
+    try {
+        sessionStorage.setItem('publicTripSearch', searchContext().toString());
+    } catch {}
+    window.location.href = '../auth/login.html';
+});
+
 searchForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    passengers = Number(passengersInput.value);
     const values = new FormData(searchForm);
     const query = new URLSearchParams({
         origen: values.get('origen').trim(),
         destino: values.get('destino').trim(),
         fecha: values.get('fecha')
     });
+    if (cooperative !== null) query.set('cooperativa', cooperative);
 
     status.className = 'usuario-status';
     status.textContent = 'Consultando frecuencias...';
@@ -90,8 +142,17 @@ searchForm.addEventListener('submit', async (event) => {
         const response = await fetch(`${API_BASE}/usuario/viajes?${query}`);
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.message || 'No fue posible consultar los viajes.');
-        renderResults(data.viajes);
-        status.textContent = `${data.total} frecuencia(s) encontrada(s).`;
+        if (cooperative !== null && data.viajes.some((trip) => trip.ID_COP !== cooperative)) throw new Error('La respuesta no corresponde a la cooperativa seleccionada.');
+        const checked = await Promise.all(data.viajes.map(async (trip) => {
+            const seatsResponse = await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(trip.ID_HOJ)}/asientos${cooperativeQuery}`);
+            const seatsData = await seatsResponse.json();
+            if (!seatsResponse.ok || !seatsData.success) throw new Error('No se pudo comprobar la disponibilidad. Inténtalo nuevamente.');
+            return { trip, free: seatsData.asientos.filter((seat) => seat.ESTADO_ASIENTO === 'LIBRE').length };
+        }));
+        const available = checked.filter((item) => item.free >= passengers).map((item) => item.trip);
+        renderResults(available);
+        status.textContent = `${available.length} frecuencia(s) con plazas para ${passengers} pasajero(s). Selecciona esa cantidad de asientos al continuar. La disponibilidad se confirma al reservar.`;
+        try { sessionStorage.removeItem('publicTripSearch'); } catch {}
     } catch (error) {
         status.className = 'usuario-status error';
         status.textContent = error.message;

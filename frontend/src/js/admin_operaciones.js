@@ -426,8 +426,7 @@ const inicializarHojasRuta = async () => {
     if (nombreEl && usuario.nombre) nombreEl.textContent = usuario.nombre;
 
     document.getElementById('btnSalir')?.addEventListener('click', () => {
-        localStorage.removeItem('usuario');
-        window.location.href = '../auth/login.html';
+        window.TransportSession.logout().catch((error) => window.alert(error.message));
     });
 
     document.getElementById('btnNuevaHoja')?.addEventListener('click', () => {
@@ -471,8 +470,7 @@ const inicializarParada = async () => {
     if (nombreEl && usuario.nombre) nombreEl.textContent = usuario.nombre;
 
     document.getElementById('btnSalir')?.addEventListener('click', () => {
-        localStorage.removeItem('usuario');
-        window.location.href = '../auth/login.html';
+        window.TransportSession.logout().catch((error) => window.alert(error.message));
     });
 
     document.getElementById('btnConfirmarAsignar')?.addEventListener('click', asignarBusReemplazo);

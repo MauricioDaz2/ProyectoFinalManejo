@@ -160,6 +160,11 @@
       crearAccion(activo ? 'Desactivar' : 'Activar', 'estado', usuario.ID_USU, 'staff-action-muted')
     );
     acciones.append(grupo);
+    if (usuario.ID_ROL_PER === 'R002') {
+      const principal = crearAccion(usuario.PRINCIPAL ? 'Responsable principal' : 'Designar principal', 'principal', usuario.ID_USU);
+      principal.disabled = principal.disabled || !!usuario.PRINCIPAL || usuario.EST_USU !== '1';
+      grupo.append(principal);
+    }
     fila.append(acciones);
 
     return fila;
@@ -362,6 +367,10 @@
     }
 
     verificarRequisitosCooperativa();
+    if (!usuario && rolForm === 'R002') {
+      const company = new URLSearchParams(window.location.search).get('cooperativa');
+      if (estado.cooperativas.has(company)) $('cooperativaUsuario').value = company;
+    }
     modal.showModal();
     $('idUsuario').focus();
   }
@@ -467,6 +476,19 @@
 
     const usuario = estado.usuarios.find((registro) => registro.ID_USU === boton.dataset.id);
     if (!usuario) return;
+
+    if (boton.dataset.accion === 'principal') {
+      if (!window.confirm(`Designar a ${usuario.NOM_USU} ${usuario.APE_USU} como responsable principal de ${usuario.ID_COP_PER}? El responsable anterior perderá el acceso completo.`)) return;
+      estado.cambiandoEstado = true;
+      renderizar();
+      try {
+        const result = await solicitar(`${API_USUARIOS}/${encodeURIComponent(usuario.ID_USU)}/responsable-principal`, 'POST', {});
+        avisar(result.message);
+        await cargarUsuarios();
+      } catch (error) { avisar(error.message, true); }
+      finally { estado.cambiandoEstado = false; renderizar(); }
+      return;
+    }
 
     if (boton.dataset.accion === 'editar') {
       abrirFormulario(usuario);
