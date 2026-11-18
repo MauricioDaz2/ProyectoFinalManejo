@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { cooperativaScope } = require('../middleware/cooperativaScope');
+const batches = require('../controllers/routeBatchController');
+const categories = require('../services/routeCategories');
 router.use(cooperativaScope);
 router.use((req, res, next) => {
-    const resource = req.path.split('/')[1];
-    const permission = { buses: 'buses', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'catalogo-territorial': 'rutas', 'hojas-ruta': req.method === 'GET' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
+    const [,resource,action] = req.path.split('/');
+    const permission = { buses: 'buses', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'catalogo-territorial': 'rutas', 'categorias-operativas': 'rutas', 'hojas-ruta': req.method === 'GET' && action !== 'disponibilidad' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
     if (!permission) return next();
     require('../security/permissions').requirePermission(permission)(req, res, next);
 });
@@ -51,6 +53,7 @@ router.get('/buses/:id', obtenerBus);
 router.get('/buses/:id/asientos', listarAsientos);
 router.post('/buses', crearBus);
 router.put('/buses/:id', actualizarBus);
+router.put('/buses/:id/categorias', batches.setBus);
 router.patch('/buses/:id/estado', cambiarEstadoBus);
 router.delete('/buses/:id', desactivarBus);
 
@@ -65,15 +68,21 @@ router.delete('/resoluciones/:id', eliminarResolucion);
 router.get('/frecuencias', listarFrecuencias);
 router.get('/frecuencias/:id/disponibilidad', disponibilidadFrecuencia);
 router.get('/catalogo-territorial', catalogoTerritorial);
+router.get('/categorias-operativas', batches.catalog);
 router.post('/frecuencias', crearFrecuencia);
 router.put('/frecuencias/:id', actualizarFrecuencia);
+router.put('/frecuencias/:id/categoria', batches.setFrequency);
 router.patch('/frecuencias/:id/estado', cambiarEstadoFrecuencia);
 router.delete('/frecuencias/:id', eliminarFrecuencia);
 
 router.get('/hojas-ruta', listarHojasRuta);
+router.get('/hojas-ruta/disponibilidad', batches.availability);
+router.post('/hojas-ruta/lotes', batches.create);
 router.post('/hojas-ruta', crearHojaRuta);
 router.use('/hojas-ruta/:id',async(req,res,next)=>{
     if(!['PUT','PATCH','DELETE'].includes(req.method))return next();
+    if(categories.enabled()&&req.method==='PUT')return res.status(409).json({success:false,
+        code:'REPROGRAMACION_REQUERIDA',message:'No se puede editar una asignación desde el formulario antiguo. Usa la programación operativa.'});
     try{await require('../services/tripOperations').protectOperationalSheet(req.params.id);next();}
     catch(e){res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo verificar el estado de la salida.'});}
 });

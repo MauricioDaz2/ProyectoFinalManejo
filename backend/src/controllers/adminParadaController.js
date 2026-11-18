@@ -1,5 +1,6 @@
 const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
+const categories = require('../services/routeCategories');
 
 // Estados de flota manejados por el módulo:
 //   OPERANDO      -> bus asignado/en operación
@@ -80,6 +81,7 @@ const asignarBusReemplazo = async (req, res) => {
                     .query('SELECT ID_HOJ FROM dbo.fn_CC_HojaVigente(@id,NULL)');
                 if (!recordset.length) throw cc.fail(409, 'FRECUENCIA_NO_VIGENTE', 'El permiso no cubre la salida.');
             }
+            await categories.compatible(db, hoja.ID_FRE_PER, ree.ID_BUS);
             await db.request().input('hoja', sql.VarChar(5), idHoja).input('nuevo', sql.VarChar(5), ree.ID_BUS)
                 .input('actual', sql.VarChar(5), actual).query(`
                     UPDATE dbo.HOJAS_RUTAS SET ID_BUS_REE=@nuevo WHERE ID_HOJ=@hoja;

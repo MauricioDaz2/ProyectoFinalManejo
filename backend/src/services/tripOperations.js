@@ -2,6 +2,7 @@ const {sql,conectarBD}=require('../config/db');
 const rules=require('./tripRules');
 const schedule=require('./workerSchedule');
 const cc=require('./frequencyControl');
+const categories=require('./routeCategories');
 const {fail,norm}=rules;
 const req=db=>new sql.Request(db);
 const code=id=>{if(!/^[A-Z0-9_-]{1,5}$/.test(id||''))throw fail(400,'Hoja de ruta inválida.');return id;};
@@ -60,6 +61,16 @@ async function actor(db,user) {
  const r=(await req(db).input('actor',sql.VarChar(10),user.id).query('SELECT U.EST_USU,U.ID_ROL_PER,U.ID_COP_PER,C.EST_COP FROM dbo.USUARIOS U WITH(UPDLOCK,HOLDLOCK) JOIN dbo.COOPERATIVAS C ON C.ID_COP=U.ID_COP_PER WHERE U.ID_USU=@actor')).recordset[0];
  if(!r||r.EST_USU!=='1'||r.EST_COP!=='1'||r.ID_ROL_PER!==user.rolId||r.ID_COP_PER!==user.cooperativaId)throw fail(403,'Tu acceso o tu cooperativa cambió. Inicia sesión nuevamente.');
 }
+function canAssign(user) {
+ if(user.rolId!=='R001'&&!require('../security/permissions').can(user,'rutas'))throw fail(403,'No puedes programar viajes.');
+}
+async function verifyScheduler(db,user) {
+ canAssign(user);
+ if(user.rolId==='R001')return require('./accounts').actor(db,user);
+ await actor(db,user);
+ const access=require('../security/permissions');
+ if(!access.can({...user,...await access.context(db,user)},'rutas'))throw fail(403,'Tu permiso de rutas cambió.');
+}
 async function event(user,id,body) {
  operator(user);const action=body?.tipo;
  const allowed=user.rolId==='R006'?['INICIO','LLEGADA','CONTINUAR','FIN','NOVEDAD']:['ABORDAJE','DESCENSO','NOVEDAD'];
@@ -101,7 +112,7 @@ async function event(user,id,body) {
  });
 }
 async function assign(user,body) {
- const access=require('../security/permissions');if(user.rolId!=='R001'&&!access.can(user,'rutas'))throw fail(403,'No puedes programar viajes.');
+ canAssign(user);
  const {idBus,idFre,idUsuCho,idUsuCon,salida,llegada}=body||{};code(idBus);code(idFre);
  const observation=typeof body.obs==='string'?body.obs.trim():'';if(observation.length>50)throw fail(400,'La observación admite hasta 50 caracteres.');
  if(!/^[A-Z0-9]{5,10}$/.test(idUsuCho||'')||!/^[A-Z0-9]{5,10}$/.test(idUsuCon||''))throw fail(400,'Selecciona chofer y controlador.');
@@ -110,8 +121,7 @@ async function assign(user,body) {
   return transaction(async db=>{
    await cc.lock(db);
   await schedule.lock(db,[idUsuCho,idUsuCon]);
-  if(user.rolId==='R001')await require('./accounts').actor(db,user);
-  else {await actor(db,user);if(!access.can({...user,...await access.context(db,user)},'rutas'))throw fail(403,'Tu permiso de rutas cambió.');}
+   await verifyScheduler(db,user);
   const query=req(db).input('bus',sql.VarChar(5),idBus).input('frequency',sql.VarChar(5),idFre).input('driver',sql.VarChar(10),idUsuCho).input('controller',sql.VarChar(10),idUsuCon);
   const h=(await query.query(`SELECT B.ID_BUS,B.EST_BUS,B.ID_COP_PER BUS_COP,R.ID_COP_PER RUTA_COP,C.EST_COP,F.EST_RES,F.FEC_HOR_INI_FRE,F.FEC_HOR_FIN_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE,F.ID_FRE ID_FRE_PER,
    D.EST_USU CHO_EST,D.ID_ROL_PER CHO_ROL,D.ID_COP_PER CHO_COP,U.EST_USU CON_EST,U.ID_ROL_PER CON_ROL,U.ID_COP_PER CON_COP
@@ -121,6 +131,7 @@ async function assign(user,body) {
    if(!h||(user.rolId==='R002'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
    const day=localDay(start);
    await cc.scheduled(db,idFre,day,localDay(new Date(+end-1)));
+   await categories.compatible(db,idFre,idBus);
   const route=await stops(db,h),places=await seats(db,h);
   if(rules.preparation({...h,SALIDA_PLAN_UTC:start,LLEGADA_PLAN_UTC:end,EST_VIA_HOJ:'PROGRAMADO'},places).some(c=>!c.ok))throw fail(409,'Bus, ruta, horario y trabajadores deben estar activos y pertenecer a la misma cooperativa.');
   await schedule.work(db,{...h,ID_USU_CHO:idUsuCho,ID_USU_CON:idUsuCon,SALIDA_PLAN_UTC:start,LLEGADA_PLAN_UTC:end});
@@ -139,11 +150,11 @@ async function assignmentOptions(user) {
     ${cc.enabled() ? 'AND F.ID_PUN_ORI IS NOT NULL AND R.REVOCADA_RES=0 AND R.FEC_INI_VIG_RES IS NOT NULL' : ''}
     ORDER BY F.CIU_ORI_FRE,F.CIU_DES_FRE`)).recordset;
  const personal=(await scoped().query("SELECT U.ID_USU,U.NOM_USU,U.APE_USU,U.ID_ROL_PER FROM dbo.USUARIOS U JOIN dbo.COOPERATIVAS C ON C.ID_COP=U.ID_COP_PER WHERE U.EST_USU='1' AND C.EST_COP='1' AND U.ID_ROL_PER IN ('R004','R006') AND (@company IS NULL OR U.ID_COP_PER=@company) ORDER BY U.NOM_USU,U.APE_USU")).recordset;
- return {buses,frecuencias,personal};
+  return {buses,frecuencias,personal,lotesDisponibles:categories.enabled()&&cc.enabled()};
 }
 async function protectOperationalSheet(id) {
  const db=await conectarBD(),available=await installed(db);
  const h=(await req(db).input('sheet',sql.VarChar(5),id).query(`SELECT EST_VIA_HOJ,${available?'ID_USU_CHO,SALIDA_PLAN_UTC':'NULL AS ID_USU_CHO,NULL AS SALIDA_PLAN_UTC'} FROM dbo.HOJAS_RUTAS WHERE ID_HOJ=@sheet`)).recordset[0];
  if(h&&(h.ID_USU_CHO||h.SALIDA_PLAN_UTC||!['PROGRAMADO','PROGRAMADA'].includes(norm(h.EST_VIA_HOJ))))throw fail(409,'No se puede alterar esta salida desde el formulario antiguo. El recorrido operativo conserva sus asignaciones e historial.');
 }
-module.exports={installed,journal,detail,event,assign,sheet,transaction,assignmentOptions,protectOperationalSheet};
+module.exports={installed,journal,detail,event,assign,sheet,transaction,assignmentOptions,protectOperationalSheet,canAssign,verifyScheduler,stops,localDay};

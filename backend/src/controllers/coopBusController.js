@@ -1,5 +1,6 @@
 const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
+const categories = require('../services/routeCategories');
 
 /**
  * Módulo de la cooperativa:
@@ -962,12 +963,14 @@ async function listarFrecuencias(req, res) {
                 SELECT F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
                        F.FEC_HOR_FIN_FRE, F.EST_RES, F.ID_RES_PER,
                        R.CUP_FRE_MAX,
+                       ${categories.enabled() ? 'F.ID_CAT_OP,CAT.NOM_CAT,' : ''}
                        ${cc.enabled() ? `F.ID_PUN_ORI,F.ID_PUN_DES,F.MAX_UNIDADES,F.MAX_PASAJEROS,T.TIPO_TRAYECTO,
                            V.EST_VIGENCIA,CU.UNIDADES_USADAS,CU.PASAJEROS_USADOS,` : ''}
                        DATEDIFF(DAY, F.FEC_HOR_INI_FRE, ISNULL(F.FEC_HOR_FIN_FRE, F.FEC_HOR_INI_FRE)) + 1 AS DIAS_VIGENCIA,
                        (SELECT COUNT(*) FROM dbo.HOJAS_RUTAS H WHERE H.ID_FRE_PER = F.ID_FRE) AS TOTAL_HOJAS
                 FROM dbo.FRECUENCIAS F
                 INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
+                ${categories.enabled() ? 'LEFT JOIN dbo.CATEGORIAS_OPERATIVAS CAT ON CAT.ID_CAT=F.ID_CAT_OP' : ''}
                 ${cc.enabled() ? `LEFT JOIN dbo.v_CC_TrayectoFrecuencia T ON T.ID_FRE=F.ID_FRE
                   OUTER APPLY dbo.fn_CC_VigenciaFrecuencia(F.ID_FRE,${cc.today}) V
                   OUTER APPLY dbo.fn_CC_CupoDia(F.ID_FRE,${cc.today}) CU` : ''}
