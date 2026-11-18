@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const API_URL = 'http://localhost:3000/api';
+  const API_URL = window.API_BASE_URL || 'http://localhost:3000/api';
 
   function sesion() {
     try {
@@ -17,8 +17,8 @@
   }
 
   function cerrarSesion() {
-    localStorage.removeItem('usuario');
-    window.location.replace('../auth/login.html');
+    if (window.TransportSession) return window.TransportSession.logout();
+    throw new Error('No está disponible el cierre de sesión. Recarga la página e inténtalo nuevamente.');
   }
 
   function requiereSesion(roles = []) {
