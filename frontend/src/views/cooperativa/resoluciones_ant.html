@@ -10,10 +10,11 @@
   <script src="../../js/api.js" defer></script>
   <script src="../../js/panel_layout.js" defer></script>
   <script src="../../js/coop_resoluciones.js" defer></script>
+  <script src="../../js/coop_asignacion.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
-<script src="../../js/coop_access.js" defer></script></head>
-<body data-app="cooperativa" data-page="resoluciones">
+<link rel="stylesheet" href="../../assets/coop_dashboard.css"><link rel="stylesheet" href="../../assets/coop_navigation.css"><script src="../../js/coop_navigation.js" defer></script><script src="../../js/coop_access.js" defer></script></head>
+<body class="coop-dashboard" data-app="cooperativa" data-page="resoluciones">
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
     <div id="menuBackdrop" class="menu-backdrop" hidden></div>
@@ -36,6 +37,22 @@
         </div>
 
         <div id="avisoGlobal"></div>
+        <details id="coopAssignment" class="panel" hidden>
+          <summary>Programar salida con chofer y controlador</summary>
+          <p>Selecciona personal activo de tu cooperativa. Se comprobarán horarios laborales y reservas personales.</p>
+          <p id="assignmentStatus" role="status"></p>
+          <form id="assignmentForm">
+            <div class="form-grid">
+              <div class="field"><label for="assignmentBus">Bus</label><select id="assignmentBus" required></select></div>
+              <div class="field"><label for="assignmentRoute">Frecuencia</label><select id="assignmentRoute" required></select></div>
+              <div class="field"><label for="assignmentDriver">Chofer</label><select id="assignmentDriver" required></select></div>
+              <div class="field"><label for="assignmentController">Controlador</label><select id="assignmentController" required></select></div>
+              <div class="field"><label for="assignmentStart">Salida (Ecuador continental)</label><input id="assignmentStart" type="datetime-local" required></div>
+              <div class="field"><label for="assignmentEnd">Llegada prevista (Ecuador continental)</label><input id="assignmentEnd" type="datetime-local" required></div>
+            </div>
+            <button class="btn btn-primary" id="assignmentSubmit" type="submit">Guardar salida</button>
+          </form>
+        </details>
 
         <div class="tabs" role="tablist" aria-label="Secciones de operación">
           <button class="tab active" type="button" role="tab" aria-selected="true" aria-controls="panelResoluciones" id="tabResoluciones" data-tab="resoluciones">Resoluciones ANT</button>

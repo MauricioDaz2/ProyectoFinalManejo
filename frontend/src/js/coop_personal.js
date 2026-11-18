@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id), form = $('staffForm'), dialog = $('staffDialog');
-  const roles = { R002:'Gestor', R003:'Oficinista', R004:'Controlador' };
+  const roles = { R002:'Gestor', R003:'Oficinista', R004:'Controlador', R006:'Chofer' };
   let user, rows = [], permissions = {}, editing = null, busy = false, dirty = false, canSave = false;
   const editable = (row) => row.ID_USU !== user.id && !row.PRINCIPAL && (user.principal || row.ID_ROL_PER !== 'R002');
   function render() {

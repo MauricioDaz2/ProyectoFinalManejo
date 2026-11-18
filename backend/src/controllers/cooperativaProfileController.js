@@ -43,10 +43,12 @@ function createController(repo = repository, directory = path.join(__dirname, '.
             res.status(201).json({ success: true, imagen: metadata, message: 'Imagen guardada en tu biblioteca privada. Aún no está publicada.' });
         }),
         serve: (isPublic) => handle(async (req, res) => {
+            const admin = isPublic === 'admin';
+            if(admin && req.auth?.rolId !== 'R001')throw error(403,'Acceso administrativo requerido.');
             if (!uuid.test(req.params.imageId)) throw error(404, 'Imagen no disponible.');
             const companyId = isPublic ? req.params.id : req.auth.cooperativaId;
             if (!/^[A-Z0-9_-]{1,5}$/i.test(companyId)) throw error(404, 'Imagen no disponible.');
-            const row = await repo.image(companyId, req.params.imageId, isPublic);
+            const row = await repo.image(companyId, req.params.imageId, admin ? false : isPublic, admin);
             const expectedMime = { '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[path.extname(row.ARCHIVO)];
             if (!expectedMime || row.MIME !== expectedMime) throw error(404, 'Imagen no disponible.');
             res.set({ 'Content-Type': expectedMime, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });

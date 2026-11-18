@@ -22,7 +22,7 @@ function catalog(user = null, failSeats = false, cooperative = null, wrongCompan
     if (savedSearch) location.search = '';
     const calls = [];
     const context = {
-        document: { querySelector: element, querySelectorAll: () => [] }, window: { location },
+        document: { querySelector: element, querySelectorAll: () => [] }, window: { location, TransportSession: { current: async () => user } },
         localStorage: { getItem: () => user ? JSON.stringify(user) : null, removeItem() {} },
         sessionStorage: { getItem: (key) => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: (key) => storage.delete(key) },
         URLSearchParams, Date, Event, console,
@@ -57,9 +57,9 @@ test('visitante pasa al Login conservando la búsqueda', async () => {
     const app = catalog();
     await new Promise(setImmediate);
     let prevented = false;
-    app.element('#results').listeners.click({ target: { closest: () => ({}) }, preventDefault() { prevented = true; } });
+    await app.element('#results').listeners.click({ target: { closest: () => ({href:'seleccion_asientos.html?idHoja=H1'}) }, preventDefault() { prevented = true; } });
     assert.equal(prevented, true);
-    assert.equal(app.location.href, '../auth/login.html');
+    assert.equal(app.location.href, '../public/index.html?login=1');
     assert.match(app.storage.get('publicTripSearch'), /pasajeros=2/);
 });
 
@@ -67,8 +67,8 @@ test('R005 conserva el enlace al módulo existente', async () => {
     const app = catalog({ rolId: 'R005' });
     await new Promise(setImmediate);
     let prevented = false;
-    app.element('#results').listeners.click({ target: { closest: () => ({}) }, preventDefault() { prevented = true; } });
-    assert.equal(prevented, false);
+    await app.element('#results').listeners.click({ target: { closest: () => ({href:'seleccion_asientos.html?idHoja=H1'}) }, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true); assert.equal(app.location.href, 'seleccion_asientos.html?idHoja=H1');
 });
 
 test('un fallo de disponibilidad no se presenta como plazas disponibles', async () => {
@@ -84,7 +84,7 @@ for (const id of ['CP001', 'CP002']) test(`conserva ${id} en rutas, viajes, asie
     await new Promise(setImmediate);
     assert.ok(app.calls.every((url) => url.includes(`cooperativa=${id}`)));
     assert.match(app.element('#results').innerHTML, new RegExp(`cooperativa=${id}`));
-    app.element('#results').listeners.click({ target: { closest: () => ({}) }, preventDefault() {} });
+    await app.element('#results').listeners.click({ target: { closest: () => ({}) }, preventDefault() {} });
     const saved = app.storage.get('publicTripSearch');
     assert.match(saved, new RegExp(`cooperativa=${id}`));
     const loggedIn = catalog({ rolId: 'R005' }, false, id, false, saved);

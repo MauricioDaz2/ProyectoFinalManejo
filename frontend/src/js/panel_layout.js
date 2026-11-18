@@ -1,5 +1,6 @@
-(() => {
+(async () => {
   'use strict';
+  if (window.TransportSession) await window.TransportSession.ready;
 
   const app = document.body.dataset.app || 'cooperativa';
   const pagina = document.body.dataset.page || 'dashboard';

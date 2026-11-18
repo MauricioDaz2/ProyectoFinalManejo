@@ -5,27 +5,25 @@ const {
     crearCooperativa,
     actualizarCooperativa,
     cambiarEstadoCooperativa,
-    desactivarCooperativa
+    eliminarCooperativa,
+    personal
 } = require('../controllers/adminCooperativaController');
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-    const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip);
-    if (!local || process.env.NODE_ENV === 'production') {
-        return res.status(403).json({
-            success: false,
-            message: 'Acceso deshabilitado hasta configurar la autenticación administrativa.'
-        });
-    }
-    next();
-});
+const { requireSession, requireRole }=require('../middleware/session');
+router.use(requireSession,requireRole('R001'));
 
 router.get('/', listarCooperativas);
 router.get('/:id', obtenerCooperativa);
+router.get('/:id/imagenes/:imageId',require('../controllers/cooperativaProfileController').serve('admin'));
 router.post('/', crearCooperativa);
 router.put('/:id', actualizarCooperativa);
 router.patch('/:id/estado', cambiarEstadoCooperativa);
-router.delete('/:id', desactivarCooperativa);
+router.delete('/:id', eliminarCooperativa);
 
+router.post('/:id/personal',personal('create'));
+router.put('/:id/personal/:usuario',personal('edit'));
+router.patch('/:id/personal/:usuario/estado',personal('state'));
+router.post('/:id/personal/:usuario/principal',personal('principal'));
 module.exports = router;

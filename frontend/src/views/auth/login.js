@@ -5,13 +5,6 @@
     const password = document.getElementById('password');
     const mensaje = document.getElementById('mensajeError');
     const button = form.querySelector('button[type="submit"]');
-    const destinos = {
-        R001: '../admin/dashboard.html',
-        R002: '../cooperativa/dashboard_coop.html',
-        R003: '../oficinista/ventanilla_boletos.html',
-        R004: '../controlador/panel.html',
-        R005: '../usuario/catalogo_viajes.html'
-    };
     let request = null;
     function estado(cargando) {
         button.disabled = cargando;
@@ -51,17 +44,14 @@
                 mensaje.textContent = data.message || 'No se pudo iniciar sesión. Revisa tus credenciales.';
                 return;
             }
-            const destino = destinos[data.usuario?.rolId];
+            const destino = window.TransportSession.panelFor(data.usuario?.rolId);
             if (!destino) {
                 mensaje.textContent = 'Rol de usuario no reconocido.';
                 return;
             }
             try {
                 localStorage.setItem('usuario', JSON.stringify(data.usuario));
-            } catch {
-                mensaje.textContent = 'No se pudo guardar la sesión. Permite el almacenamiento del navegador e inténtalo nuevamente.';
-                return;
-            }
+            } catch {}
             window.location.href = destino;
         } catch {
             if (request === current) mensaje.textContent = current.signal.aborted

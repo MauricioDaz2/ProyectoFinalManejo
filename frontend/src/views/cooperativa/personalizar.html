@@ -12,16 +12,11 @@
   <script src="../../js/coop_personalizar.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
-<script src="../../js/coop_access.js" defer></script></head>
+<link rel="stylesheet" href="../../assets/coop_navigation.css"><script src="../../js/coop_navigation.js" defer></script><script src="../../js/coop_access.js" defer></script></head>
 <body class="coop-dashboard profile-editor">
   <a class="coop-skip" href="#editorMain">Saltar al contenido</a>
   <div class="admin-shell">
-    <aside id="editorSidebar" class="admin-sidebar" aria-label="Panel de mi cooperativa">
-      <div class="coop-platform"><div>Transporte<br>Cooperativas<small>Identidad y página pública</small></div></div>
-      <p class="coop-nav-label">MI COOPERATIVA</p>
-      <nav class="coop-nav"><a href="dashboard_coop.html">← Inicio</a><a href="gestion_buses.html">Buses</a><a href="resoluciones_ant.html">Resoluciones ANT</a><a href="resoluciones_ant.html#frecuencias">Rutas y frecuencias</a><a href="personalizar.html" class="active" aria-current="page">Personalizar mi cooperativa</a><a href="../public/index.html">Página principal del sistema</a></nav>
-      <div class="coop-sidebar-footer"><strong>Tu identidad, tu contenido</strong><p>Los borradores son privados.</p></div>
-    </aside>
+    <aside id="editorSidebar" class="admin-sidebar" aria-label="Panel de mi cooperativa"></aside>
     <button id="editorBackdrop" class="coop-backdrop" aria-label="Cerrar menú" hidden></button>
     <div class="admin-workspace">
       <header class="coop-topbar"><button id="editorMenu" class="coop-menu-button" aria-controls="editorSidebar" aria-expanded="false" aria-label="Abrir menú">☰</button><div class="coop-header-brand"><div><small>Personalización</small><strong id="editorCompany">Mi cooperativa</strong></div></div><div class="coop-account"><div><strong id="editorUser">Verificando sesión…</strong><small>Representante de cooperativa</small></div><button id="btnCerrarSesion" type="button">Cerrar sesión</button></div></header>
@@ -32,7 +27,7 @@
         <div class="editor-actions"><span id="saveState">Sin cambios guardados</span><button id="reloadProfile" type="button">Recargar</button><button id="saveDraft" type="button" disabled>Guardar borrador</button><button id="previewProfile" type="button" disabled>Vista previa</button><button id="publishProfile" type="button" class="primary" disabled>Guardar y publicar</button></div>
         <form id="profileForm"><fieldset id="editorFields" disabled>
           <section id="informacion" class="coop-card editor-card"><div class="coop-heading"><div><h2>Información pública</h2><p>Estos datos no cambian el identificador, el RUC ni la información administrativa.</p></div></div><div class="editor-grid">
-            <label class="wide">Nombre comercial visible<input id="nombre" name="nombre" maxlength="80" required autocomplete="organization"></label>
+            <label class="wide">Nombre comercial visible<input id="nombre" name="nombre" maxlength="120" required autocomplete="organization"></label>
             <label class="wide">Presentación empresarial<textarea id="descripcion" name="descripcion" maxlength="2000" rows="4" placeholder="Presenta tu cooperativa a los pasajeros."></textarea></label>
             <label class="wide">Misión <span class="optional">Opcional</span><textarea id="mision" name="mision" maxlength="1000" rows="3"></textarea></label>
             <label>Teléfono público<input id="telefono" name="telefono" type="tel" maxlength="40" autocomplete="tel"></label><label>Correo público<input id="correo" name="correo" type="email" maxlength="120" autocomplete="email"></label>

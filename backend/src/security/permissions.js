@@ -1,5 +1,5 @@
 const { sql } = require('../config/db');
-const catalog = Object.freeze({ dashboard: 'Consultar Dashboard', buses: 'Gestionar buses', rutas: 'Gestionar rutas y frecuencias', resoluciones: 'Gestionar resoluciones ANT', salidas: 'Consultar salidas', reportes: 'Consultar reportes', personalizacion: 'Personalizar y publicar', trabajadores: 'Gestionar oficinistas y controladores' });
+const catalog = Object.freeze({ dashboard: 'Consultar Dashboard', buses: 'Gestionar buses', rutas: 'Gestionar rutas y frecuencias', resoluciones: 'Gestionar resoluciones ANT', salidas: 'Consultar salidas', reportes: 'Consultar reportes', personalizacion: 'Personalizar y publicar', trabajadores: 'Gestionar oficinistas, controladores y choferes' });
 const request = (connection) => connection.request ? connection.request() : new sql.Request(connection);
 const failure = (status, message, code) => Object.assign(new Error(message), { status, code });
 async function installed(connection) {

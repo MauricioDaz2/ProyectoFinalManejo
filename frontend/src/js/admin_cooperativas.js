@@ -11,6 +11,8 @@
     cargando: false,
     guardando: false,
     cambiandoEstado: false,
+    registroDisponible: false,
+    consultaFallida: false,
     inicializado: false
   };
 
@@ -18,6 +20,8 @@
   const tabla = $('tablaCooperativas');
   const dialogo = $('modalCooperativa');
   const formulario = $('formCooperativa');
+  let permissions={},principalForm;
+  const pending=window.CompanyAccounts.track(dialogo,recogerDatos,()=>estado.guardando);
   const notificacion = $('notificacionCooperativa');
   let temporizadorNotificacion;
 
@@ -69,15 +73,17 @@
     }
 
     if (!respuesta.ok || datos.success !== true) {
-      throw new Error(datos.message || `Error al procesar la solicitud (${respuesta.status}).`);
+      throw Object.assign(new Error(datos.message || `Error al procesar la solicitud (${respuesta.status}).`), { fields:datos.fields,dependencias:datos.dependencias });
     }
 
     return datos;
   }
 
   function contarRegistros() {
+    if(estado.consultaFallida || !estado.inicializado) { for(const id of ['totalCooperativas','cooperativasActivas','cooperativasInactivas','cooperativasSuspendidas'])$(id).textContent='No disponible'; return; }
     $('totalCooperativas').textContent = estado.cooperativas.length;
     $('cooperativasActivas').textContent = estado.cooperativas.filter((c) => c.EST_COP === '1').length;
+    $('cooperativasSuspendidas').textContent=estado.cooperativas.filter(c=>c.EST_COP==='S').length;
     $('cooperativasInactivas').textContent = estado.cooperativas.filter((c) => c.EST_COP === '0').length;
   }
 
@@ -89,6 +95,7 @@
 
   function crearFila(cooperativa) {
     const fila = document.createElement('tr');
+    fila.className='company-row';fila.tabIndex=0;fila.dataset.company=cooperativa.ID_COP;fila.setAttribute('aria-label','Abrir ficha de '+(cooperativa.NOM_COM_COP||cooperativa.NOM_COP));
     fila.append(celda(cooperativa.ID_COP));
 
     const nombre = document.createElement('td');
@@ -97,52 +104,24 @@
     const inicial = document.createElement('span');
     inicial.className = 'coop-avatar';
     inicial.textContent = cooperativa.NOM_COP.slice(0, 1).toUpperCase();
-    const etiquetaNombre = document.createElement('span');
-    etiquetaNombre.textContent = cooperativa.NOM_COP;
+    const etiquetaNombre = document.createElement('a');
+    etiquetaNombre.className='company-name-link';etiquetaNombre.href='#cooperativa='+encodeURIComponent(cooperativa.ID_COP);
+    etiquetaNombre.textContent = cooperativa.NOM_COM_COP || cooperativa.NOM_COP;
     contenidoNombre.append(inicial, etiquetaNombre);
     nombre.append(contenidoNombre);
     fila.append(nombre);
 
     fila.append(celda(cooperativa.RUC_COP));
-    fila.append(celda(cooperativa.DIR_COP));
-    fila.append(celda(cooperativa.TEL_COP));
+    fila.append(celda(cooperativa.CIUDAD_COP || 'Sin registrar'));
+    fila.append(celda(cooperativa.RESPONSABLE || 'Sin asignar'));
 
     const estadoCelda = document.createElement('td');
     const insignia = document.createElement('span');
     insignia.className = `coop-badge ${cooperativa.EST_COP === '1' ? 'coop-badge-active' : 'coop-badge-inactive'}`;
-    insignia.textContent = cooperativa.EST_COP === '1' ? 'Activa' : 'Inactiva';
+    insignia.textContent = ({1:'Activa',0:'Inactiva',S:'Suspendida'})[cooperativa.EST_COP] || 'No disponible';
     estadoCelda.append(insignia);
     fila.append(estadoCelda);
 
-    const accionesCelda = document.createElement('td');
-    const acciones = document.createElement('div');
-    acciones.className = 'coop-actions';
-
-    const editar = document.createElement('button');
-    editar.type = 'button';
-    editar.className = 'coop-action';
-    editar.textContent = 'Editar';
-    editar.dataset.action = 'editar';
-    editar.dataset.id = cooperativa.ID_COP;
-    editar.disabled = estado.cambiandoEstado;
-
-    const cambiarEstado = document.createElement('button');
-    cambiarEstado.type = 'button';
-    cambiarEstado.className = 'coop-action coop-action-muted';
-    cambiarEstado.textContent = cooperativa.EST_COP === '1' ? 'Desactivar' : 'Activar';
-    cambiarEstado.dataset.action = 'estado';
-    cambiarEstado.dataset.id = cooperativa.ID_COP;
-    cambiarEstado.disabled = estado.cambiandoEstado;
-    cambiarEstado.setAttribute('aria-label', `${cambiarEstado.textContent} ${cooperativa.NOM_COP}`);
-
-    acciones.append(editar, cambiarEstado);
-    const personal = document.createElement('a');
-    personal.className = editar.className;
-    personal.textContent = 'Responsable';
-    personal.href = `usuarios.html?cooperativa=${encodeURIComponent(cooperativa.ID_COP)}#cooperativa`;
-    acciones.append(personal);
-    accionesCelda.append(acciones);
-    fila.append(accionesCelda);
     return fila;
   }
 
@@ -151,7 +130,7 @@
 
     const filtradas = estado.cooperativas.filter((cooperativa) => {
       const coincideEstado = estado.filtro === 'todos' || cooperativa.EST_COP === estado.filtro;
-      const texto = normalizar(`${cooperativa.ID_COP} ${cooperativa.NOM_COP} ${cooperativa.RUC_COP}`);
+      const texto = normalizar(`${cooperativa.ID_COP} ${cooperativa.NOM_COP} ${cooperativa.NOM_COM_COP||''} ${cooperativa.RUC_COP} ${cooperativa.CIUDAD_COP || ''} ${cooperativa.RESPONSABLE || ''}`);
       return coincideEstado && texto.includes(estado.busqueda);
     });
 
@@ -189,10 +168,15 @@
         throw new Error('El servidor no devolvió un listado válido de cooperativas.');
       }
       estado.cooperativas = datos.cooperativas;
+      estado.registroDisponible=datos.registroDisponible===true;
+      permissions=datos.permisos||{};
+      $('suspendedMetric').hidden=!datos.estadosDisponibles; $('suspendedFilter').hidden=!datos.estadosDisponibles;
+      estado.consultaFallida=false;
       estado.inicializado = true;
       actualizarAviso('Información sincronizada con SQL Server. Puedes administrar las cooperativas registradas.');
       return true;
     } catch (error) {
+      estado.consultaFallida=true;
       actualizarAviso(error.message, true);
       mostrarNotificacion(error.message, true);
       return false;
@@ -211,56 +195,91 @@
     estado.idEnEdicion = cooperativa?.ID_COP || null;
     const editar = Boolean(cooperativa);
     $('tituloModal').textContent = editar ? 'Editar cooperativa' : 'Nueva cooperativa';
-    $('btnGuardarCooperativa').textContent = editar ? 'Guardar cambios' : 'Guardar registro';
-    $('idCop').readOnly = editar;
+    $('btnGuardarCooperativa').textContent = editar ? 'Guardar cambios' : 'Crear cooperativa y responsables';
+    $('idCop').value=cooperativa?.ID_COP || 'Se genera al guardar';
+    estado.version=cooperativa?.version;
+    $('initialPrincipal').replaceChildren();$('initialManagers').replaceChildren();
+    if(!editar)principalForm=window.CompanyAccounts.card($('initialPrincipal'),{prefix:'responsable.',principal:true,permissions});
+    $('estadoCop').closest('label').hidden=editar;
+    formulario.querySelector('[data-step-label="2"]').hidden=editar;
+    $('registroAvailability').textContent=estado.registroDisponible?'':'El guardado ampliado requiere aprobar y aplicar la migración 007. Puedes revisar el formulario; no se guardarán cambios.';
+    clearErrors(); showStep(0); summary();
 
     if (editar) {
       for (const [campo, valor] of Object.entries(cooperativa)) {
         const input = formulario.elements.namedItem(campo);
-        if (input) input.value = valor;
+        if (input) input.value = valor ?? '';
       }
     } else {
       $('estadoCop').value = '1';
     }
 
+    pending.start();
     dialogo.showModal();
-    $('idCop').focus();
+    $('NOM_COP').focus();
   }
 
   function cerrarFormulario() {
     if (estado.guardando) return;
-    dialogo.close();
+    pending.close();
   }
 
+  let step=0;
+  const companyFields=['NOM_COP','NOM_COM_COP','RUC_COP','TIP_ORG_COP','EST_COP','PROVINCIA_COP','CIUDAD_COP','DIR_COP','TEL_COP','COR_INS_COP','SIT_WEB_COP'];
   function recogerDatos() {
-    const datos = new FormData(formulario);
-    return {
-      ID_COP: String(datos.get('ID_COP') || '').trim().toUpperCase(),
-      NOM_COP: String(datos.get('NOM_COP') || '').trim(),
-      RUC_COP: String(datos.get('RUC_COP') || '').trim(),
-      DIR_COP: String(datos.get('DIR_COP') || '').trim(),
-      TEL_COP: String(datos.get('TEL_COP') || '').trim(),
-      LOG_URL_COP: String(datos.get('LOG_URL_COP') || '').trim(),
-      EST_COP: String(datos.get('EST_COP') || '1')
-    };
+    const data=Object.fromEntries(companyFields.map(key=>[key,formulario.elements.namedItem(key).value.trim()]));
+    if(estado.idEnEdicion)data.version=estado.version;
+    else {data.responsable=principalForm.read();data.gestores=[...$('initialManagers').children].map(n=>n.readAccount());}
+    return data;
   }
-
-  function verificarDatos(datos) {
-    if (!/^[A-Z0-9_-]{1,5}$/.test(datos.ID_COP)) return 'El código debe tener entre 1 y 5 caracteres, con letras o números.';
-    if (!datos.NOM_COP || datos.NOM_COP.length > 20) return 'El nombre es obligatorio y debe tener máximo 20 caracteres.';
-    if (!/^\d{13}$/.test(datos.RUC_COP)) return 'El RUC debe contener exactamente 13 dígitos.';
-    if (!datos.DIR_COP || datos.DIR_COP.length > 20) return 'La dirección es obligatoria y debe tener máximo 20 caracteres.';
-    if (!/^\d{7,10}$/.test(datos.TEL_COP)) return 'El teléfono debe contener entre 7 y 10 dígitos.';
-    if (!datos.LOG_URL_COP || datos.LOG_URL_COP.length > 500) return 'La URL del logotipo es obligatoria y debe tener máximo 500 caracteres.';
-    try {
-      const url = new URL(datos.LOG_URL_COP);
-      if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Protocolo no admitido');
-    } catch {
-      return 'Ingresa una URL válida para el logotipo.';
+  function clearErrors() {
+    formulario.querySelectorAll('[data-field-error]').forEach(node=>{node.textContent='';});
+    formulario.querySelectorAll('[aria-invalid]').forEach(node=>node.removeAttribute('aria-invalid'));
+  }
+  function showStep(value) {
+    step=value;
+    formulario.querySelectorAll('[data-step]').forEach(node=>{node.hidden=Number(node.dataset.step)!==step;});
+    formulario.querySelectorAll('[data-step-label]').forEach(node=>{if(Number(node.dataset.stepLabel)===step)node.setAttribute('aria-current','step');else node.removeAttribute('aria-current');});
+    $('companyPrevious').hidden=step===0; $('companyNext').hidden=step===(estado.idEnEdicion?1:2); $('btnGuardarCooperativa').hidden=step!==(estado.idEnEdicion?1:2);
+  }
+  function fieldErrors(errors,onlyCurrent=false) {
+    clearErrors(); let first;
+    for(const [key,message] of Object.entries(errors)) {
+      const error=formulario.querySelector('[data-field-error="'+key+'"]');
+      const section=error?.closest('[data-step]');
+      if(!error || (onlyCurrent && Number(section.dataset.step)!==step))continue;
+      error.textContent=message; const input=[...formulario.querySelectorAll('[data-field-key]')].find(n=>n.dataset.fieldKey===key)||formulario.elements.namedItem(key) || $(key);
+      input?.setAttribute('aria-invalid','true'); first ||= {input,step:Number(section.dataset.step)};
     }
-    return '';
+    if(first) {showStep(first.step);first.input?.focus();return false;}return true;
   }
-
+  function summary() {
+    const managers=[...$('initialManagers').children];
+    managers.forEach((node,i)=>node.querySelectorAll('[data-field-key],[data-field-error]').forEach(n=>{if(n.dataset.fieldKey)n.dataset.fieldKey=n.dataset.fieldKey.replace(/^gestores.\d+/, 'gestores.'+i);if(n.dataset.fieldError)n.dataset.fieldError=n.dataset.fieldError.replace(/^gestores.\d+/, 'gestores.'+i);}));
+    $('initialAccountsSummary').replaceChildren();
+    if(estado.idEnEdicion)return;
+    for(const [index,person]of [principalForm?.read(),...managers.map(n=>n.readAccount())].entries()) {
+      if(!person)continue;const p=document.createElement('p');p.textContent=[(person.NOM_USU+' '+person.APE_USU).trim()||'Datos pendientes',person.COR_USU||'Correo pendiente',index?'Gestor adicional':'Principal',index?(person.permisos.map(k=>permissions[k]).join(', ')||'Sin permisos delegados'):'Acceso principal'].join(' · ');$('initialAccountsSummary').append(p);
+    }
+    $('addInitialManager').disabled=managers.length>=10;
+  }
+  function validation(data) {
+    const errors=window.EcuadorValidation.validate({...data,EST_COP:estado.idEnEdicion?'1':data.EST_COP,responsable:undefined});
+    if(!estado.idEnEdicion) {
+      const ids=new Set(),emails=new Set();
+      for(const [i,p]of [data.responsable,...data.gestores].entries()) {
+        const prefix=i?'gestores.'+(i-1):'responsable';
+        Object.assign(errors,Object.fromEntries(Object.entries(window.EcuadorValidation.person(p)).map(([k,v])=>[prefix+'.'+k,v])));
+        if(ids.has(p.ID_USU.trim().toUpperCase()))errors[prefix+'.ID_USU']='Identificaci\u00f3n repetida.';
+        if(emails.has(p.COR_USU.trim().toLowerCase()))errors[prefix+'.COR_USU']='Correo repetido.';
+        ids.add(p.ID_USU.trim().toUpperCase());emails.add(p.COR_USU.trim().toLowerCase());
+      }
+    }return errors;
+  }
+  $('addInitialManager').addEventListener('click',()=>{if($('initialManagers').children.length>=10)return;const card=window.CompanyAccounts.card($('initialManagers'),{prefix:'gestores.'+$('initialManagers').children.length+'.',permissions,removable:true});summary();card.focus();});
+  formulario.addEventListener('input',summary);
+  $('companyPrevious').addEventListener('click',()=>{if(!estado.guardando)showStep(Math.max(0,step-1));});
+  $('companyNext').addEventListener('click',()=>{if(!estado.guardando && fieldErrors(validation(recogerDatos()),true))showStep(Math.min(2,step+1));});
   function mostrarErrorFormulario(mensaje) {
     $('errorFormulario').textContent = mensaje;
     $('errorFormulario').hidden = false;
@@ -268,12 +287,16 @@
 
   function cambiarGuardando(guardando) {
     estado.guardando = guardando;
+    formulario.querySelectorAll('input,select,button').forEach(input=>{input.disabled=guardando;});
+    $('estadoCop').disabled=true;
+    if(!guardando)$('addInitialManager').disabled=$('initialManagers').children.length>=10;
     $('btnGuardarCooperativa').disabled = guardando;
     $('btnCancelarModal').disabled = guardando;
     $('btnCerrarModal').disabled = guardando;
+    $('companyPrevious').disabled=guardando; $('companyNext').disabled=guardando;
     $('btnGuardarCooperativa').textContent = guardando
       ? 'Guardando...'
-      : estado.idEnEdicion ? 'Guardar cambios' : 'Guardar registro';
+      : estado.idEnEdicion ? 'Guardar cambios' : 'Crear cooperativa y responsables';
   }
 
   $('btnNuevaCooperativa').addEventListener('click', () => abrirFormulario());
@@ -284,9 +307,9 @@
     if (evento.target === dialogo) cerrarFormulario();
   });
   dialogo.addEventListener('cancel', (evento) => {
-    if (estado.guardando) evento.preventDefault();
+    evento.preventDefault();cerrarFormulario();
   });
-  dialogo.addEventListener('close', () => { estado.idEnEdicion = null; });
+  dialogo.addEventListener('close', () => { estado.idEnEdicion = null; formulario.reset(); });
 
   $('buscarCooperativa').addEventListener('input', (evento) => {
     estado.busqueda = normalizar(evento.target.value);
@@ -297,47 +320,16 @@
     renderizarTabla();
   });
 
-  tabla.addEventListener('click', async (evento) => {
-    const boton = evento.target.closest('button[data-action]');
-    if (!boton || estado.cambiandoEstado || estado.guardando) return;
-    const cooperativa = estado.cooperativas.find((item) => item.ID_COP === boton.dataset.id);
-    if (!cooperativa) return;
-
-    if (boton.dataset.action === 'editar') {
-      abrirFormulario(cooperativa);
-      return;
-    }
-
-    if (boton.dataset.action !== 'estado') return;
-    const nuevoEstado = cooperativa.EST_COP === '1' ? '0' : '1';
-    const accion = nuevoEstado === '1' ? 'activar' : 'desactivar';
-    if (!window.confirm(`¿Deseas ${accion} ${cooperativa.NOM_COP}?`)) return;
-
-    estado.cambiandoEstado = true;
-    renderizarTabla();
-    try {
-      const datos = await solicitar(`/${encodeURIComponent(cooperativa.ID_COP)}/estado`, 'PATCH', { EST_COP: nuevoEstado });
-      const actualizado = await cargarCooperativas();
-      if (actualizado) mostrarNotificacion(datos.message || 'Estado actualizado correctamente.');
-    } catch (error) {
-      mostrarNotificacion(error.message, true);
-    } finally {
-      estado.cambiandoEstado = false;
-      renderizarTabla();
-    }
-  });
-
+  tabla.addEventListener('click',event=>{const row=event.target.closest('[data-company]');if(row&&!event.target.closest('a'))location.hash='cooperativa='+encodeURIComponent(row.dataset.company);});
+  tabla.addEventListener('keydown',event=>{if(event.target.matches('[data-company]')&&['Enter',' '].includes(event.key)){event.preventDefault();location.hash='cooperativa='+encodeURIComponent(event.target.dataset.company);}});
   formulario.addEventListener('submit', async (evento) => {
     evento.preventDefault();
-    if (estado.guardando || !formulario.reportValidity()) return;
+    if (estado.guardando) return;
+    if(step<(estado.idEnEdicion?1:2)) { $('companyNext').click(); return; }
 
     const datos = recogerDatos();
-    const error = verificarDatos(datos);
-    if (error) {
-      mostrarErrorFormulario(error);
-      return;
-    }
-
+    if(!fieldErrors(validation(datos)))return;
+    if(!estado.registroDisponible) {mostrarErrorFormulario('Pendiente de aplicar la migración 007. No se guardaron cambios.');return;}
     $('errorFormulario').hidden = true;
     const idEnEdicion = estado.idEnEdicion;
     cambiarGuardando(true);
@@ -349,14 +341,18 @@
         datos
       );
       cambiarGuardando(false);
+      pending.clear();
       cerrarFormulario();
       const actualizado = await cargarCooperativas();
       if (actualizado) mostrarNotificacion(respuesta.message || 'Cooperativa guardada correctamente.');
+      window.dispatchEvent(new CustomEvent('company:saved',{detail:{id:respuesta.cooperativa.ID_COP}}));
     } catch (error) {
+      if(error.fields)fieldErrors(error.fields);
       mostrarErrorFormulario(error.message);
       cambiarGuardando(false);
     }
   });
 
+  window.CompanyModule={request:solicitar,reload:cargarCooperativas,notify:mostrarNotificacion,pending,edit:(row,available)=>{estado.registroDisponible=available;abrirFormulario(row);}};
   cargarCooperativas();
 })();

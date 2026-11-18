@@ -53,7 +53,7 @@ async function requireSession(req, res, next) {
             correo: row.COR_USU, rolId: clean(row.ID_ROL_PER), cooperativaId: clean(row.ID_COP_PER),
             cooperativaActiva: clean(row.EST_COP) === '1', cooperativaNombre: row.NOM_COP, cooperativaLogo: row.LOG_URL_COP
         };
-        if (['R002', 'R003', 'R004'].includes(req.auth.rolId) && !req.auth.cooperativaActiva) return res.status(403).json({ success: false, message: 'Tu cooperativa no está activa o no está asignada.' });
+        if (['R002', 'R003', 'R004', 'R006'].includes(req.auth.rolId) && !req.auth.cooperativaActiva) return res.status(403).json({ success: false, message: 'Tu cooperativa no está activa o no está asignada.' });
         Object.assign(req.auth, await require('../security/permissions').context(pool, req.auth));
         next();
     } catch {

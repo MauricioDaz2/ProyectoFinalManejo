@@ -1,5 +1,6 @@
-﻿(() => {
+﻿(async () => {
   'use strict';
+  if (window.TransportSession) await window.TransportSession.ready;
   if (!document.documentElement.classList.contains('admin-authorized')) return;
   const D = window.DashboardData;
   const api = window.API_BASE_URL || 'http://localhost:3000/api';
@@ -20,21 +21,6 @@
   };
   const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.route}</svg>`;
   document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
-  const nav = [
-    ['Inicio', [['dashboard.html', 'home', 'Dashboard']]],
-    ['Gestión', [['cooperativas.html', 'building', 'Cooperativas'], ['parada_buses.html', 'bus', 'Parada de Buses'], ['hojas_ruta.html', 'route', 'Hojas de Ruta']]],
-    ['Personal operativo', [['usuarios.html#oficinistas', 'person', 'Oficinistas'], ['usuarios.html#controladores', 'people', 'Controladores']]]
-  ];
-  $('adminSidebar').innerHTML = `<div class="admin-brand"><span class="dash-brand-icon">${icon('bus')}</span><div><div class="brand-name">Transporte Admin</div><div class="brand-subtitle">Gestión interprovincial</div></div></div>${nav.map(([title, links]) => `<p class="nav-heading">${title}</p><nav class="admin-nav" aria-label="${title}">${links.map(([href, symbol, label]) => `<a class="nav-link${href === 'dashboard.html' ? ' active' : ''}" href="${href}"${href === 'dashboard.html' ? ' aria-current="page"' : ''}>${icon(symbol)}<span>${label}</span></a>`).join('')}</nav>`).join('')}<div class="dash-sidebar-card">${icon('route')}<strong>Sistema de Transporte<br>Interprovincial</strong><p>Gestión, control y operación<br>en un solo lugar.</p><small>Universidad Técnica de Ambato</small></div>`;
-  const avatar = document.createElement('span');
-  avatar.className = 'dash-avatar';
-  avatar.innerHTML = icon('person');
-  avatar.setAttribute('aria-hidden', 'true');
-  document.querySelector('.topbar-right').prepend(avatar);
-  const dateLabel = document.createElement('span');
-  dateLabel.className = 'dash-header-date';
-  dateLabel.textContent = new Date().toLocaleDateString('es-EC', { timeZone: 'America/Guayaquil', weekday: 'long', day: 'numeric', month: 'long' });
-  document.querySelector('.topbar-left').append(dateLabel);
 
   const set = (id, value) => {
     $(id).textContent = value === null ? 'No disponible' : String(value);

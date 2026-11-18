@@ -56,13 +56,13 @@ const obtenerAsientos = async (req, res) => {
                     BO.FEC_COM_BOL DESC
             ) O
             WHERE H.ID_HOJ = @idHoja
-              AND (@cooperativa IS NULL OR EXISTS (
+              AND EXISTS (
                   SELECT 1 FROM FRECUENCIAS F
                   JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                   JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
-                  WHERE F.ID_FRE = H.ID_FRE_PER AND C.ID_COP = @cooperativa
+                  WHERE F.ID_FRE = H.ID_FRE_PER AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
                     AND B.ID_COP_PER = C.ID_COP AND C.EST_COP = '1'
-              ))
+              )
             ORDER BY A.PIS_ASI, A.ID_ASI
             `);
 
@@ -91,6 +91,7 @@ const obtenerAsientos = async (req, res) => {
 };
 const obtenerMisBoletos = async (req, res) => {
     const cedulaUsuario = texto(req.params.cedula);
+    if(cedulaUsuario!==req.auth?.id)return res.status(403).json({success:false,message:'Solo puedes consultar tus propios boletos.'});
     if (!cedulaUsuario) {
         return res.status(400).json({ success: false, message: 'Cédula de usuario no proporcionada.' });
     }
@@ -122,6 +123,7 @@ const obtenerMisBoletos = async (req, res) => {
 const cancelarReservaUsuario = async (req, res) => {
     const idBoleto = texto(req.params.idBoleto).toUpperCase();
     const cedulaUsuario = texto(req.body?.cedula);
+    if(cedulaUsuario!==req.auth?.id)return res.status(403).json({success:false,message:'Solo puedes cancelar tus propias reservas.'});
 
     if (!idBoleto) {
         return res.status(400).json({ success: false, message: 'ID de boleto no válido.' });
@@ -188,6 +190,10 @@ const reservarAsiento = async (req, res) => {
     }
 
     const cedulaTitular = texto(req.body?.cedulaTitular);
+    if(cedulaTitular!==req.auth?.id) {
+        if(req.file)await fs.unlink(req.file.path).catch(()=>{});
+        return res.status(403).json({success:false,message:'El titular debe ser el usuario autenticado.'});
+    }
     const comprobanteUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     let estadoBoleto = 'RESERVADO'; 
@@ -218,12 +224,31 @@ const reservarAsiento = async (req, res) => {
     }
 
     const pool = await conectarBD();
+    const schema = await pool.request().query("SELECT CASE WHEN COL_LENGTH('dbo.BOLETOS','CED_PAS_BOL') IS NOT NULL AND COL_LENGTH('dbo.BOLETOS','TIP_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS RESERVAS_DISPONIBLES");
+    if(schema.recordset[0]?.RESERVAS_DISPONIBLES!==1) {
+        if(req.file)await fs.unlink(req.file.path).catch(()=>{});
+        return res.status(503).json({success:false,message:'Las reservas requieren aplicar migracion_pasajeros_facturacion.sql. No se realizó ningún cobro.'});
+    }
     const transaccion = new sql.Transaction(pool);
 
     try {
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
         const parametrosAsientos = idAsientos.map((_, index) => `@idAsiento${index}`);
+        await require('../services/workerSchedule').reserve(transaccion,cedulaTitular,idHoja,req.auth.rolId);
+        const company = await transaccion.request().input('sheet', sql.VarChar(5), idHoja).query(`
+            SELECT C.EST_COP FROM dbo.COOPERATIVAS C WITH (UPDLOCK,HOLDLOCK)
+            JOIN dbo.RESOLUCIONES_ANT R ON R.ID_COP_PER=C.ID_COP
+            JOIN dbo.FRECUENCIAS F ON F.ID_RES_PER=R.ID_RES
+            JOIN dbo.HOJAS_RUTAS H ON H.ID_FRE_PER=F.ID_FRE
+            JOIN dbo.BUSES B ON B.ID_BUS=H.ID_BUS_PER AND B.ID_COP_PER=C.ID_COP
+            WHERE H.ID_HOJ=@sheet AND C.EST_COP='1' AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADO','PROGRAMADA')
+        `);
+        if (!company.recordset.length) {
+            await transaccion.rollback();
+            if (req.file) await fs.unlink(req.file.path).catch(() => {});
+            return res.status(409).json({success:false,message:'El viaje no está disponible para nuevas reservas. La cooperativa puede estar suspendida o inactiva.'});
+        }
         const solicitudAsientos = transaccion.request().input('idHoja', sql.VarChar(5), idHoja);
         idAsientos.forEach((id, index) => solicitudAsientos.input(`idAsiento${index}`, sql.VarChar(5), id));
 
@@ -240,6 +265,11 @@ const reservarAsiento = async (req, res) => {
             await transaccion.rollback();
             return res.status(404).json({ success: false, message: 'Uno o más asientos no pertenecen a la hoja.' });
         }
+
+        const occupiedRequest=transaccion.request().input('sheetOccupied',sql.VarChar(5),idHoja);
+        idAsientos.forEach((id,i)=>occupiedRequest.input('occupied'+i,sql.VarChar(5),id));
+        const occupied=await occupiedRequest.query(`SELECT ID_BOL FROM dbo.BOLETOS WITH(UPDLOCK,HOLDLOCK) WHERE ID_HOJ_PER=@sheetOccupied AND ID_ASI_PER IN (${idAsientos.map((_,i)=>'@occupied'+i).join(',')}) AND UPPER(LTRIM(RTRIM(ISNULL(EST_BOL,'')))) NOT IN ('CANCELADO','ANULADO','INVALIDO','VENCIDO')`);
+        if(occupied.recordset.length){await transaccion.rollback();if(req.file)await fs.unlink(req.file.path).catch(()=>{});return res.status(409).json({success:false,message:'Uno de los asientos ya está reservado o vendido. Actualiza la disponibilidad.'});}
 
         const usuario = await transaccion.request()
             .input('cedula', sql.VarChar(10), cedulaTitular)
@@ -303,6 +333,7 @@ const reservarAsiento = async (req, res) => {
     } catch (error) {
         try { await transaccion.rollback(); } catch (e) {}
         if (req.file) { try { await fs.unlink(req.file.path); } catch (e) {} }
+        if(error.status)return res.status(error.status).json({success:false,message:error.message});
         console.error('Error al procesar reserva:', error);
         return res.status(500).json({ success: false, message: 'No fue posible procesar la operación.' });
     }

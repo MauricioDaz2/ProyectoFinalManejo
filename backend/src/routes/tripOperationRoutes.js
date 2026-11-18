@@ -1,0 +1,13 @@
+const router=require('express').Router();
+const {requireSession,requireRole}=require('../middleware/session');
+const service=require('../services/tripOperations');
+const run=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{res.json({success:true,...await fn(req)});}catch(e){res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo confirmar la operación. Actualiza e inténtalo nuevamente.'});}};
+router.use(requireSession);
+router.post('/asignaciones',requireRole('R001','R002'),run(req=>service.assign(req.auth,req.body)));
+router.get('/asignaciones/opciones',requireRole('R001','R002'),run(req=>service.assignmentOptions(req.auth)));
+router.use(requireRole('R004','R006'));
+router.get('/jornada',run(req=>service.journal(req.auth)));
+router.get('/hojas/:id',run(req=>service.detail(req.auth,req.params.id)));
+router.post('/hojas/:id/eventos',run(req=>service.event(req.auth,req.params.id,req.body)));
+router.post('/hojas/:id/venta',requireRole('R004'),run(async req=>{await service.detail(req.auth,req.params.id);throw Object.assign(new Error('Venta bloqueada: falta configurar tarifas por tramo y disponibilidad compartida con reservas.'),{status:503});}));
+module.exports=router;

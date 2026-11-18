@@ -14,6 +14,10 @@ function companyRequest(connection, id) { return new sql.Request(connection).inp
 async function company(connection, id) {
     const result = await companyRequest(connection, id).query("SELECT ID_COP, NOM_COP, LOG_URL_COP, DIR_COP, TEL_COP FROM dbo.COOPERATIVAS WHERE ID_COP = @cop AND EST_COP = '1'");
     if (!result.recordset[0]) throw error(404, 'Cooperativa no disponible.');
+    if (await require('../services/companyRegistration').installed(connection)) {
+        const contact = await companyRequest(connection, id).query('SELECT NOM_COM_COP, COR_INS_COP FROM dbo.COOPERATIVAS WHERE ID_COP=@cop');
+        Object.assign(result.recordset[0], contact.recordset[0]);
+    }
     return result.recordset[0];
 }
 async function read(id) {
@@ -24,9 +28,9 @@ async function read(id) {
     const row = result.recordset[0];
     return { company: info, content: row ? JSON.parse(row.BORRADOR_JSON) : null, revision: row?.REVISION || 0, publishedAt: row?.PUBLICADO_UTC || null, images: images.recordset };
 }
-async function published(pool, id) {
+async function published(pool, id, includeInactive = false) {
     if (!await installed(pool)) return null;
-    const result = await companyRequest(pool, id).query("SELECT P.PUBLICADO_JSON FROM dbo.COOPERATIVA_PERFILES P JOIN dbo.COOPERATIVAS C ON C.ID_COP = P.ID_COP WHERE P.ID_COP = @cop AND C.EST_COP = '1'");
+    const result = await companyRequest(pool, id).query(`SELECT P.PUBLICADO_JSON FROM dbo.COOPERATIVA_PERFILES P JOIN dbo.COOPERATIVAS C ON C.ID_COP = P.ID_COP WHERE P.ID_COP = @cop${includeInactive ? '' : " AND C.EST_COP = '1'"}`);
     return result.recordset[0]?.PUBLICADO_JSON ? JSON.parse(result.recordset[0].PUBLICADO_JSON) : null;
 }
 async function transaction(work) {
@@ -71,9 +75,9 @@ async function addImage(id, image) {
         throw err;
     }
 }
-async function image(id, imageId, isPublic) {
+async function image(id, imageId, isPublic, includeInactive = false) {
     const pool = await ready();
-    await company(pool, id);
+    if(!includeInactive)await company(pool, id);
     if (isPublic) {
         const content = await published(pool, id);
         if (!references(content).includes(imageId.toLowerCase())) throw error(404, 'Imagen no disponible.');

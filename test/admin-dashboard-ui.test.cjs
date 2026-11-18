@@ -23,7 +23,8 @@ async function dashboard({ fail = [], authorized = true, overrides = {}, sold = 
     '/admin/rutas/hojas': { hojas: [] },
     ...overrides
   };
-  vm.runInNewContext(fs.readFileSync('frontend/src/js/admin_dashboard.js', 'utf8'), {
+  vm.runInNewContext(fs.readFileSync('frontend/src/js/admin_shell.js', 'utf8')+'\n'+fs.readFileSync('frontend/src/js/admin_dashboard.js', 'utf8'), {
+    location:{pathname:'/frontend/src/views/admin/dashboard.html'},
     window: { DashboardData: D }, Date, Intl, AbortSignal,
     document: { documentElement: { classList: { contains: () => authorized } }, getElementById: get, querySelector: get, querySelectorAll: () => [], createElement: () => get('created') },
     fetch: async (url) => {

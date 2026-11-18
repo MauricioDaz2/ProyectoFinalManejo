@@ -1,13 +1,7 @@
-(() => {
+(async () => {
   'use strict';
 
-  let usuario;
-  try {
-    usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
-  } catch (error) {
-    console.warn('Sesión local ilegible', error);
-    usuario = null;
-  }
+  const usuario = await window.TransportSession.ready;
 
   if (!usuario || usuario.rolId !== 'R001') {
     window.location.replace('../auth/login.html');

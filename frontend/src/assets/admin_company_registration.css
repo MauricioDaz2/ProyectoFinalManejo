@@ -1,0 +1,19 @@
+.company-page [hidden] { display:none!important; }
+.company-page .coop-summary-card,.company-page .coop-panel { border:1px solid #e5eaf2;border-radius:18px;box-shadow:0 4px 16px #142d4b07; }
+.company-page .coop-summary-number { color:#152b4e; }.company-page .coop-summary-card { border-top:3px solid #c70b2c; }
+.company-page .coop-table thead { background:#edf1f7;color:#172a49; }.company-page .coop-table td { padding:17px 14px; }
+.company-page .coop-table th { white-space:nowrap; }.company-page .coop-name-cell { min-width:180px; }
+.company-page .coop-dialog { width:min(800px,calc(100% - 24px));max-height:92dvh;border:0;border-radius:18px;color:#172a49; }
+.company-page .coop-dialog::backdrop { background:#071b3bb3; }
+.company-page .coop-dialog input,.company-page .coop-dialog select { width:100%;box-sizing:border-box; }
+.company-page .company-steps { display:flex;gap:10px;list-style:none;padding:0;margin:0 0 20px; }
+.company-steps li { flex:1;background:#eff3f8;border-radius:8px;padding:10px;font-size:13px;color:#586b85; }
+.company-steps [aria-current] { background:#152c50;color:#fff; }
+.company-page .company-help { font-size:13px;line-height:1.6;color:#5c6f88;margin:16px 0; }
+.company-page .company-help a { color:#a80825;text-decoration:underline; }
+.company-page .company-field-error { display:block;color:#ac1730;min-height:1em;font-size:12px; }
+.company-page [aria-invalid=true] { border-color:#b6112d; }
+.company-page .coop-form-field>span { font-weight:600; }
+.company-page .coop-dialog-actions { flex-wrap:wrap;gap:8px; }
+.company-page .coop-form-grid { align-items:start; }
+@media(max-width:600px) { .company-page .coop-form-grid { grid-template-columns:1fr; }.company-page .company-steps { gap:4px; }.company-steps li { font-size:11px;padding:8px 5px; }.company-page .coop-dialog-content { padding:16px; }.company-page .coop-dialog-actions button { flex:1;white-space:nowrap; } }

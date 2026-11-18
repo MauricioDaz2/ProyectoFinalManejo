@@ -17,7 +17,7 @@ function setup(fetch) {
     node('correo').value = ' user@example.test ';
     node('password').value = 'test-password';
     const storage = new Map();
-    const window = { location: { href: '' } };
+    const window = { location: { href: '' }, TransportSession: { panelFor: role => roles[role] } };
     vm.runInNewContext(fs.readFileSync('frontend/src/views/auth/login.js', 'utf8'), {
         document: { getElementById: node }, window, fetch, AbortController, setTimeout, clearTimeout,
         localStorage: { setItem: (key, value) => storage.set(key, value) }
@@ -28,7 +28,7 @@ function setup(fetch) {
 const roles = {
     R001: '../admin/dashboard.html', R002: '../cooperativa/dashboard_coop.html',
     R003: '../oficinista/ventanilla_boletos.html', R004: '../controlador/panel.html',
-    R005: '../usuario/catalogo_viajes.html'
+    R005: '../public/index.html', R006: '../chofer/bienvenida.html'
 };
 for (const [rolId, destino] of Object.entries(roles)) {
     test(`Login compartido conserva destino ${rolId} y contrato de la API`, async () => {

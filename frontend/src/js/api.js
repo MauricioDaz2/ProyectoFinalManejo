@@ -4,16 +4,11 @@
   const API_URL = window.API_BASE_URL || 'http://localhost:3000/api';
 
   function sesion() {
-    try {
-      return JSON.parse(localStorage.getItem('usuario') || 'null');
-    } catch (error) {
-      console.warn('Sesión local ilegible', error);
-      return null;
-    }
+    return window.TransportSession?.user || null;
   }
 
   function guardarSesion(usuario) {
-    localStorage.setItem('usuario', JSON.stringify(usuario));
+    try { localStorage.setItem('usuario', JSON.stringify(usuario)); } catch {}
   }
 
   function cerrarSesion() {

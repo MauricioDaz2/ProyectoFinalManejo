@@ -10,6 +10,7 @@ const listarHojasRuta = async (req, res) => {
     try {
         const pool = await conectarBD();
 
+        const operacion=await require('../services/tripOperations').installed(pool);
         const resultado = await pool.request().query(`
             SELECT H.ID_HOJ,
                    CONVERT(varchar(10), H.FEC_PRO_HOJ, 23) AS FEC_PRO_HOJ,
@@ -26,8 +27,8 @@ const listarHojasRuta = async (req, res) => {
                    F.CIU_DES_FRE,
                    F.FEC_HOR_INI_FRE,
                    C.NOM_COP,
-                   UCH.NOM_USU AS NOM_CHOFER,
-                   UCH.APE_USU AS APE_CHOFER,
+                   ${operacion?'UCH.NOM_USU':'NULL'} AS NOM_CHOFER,
+                   ${operacion?'UCH.APE_USU':'NULL'} AS APE_CHOFER,
                    UCO.NOM_USU AS NOM_CONT,
                    UCO.APE_USU AS APE_CONT
             FROM HOJAS_RUTAS H
@@ -35,7 +36,7 @@ const listarHojasRuta = async (req, res) => {
             LEFT  JOIN BUSES BR        ON H.ID_BUS_REE = BR.ID_BUS
             INNER JOIN FRECUENCIAS F   ON H.ID_FRE_PER = F.ID_FRE
             INNER JOIN COOPERATIVAS C  ON BP.ID_COP_PER = C.ID_COP
-            LEFT  JOIN USUARIOS UCH    ON H.ID_USU_CHO = UCH.ID_USU
+            ${operacion?'LEFT JOIN USUARIOS UCH ON H.ID_USU_CHO=UCH.ID_USU':''}
             LEFT  JOIN USUARIOS UCO    ON H.ID_USU_CON = UCO.ID_USU
             ORDER BY H.FEC_PRO_HOJ DESC, H.ID_HOJ DESC
         `);
@@ -53,83 +54,11 @@ const listarHojasRuta = async (req, res) => {
 };
 
 // --- Crear Hoja de Ruta ---
-const crearHojaRuta = async (req, res) => {
-    const { fecPro, idBus, idFre, obs, idUsuCho, idUsuCon } = req.body;
-
-    if (!fecPro || !idBus || !idFre || !idUsuCho || !idUsuCon) {
-        return res.status(400).json({
-            success: false,
-            message: 'Fecha, bus, frecuencia, chofer y controlador son obligatorios.'
-        });
-    }
-
-    if (isNaN(Date.parse(fecPro))) {
-        return res.status(400).json({ success: false, message: 'Formato de fecha inválido.' });
-    }
-
-    if (obs && String(obs).length > 50) {
-        return res.status(400).json({ success: false, message: 'La observación no puede superar los 50 caracteres.' });
-    }
-
-    try {
-        const pool = await conectarBD();
-
-        const validacion = await pool.request()
-            .input('idBus', sql.VarChar, idBus)
-            .input('idFre', sql.VarChar, idFre)
-            .input('idCho', sql.VarChar, idUsuCho)
-            .input('idCon', sql.VarChar, idUsuCon)
-            .query(`
-                SELECT (SELECT COUNT(*) FROM BUSES WHERE ID_BUS = @idBus) AS bus,
-                       (SELECT COUNT(*) FROM FRECUENCIAS WHERE ID_FRE = @idFre) AS fre,
-                       (SELECT COUNT(*) FROM USUARIOS WHERE ID_USU = @idCho AND ID_ROL_PER = 'R006') AS chofer,
-                       (SELECT COUNT(*) FROM USUARIOS WHERE ID_USU = @idCon AND ID_ROL_PER = 'R004') AS controlador
-            `);
-
-        if (validacion.recordset[0].bus === 0) {
-            return res.status(404).json({ success: false, message: 'El bus indicado no existe.' });
-        }
-        if (validacion.recordset[0].fre === 0) {
-            return res.status(404).json({ success: false, message: 'La frecuencia indicada no existe.' });
-        }
-        if (validacion.recordset[0].chofer === 0) {
-            return res.status(400).json({ success: false, message: 'El chofer seleccionado no es válido o no tiene el rol R006.' });
-        }
-        if (validacion.recordset[0].controlador === 0) {
-            return res.status(400).json({ success: false, message: 'El controlador seleccionado no es válido o no tiene el rol R004.' });
-        }
-
-        const ultimo = await pool.request().query('SELECT MAX(ID_HOJ) AS ultimo FROM HOJAS_RUTAS');
-        const nuevoId = generarId('HOJ', ultimo.recordset[0].ultimo);
-
-        await pool.request()
-            .input('id', sql.VarChar, nuevoId)
-            .input('fec', sql.Date, fecPro)
-            .input('obs', sql.VarChar, obs || null)
-            .input('idBus', sql.VarChar, idBus)
-            .input('idFre', sql.VarChar, idFre)
-            .input('idCho', sql.VarChar, idUsuCho)
-            .input('idCon', sql.VarChar, idUsuCon)
-            .query(`
-                INSERT INTO HOJAS_RUTAS
-                    (ID_HOJ, FEC_PRO_HOJ, EST_VIA_HOJ, OBS_HOJ, ID_BUS_PER, ID_BUS_REE, ID_FRE_PER, ID_USU_CHO, ID_USU_CON)
-                VALUES
-                    (@id, @fec, 'PROGRAMADO', @obs, @idBus, NULL, @idFre, @idCho, @idCon)
-            `);
-
-        res.status(201).json({
-            success: true,
-            message: 'Hoja de ruta creada correctamente.',
-            id: nuevoId
-        });
-
-    } catch (error) {
-        console.error('Error al crear hoja de ruta:', error);
-        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
-    }
+const crearHojaRuta = async (req,res) => {
+    try {const result=await require('../services/tripOperations').assign(req.auth,req.body);res.status(201).json({success:true,...result});}
+    catch(e){res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo programar el viaje.'});}
 };
 
-// --- Listar Frecuencias ---
 const listarFrecuencias = async (req, res) => {
     try {
         const pool = await conectarBD();

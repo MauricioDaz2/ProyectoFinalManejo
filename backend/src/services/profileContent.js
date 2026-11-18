@@ -1,11 +1,11 @@
 const error = (status, message, code) => Object.assign(new Error(message), { status, code });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function defaults(company = {}) {
-    return { nombre: company.NOM_COP || '', descripcion: '', mision: '', telefono: company.TEL_COP || '', direccion: company.DIR_COP || '', correo: '', principal: '#103971', secundario: '#ffb900', logo: null, portada: null, galeria: [], servicios: [] };
+    return { nombre: company.NOM_COM_COP || company.NOM_COP || '', descripcion: '', mision: '', telefono: company.TEL_COP || '', direccion: company.DIR_COP || '', correo: company.COR_INS_COP || '', principal: '#103971', secundario: '#ffb900', logo: null, portada: null, galeria: [], servicios: [] };
 }
 function normalize(input) {
     const result = {};
-    const fields = { nombre: 80, descripcion: 2000, mision: 1000, telefono: 40, direccion: 240, correo: 120 };
+    const fields = { nombre: 120, descripcion: 2000, mision: 1000, telefono: 40, direccion: 240, correo: 120 };
     const allowed = [...Object.keys(fields), 'principal', 'secundario', 'logo', 'portada', 'galeria', 'servicios'];
     if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !allowed.includes(key))) throw error(400, 'El contenido contiene campos no permitidos.');
     for (const [key, max] of Object.entries(fields)) {

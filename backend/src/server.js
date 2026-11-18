@@ -22,9 +22,13 @@ app.use(cors((req, callback) => callback(null, { origin: allowedOrigin(req, req.
 app.use(express.json());
 app.use('/api', guardOrigin);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.get('/api/health', (req, res) => {
+    res.set('Cache-Control', 'no-store').json({ application: 'ProyectoFinalManejo', frontend: '/src/views/public/index.html' });
+});
 
 
 app.use('/api/auth', authRoutes);
+app.use('/api/operacion', require('./routes/tripOperationRoutes'));
 app.use('/api/mi-perfil', require('./routes/userProfileRoutes'));
 app.use('/api/admin', requireSession, requireRole('R001'));
 app.use('/api/coop', requireSession, requireRole('R002'));
@@ -32,7 +36,7 @@ app.use('/api/oficinista', requireSession, requireRole('R001', 'R003'));
 app.use('/api/controlador', requireSession, requireRole('R004'));
 app.use('/api/usuario/reservas', (req, res, next) => {
     if (req.method === 'GET' && /^\/[A-Za-z0-9_-]{1,5}\/asientos\/?$/.test(req.path)) return next();
-    requireSession(req, res, () => requireRole('R005')(req, res, next));
+    requireSession(req, res, () => requireRole('R005','R004','R006')(req, res, next));
 });
 app.use('/api/public', require('./routes/publicRoutes'));
 app.use('/api/admin/rutas', adminRutasRoutes);
@@ -57,8 +61,14 @@ app.use('/api/controlador', require('./routes/controladorRoutes'));
 app.use(express.static(path.join(__dirname, '../../frontend')));
 
 if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`Servidor corriendo en el puerto ${PORT}`);
+    const server = app.listen(PORT, () => {
+        console.log(`ProyectoFinalManejo disponible en http://localhost:${PORT}/`);
+        console.log('Abre ese enlace para ingresar. SQL Server debe estar iniciado para consultar datos.');
+    });
+    server.on('error', error => {
+        if (error.code === 'EADDRINUSE') console.error(`El puerto ${PORT} ya está ocupado. Si el proyecto está iniciado, abre http://localhost:${PORT}/; de lo contrario, detén el proceso anterior antes de volver a iniciar.`);
+        else console.error('No se pudo iniciar Express:', error.message);
+        process.exitCode = 1;
     });
 }
 
