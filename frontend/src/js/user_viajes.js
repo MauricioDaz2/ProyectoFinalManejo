@@ -1,3 +1,4 @@
+/*Viajes*/
 const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api';
 const searchForm = document.querySelector('#searchForm');
 const results = document.querySelector('#results');
