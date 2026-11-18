@@ -1,92 +1,54 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script src="../../js/transport_session.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard | Administración de Transporte</title>
   <link rel="stylesheet" href="../../assets/admin_layout.css">
   <link rel="stylesheet" href="../../assets/admin_dashboard.css">
   <script src="../../js/admin_layout.js" defer></script>
+  <script src="../../js/admin_dashboard_data.js" defer></script>
   <script src="../../js/admin_dashboard.js" defer></script>
+  <link rel="stylesheet" href="../../assets/mi_perfil.css">
+  <script src="../../js/mi_perfil.js" defer></script>
 </head>
-<body data-page="dashboard">
+<body data-page="dashboard" class="dashboard-page">
+  <a class="dash-skip" href="#main-content">Saltar al contenido</a>
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
     <div id="menuBackdrop" class="menu-backdrop" hidden></div>
     <div class="admin-workspace">
       <header id="adminTopbar" class="admin-topbar"></header>
       <main id="main-content" class="admin-main">
-        <div class="page-title">
-          <p class="eyebrow">Administración / Inicio</p>
-          <h1>Dashboard general</h1>
-          <p>Bienvenido al sistema de gestión de transporte interprovincial.</p>
-        </div>
-
-        <section class="welcome-banner" aria-labelledby="bienvenidaTitulo">
-          <div>
-            <p class="welcome-kicker">Panel de administración</p>
-            <h2 id="bienvenidaTitulo">Gestiona los módulos de transporte desde un solo lugar</h2>
-            <p>Administra cooperativas y personal operativo desde un mismo panel de control.</p>
-          </div>
-          <span class="banner-decoration" aria-hidden="true">◈</span>
+        <section class="dash-hero" aria-labelledby="welcomeTitle">
+          <div><p class="dash-eyebrow">SISTEMA DE TRANSPORTE INTERPROVINCIAL</p><h1 id="welcomeTitle">Bienvenido, Administrador</h1><p>Gestiona cooperativas, personal operativo, rutas y la<br class="desktop-break"> operación del sistema desde un solo lugar.</p></div>
         </section>
-
-        <section class="dashboard-section" aria-labelledby="resumenTitulo">
-          <div class="dashboard-section-heading">
-            <div>
-              <h2 id="resumenTitulo" class="section-title">Resumen del sistema</h2>
-              <p>Registros obtenidos desde la base de datos.</p>
+        <div class="dash-toolbar"><p id="estadoDashboard" role="status" aria-live="polite">Consultando información…</p><button id="btnActualizarDashboard" type="button">Actualizar datos <span aria-hidden="true">↻</span></button></div>
+        <section class="dash-metrics" aria-label="Resumen del sistema">
+          <a class="dash-metric" href="cooperativas.html"><span class="dash-icon red" data-icon="people"></span><div><h2>Cooperativas</h2><strong class="metric-value" id="metricCooperativas">Consultando…</strong><p>Registradas en el sistema</p><small>Activas: <span id="metricCooperativasActivas">Consultando…</span></small></div></a>
+          <a class="dash-metric" href="parada_buses.html"><span class="dash-icon blue" data-icon="bus"></span><div><h2>Buses</h2><strong class="metric-value" id="metricBuses">Consultando…</strong><p>Unidades registradas</p><small>Consulta la flota y parada de buses</small></div></a>
+          <a class="dash-metric" href="usuarios.html#oficinistas"><span class="dash-icon purple" data-icon="people"></span><div><h2>Personal Operativo</h2><strong class="metric-value" id="metricPersonal">Consultando…</strong><p><span id="metricOficinistas">Consultando…</span> oficinistas · <span id="metricControladores">Consultando…</span> controladores</p><small>Personal registrado</small></div></a>
+          <a class="dash-metric" href="hojas_ruta.html"><span class="dash-icon gold" data-icon="route"></span><div><h2>Rutas</h2><strong class="metric-value" id="metricRutas">Consultando…</strong><p>Pares de origen y destino</p><small>En frecuencias registradas</small></div></a>
+        </section>
+        <div class="dash-grid">
+          <section class="dash-card operation-card" aria-labelledby="operationTitle">
+            <div class="dash-heading"><span data-icon="clock"></span><div><h2 id="operationTitle">Estado operativo</h2><p>Situaciones que requieren atención</p></div></div>
+            <ul id="operationalStatus" class="dash-alerts" aria-live="polite"><li class="dash-empty">Consultando registros…</li></ul>
+            <p class="dash-note">Consulta del <span id="queryDate">—</span>. Actualiza los datos para revisar cambios.</p>
+          </section>
+          <section class="dash-card trips-card" aria-labelledby="tripsTitle">
+            <div class="dash-heading"><span data-icon="calendar"></span><div><h2 id="tripsTitle">Próximas salidas</h2><p>Programación desde hoy</p></div><a href="hojas_ruta.html" class="dash-text-link">Ver todas →</a></div>
+            <div id="tripsTable" class="dash-table-wrap" tabindex="0" role="region" aria-label="Próximas salidas, tabla desplazable" hidden>
+              <table class="dash-table"><caption class="dash-sr-only">Hasta cinco próximas salidas programadas</caption><thead><tr><th scope="col">Cooperativa</th><th scope="col">Origen y destino</th><th scope="col">Fecha de salida</th><th scope="col">Bus asignado</th><th scope="col">Estado</th></tr></thead><tbody id="tripsBody"></tbody></table>
             </div>
-            <button class="dashboard-refresh" id="btnActualizarDashboard" type="button">Actualizar</button>
-          </div>
-
-          <p id="estadoDashboard" class="dashboard-status" role="status" aria-live="polite">Consultando información...</p>
-
-          <div class="dashboard-metrics">
-            <a class="dashboard-metric" href="cooperativas.html" aria-label="Ver cooperativas">
-              <span class="metric-label">Cooperativas registradas</span>
-              <strong id="metricCooperativas" class="metric-value" aria-live="polite">—</strong>
-              <span class="metric-link">Gestionar cooperativas →</span>
-            </a>
-            <a class="dashboard-metric" href="cooperativas.html" aria-label="Ver cooperativas activas">
-              <span class="metric-label">Cooperativas activas</span>
-              <strong id="metricCooperativasActivas" class="metric-value" aria-live="polite">—</strong>
-              <span class="metric-link">Ver cooperativas →</span>
-            </a>
-            <a class="dashboard-metric" href="usuarios.html#oficinistas" aria-label="Ver oficinistas">
-              <span class="metric-label">Oficinistas</span>
-              <strong id="metricOficinistas" class="metric-value" aria-live="polite">—</strong>
-              <span class="metric-link">Gestionar oficinistas →</span>
-            </a>
-            <a class="dashboard-metric" href="usuarios.html#controladores" aria-label="Ver controladores">
-              <span class="metric-label">Controladores</span>
-              <strong id="metricControladores" class="metric-value" aria-live="polite">—</strong>
-              <span class="metric-link">Gestionar controladores →</span>
-            </a>
-          </div>
-        </section>
-
-        <h2 class="section-title">Accesos del administrador</h2>
-        <div class="feature-grid">
-          <a class="feature-card" href="cooperativas.html">
-            <span class="feature-icon" aria-hidden="true">C</span>
-            <span class="feature-name">Cooperativas</span>
-            <span class="feature-description">Accede a la sección de gestión de cooperativas.</span>
-            <span class="feature-link">Ver módulo →</span>
-          </a>
-          <a class="feature-card" href="usuarios.html#oficinistas">
-            <span class="feature-icon" aria-hidden="true">U</span>
-            <span class="feature-name">Personal operativo</span>
-            <span class="feature-description">Oficinistas y controladores de bus.</span>
-            <span class="feature-link">Ver módulo →</span>
-          </a>
-          <a class="feature-card" href="hojas_ruta.html">
-            <span class="feature-icon" aria-hidden="true">R</span>
-            <span class="feature-name">Hojas de ruta</span>
-            <span class="feature-description">Accede al módulo operativo desarrollado por el equipo.</span>
-            <span class="feature-link">Ver hojas de ruta →</span>
-          </a>
+            <div id="tripsEmpty" class="dash-departures-empty" role="status"><span data-icon="calendar"></span><p>Consultando programación…</p></div>
+            <p id="tripsNote" class="dash-note" aria-live="polite">Las fechas corresponden a la programación registrada.</p>
+          </section>
+          <section class="dash-card sales-card" aria-labelledby="salesTitle"><div class="dash-heading"><span data-icon="ticket"></span><div><h2 id="salesTitle">Ventas de boletos</h2><p>Últimos 7 días · incluido hoy</p></div><span class="dash-chip">Boletos vendidos</span></div><div id="salesContent" class="chart-content" aria-live="polite"><p class="dash-empty">Consultando ventas…</p></div></section>
+          <section id="occupancyCard" class="dash-card occupancy-card" aria-labelledby="occupancyTitle" hidden><div class="dash-heading"><span data-icon="seat"></span><div><h2 id="occupancyTitle">Ocupación de asientos</h2><p>Viajes de hoy · programados y en curso</p></div></div><div id="occupancyContent" class="chart-content" aria-live="polite"></div></section>
         </div>
+        <footer class="dash-footer">Universidad Técnica de Ambato <span>Administración de transporte interprovincial</span></footer>
       </main>
     </div>
   </div>

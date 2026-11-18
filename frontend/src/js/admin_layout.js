@@ -62,8 +62,7 @@
 
     document.getElementById('nombreUsuario').textContent = usuario.nombre || 'Administrador';
     document.getElementById('btnCerrarSesion').addEventListener('click', () => {
-      localStorage.removeItem('usuario');
-      window.location.replace('../auth/login.html');
+      window.TransportSession.logout().catch((error) => window.alert(error.message));
     });
   }
 

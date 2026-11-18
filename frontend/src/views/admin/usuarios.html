@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script src="../../js/transport_session.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Personal operativo | Transporte Admin</title>
@@ -8,6 +9,8 @@
   <link rel="stylesheet" href="../../assets/admin_usuarios.css">
   <script src="../../js/admin_layout.js" defer></script>
   <script src="../../js/admin_usuarios.js" defer></script>
+  <link rel="stylesheet" href="../../assets/mi_perfil.css">
+  <script src="../../js/mi_perfil.js" defer></script>
 </head>
 <body data-page="usuarios">
   <div class="admin-shell">
@@ -136,7 +139,7 @@
             <span>Tipo de personal / Rol <b>*</b></span>
             <select id="rolUsuario" name="ID_ROL_PER" required>
               <option value="">Seleccione un tipo...</option>
-              <option value="R006">Chofer</option>
+
               <option value="R004">Controlador</option>
               <option value="R003">Oficinista</option>
               <option value="R002">Usuario de Cooperativa</option>
@@ -174,8 +177,8 @@
           </label>
           <label class="staff-field" for="claveUsuario" id="grupoClaveUsuario">
             <span>Contraseña inicial <b>*</b></span>
-            <input id="claveUsuario" type="password" minlength="8" maxlength="20" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
-            <small>Utiliza entre 8 y 20 caracteres sin espacios ni tildes.</small>
+            <input id="claveUsuario" type="password" minlength="8" maxlength="72" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+            <small>Utiliza al menos 8 caracteres y hasta 72 bytes. La clave se guarda mediante hash.</small>
           </label>
         </div>
         <p id="errorPersonal" class="staff-form-error" role="alert" hidden></p>
