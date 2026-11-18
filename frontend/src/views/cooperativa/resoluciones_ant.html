@@ -38,19 +38,52 @@
 
         <div id="avisoGlobal"></div>
         <details id="coopAssignment" class="panel" hidden>
-          <summary>Programar salida con chofer y controlador</summary>
-          <p>Selecciona personal activo de tu cooperativa. Se comprobarán horarios laborales y reservas personales.</p>
+          <summary>Programar salidas con chofer y controlador</summary>
+          <p id="assignmentHelp">Selecciona personal activo de tu cooperativa. Se comprobarán horarios laborales y reservas personales.</p>
           <p id="assignmentStatus" role="status"></p>
-          <form id="assignmentForm">
+          <div id="singleAssignment">
+            <form id="assignmentForm">
+              <div class="form-grid">
+                <div class="field"><label for="assignmentBus">Bus</label><select id="assignmentBus" required></select></div>
+                <div class="field"><label for="assignmentRoute">Frecuencia</label><select id="assignmentRoute" required></select></div>
+                <div class="field"><label for="assignmentDriver">Chofer</label><select id="assignmentDriver" required></select></div>
+                <div class="field"><label for="assignmentController">Controlador</label><select id="assignmentController" required></select></div>
+                <div class="field"><label for="assignmentStart">Salida (Ecuador continental)</label><input id="assignmentStart" type="datetime-local" required></div>
+                <div class="field"><label for="assignmentEnd">Llegada prevista (Ecuador continental)</label><input id="assignmentEnd" type="datetime-local" required></div>
+              </div>
+              <button class="btn btn-primary" id="assignmentSubmit" type="submit">Guardar salida</button>
+            </form>
+          </div>
+          <form id="batchForm" hidden>
             <div class="form-grid">
-              <div class="field"><label for="assignmentBus">Bus</label><select id="assignmentBus" required></select></div>
-              <div class="field"><label for="assignmentRoute">Frecuencia</label><select id="assignmentRoute" required></select></div>
-              <div class="field"><label for="assignmentDriver">Chofer</label><select id="assignmentDriver" required></select></div>
-              <div class="field"><label for="assignmentController">Controlador</label><select id="assignmentController" required></select></div>
-              <div class="field"><label for="assignmentStart">Salida (Ecuador continental)</label><input id="assignmentStart" type="datetime-local" required></div>
-              <div class="field"><label for="assignmentEnd">Llegada prevista (Ecuador continental)</label><input id="assignmentEnd" type="datetime-local" required></div>
+              <div class="field"><label for="batchFrequency">Frecuencia</label><select id="batchFrequency" required></select></div>
+              <div class="field"><label for="batchStart">Salida (Ecuador continental)</label><input id="batchStart" type="datetime-local" required></div>
+              <div class="field"><label for="batchEnd">Llegada prevista (Ecuador continental)</label><input id="batchEnd" type="datetime-local" required></div>
+              <div class="field"><label for="batchCategory">Categoría operativa</label><output id="batchCategory">—</output></div>
             </div>
-            <button class="btn btn-primary" id="assignmentSubmit" type="submit">Guardar salida</button>
+            <div class="panel-toolbar mt-2">
+              <span class="muted" id="batchSummary">Consulta la disponibilidad para cargar buses y tripulación.</span>
+              <div class="spacer"></div>
+              <button class="btn btn-secondary" type="button" id="batchCheck">Consultar disponibilidad</button>
+              <button class="btn btn-secondary" type="button" id="batchAdd">+ Agregar fila</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" aria-label="Filas del lote de hojas de ruta">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Bus</th>
+                    <th>Chofer</th>
+                    <th>Controlador</th>
+                    <th>Observación</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="batchRows"></tbody>
+              </table>
+            </div>
+            <p id="batchConflicts" role="status"></p>
+            <button class="btn btn-primary" id="batchSubmit" type="submit">Confirmar lote</button>
           </form>
         </details>
 
@@ -262,6 +295,13 @@
               </fieldset>
               <div class="field"><label for="cupoUnidadesFrecuencia">Buses distintos por día</label><input id="cupoUnidadesFrecuencia" type="number" min="1" max="2147483647" step="1" aria-describedby="ayudaCuposFrecuencia"></div>
               <div class="field"><label for="cupoPasajerosFrecuencia">Pasajeros por día</label><input id="cupoPasajerosFrecuencia" type="number" min="1" max="2147483647" step="1" aria-describedby="ayudaCuposFrecuencia"></div>
+              <div class="field">
+                <label for="categoriaFrecuencia">Categoría operativa <span class="req">*</span></label>
+                <select id="categoriaFrecuencia" aria-describedby="ayudaCategoriaFrecuencia">
+                  <option value="">Selecciona…</option>
+                </select>
+                <span class="help" id="ayudaCategoriaFrecuencia">El bus asignado debe pertenecer a esta categoría.</span>
+              </div>
             </div>
             <p class="help" id="ayudaCuposFrecuencia">Indica al menos un límite. Se aplica a toda la frecuencia, no solo a un bus.</p>
           </fieldset>
