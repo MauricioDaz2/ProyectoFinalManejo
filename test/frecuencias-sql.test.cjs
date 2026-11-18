@@ -71,6 +71,8 @@ test('RFC-000070: migraciones SQL Server, vigencia, cupos concurrentes y cancela
         await sell('VTC03', 'HTC04', 'ATC03');
         await sandbox.request().query("UPDATE dbo.RESOLUCIONES_ANT SET REVOCADA_RES=1 WHERE ID_RES='RTC01'");
         await assert.rejects(sell('VTC04', 'HTC04', 'ATC01'), { number: 51208 });
+        await run('database/scripts/013_hojas_ruta_lotes.sql');
+        assert.match(await run('test/hojas-ruta-lotes.sql'), /categorías, cruces/);
         await exerciseApi(sandbox);
     } finally {
         if (sandbox) await sandbox.close();
