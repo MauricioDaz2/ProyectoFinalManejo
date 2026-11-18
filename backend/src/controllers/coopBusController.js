@@ -39,7 +39,7 @@ function hoyISO() {
 }
 
 function cooperativaSolicitada(req) {
-    const valor = req.query?.cooperativa ?? req.body?.ID_COP_PER ?? req.headers['x-cooperativa'];
+    const valor = req.auth?.cooperativaId;
     const id = codigo(valor);
     return CODIGO_RE.test(id) ? id : null;
 }

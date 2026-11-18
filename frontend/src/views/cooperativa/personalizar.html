@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personalizar mi cooperativa | Transporte</title>
+  <script src="../../js/transport_session.js"></script>
+  <link rel="stylesheet" href="../../assets/admin_layout.css">
+  <link rel="stylesheet" href="../../assets/coop_dashboard.css">
+  <link rel="stylesheet" href="../../assets/coop_personalizar.css">
+  <script src="../../js/api.js" defer></script>
+  <script src="../../js/coop_personalizar.js" defer></script>
+  <link rel="stylesheet" href="../../assets/mi_perfil.css">
+  <script src="../../js/mi_perfil.js" defer></script>
+<script src="../../js/coop_access.js" defer></script></head>
+<body class="coop-dashboard profile-editor">
+  <a class="coop-skip" href="#editorMain">Saltar al contenido</a>
+  <div class="admin-shell">
+    <aside id="editorSidebar" class="admin-sidebar" aria-label="Panel de mi cooperativa">
+      <div class="coop-platform"><div>Transporte<br>Cooperativas<small>Identidad y página pública</small></div></div>
+      <p class="coop-nav-label">MI COOPERATIVA</p>
+      <nav class="coop-nav"><a href="dashboard_coop.html">← Inicio</a><a href="gestion_buses.html">Buses</a><a href="resoluciones_ant.html">Resoluciones ANT</a><a href="resoluciones_ant.html#frecuencias">Rutas y frecuencias</a><a href="personalizar.html" class="active" aria-current="page">Personalizar mi cooperativa</a><a href="../public/index.html">Página principal del sistema</a></nav>
+      <div class="coop-sidebar-footer"><strong>Tu identidad, tu contenido</strong><p>Los borradores son privados.</p></div>
+    </aside>
+    <button id="editorBackdrop" class="coop-backdrop" aria-label="Cerrar menú" hidden></button>
+    <div class="admin-workspace">
+      <header class="coop-topbar"><button id="editorMenu" class="coop-menu-button" aria-controls="editorSidebar" aria-expanded="false" aria-label="Abrir menú">☰</button><div class="coop-header-brand"><div><small>Personalización</small><strong id="editorCompany">Mi cooperativa</strong></div></div><div class="coop-account"><div><strong id="editorUser">Verificando sesión…</strong><small>Representante de cooperativa</small></div><button id="btnCerrarSesion" type="button">Cerrar sesión</button></div></header>
+      <main id="editorMain" class="admin-main">
+        <div class="editor-heading"><div><p class="editor-eyebrow">PÁGINA PÚBLICA</p><h1>Personalizar mi cooperativa</h1><p>Prepara tu contenido, comprueba el resultado y publícalo cuando esté listo.</p></div><a id="publishedPage" class="coop-link" hidden>Ver página publicada ↗</a></div>
+        <p id="editorStatus" class="editor-status" role="status" aria-live="polite">Consultando la configuración…</p>
+        <div id="persistenceNotice" class="persistence-notice" hidden></div>
+        <div class="editor-actions"><span id="saveState">Sin cambios guardados</span><button id="reloadProfile" type="button">Recargar</button><button id="saveDraft" type="button" disabled>Guardar borrador</button><button id="previewProfile" type="button" disabled>Vista previa</button><button id="publishProfile" type="button" class="primary" disabled>Guardar y publicar</button></div>
+        <form id="profileForm"><fieldset id="editorFields" disabled>
+          <section id="informacion" class="coop-card editor-card"><div class="coop-heading"><div><h2>Información pública</h2><p>Estos datos no cambian el identificador, el RUC ni la información administrativa.</p></div></div><div class="editor-grid">
+            <label class="wide">Nombre comercial visible<input id="nombre" name="nombre" maxlength="80" required autocomplete="organization"></label>
+            <label class="wide">Presentación empresarial<textarea id="descripcion" name="descripcion" maxlength="2000" rows="4" placeholder="Presenta tu cooperativa a los pasajeros."></textarea></label>
+            <label class="wide">Misión <span class="optional">Opcional</span><textarea id="mision" name="mision" maxlength="1000" rows="3"></textarea></label>
+            <label>Teléfono público<input id="telefono" name="telefono" type="tel" maxlength="40" autocomplete="tel"></label><label>Correo público<input id="correo" name="correo" type="email" maxlength="120" autocomplete="email"></label>
+            <label class="wide">Dirección pública<input id="direccion" name="direccion" maxlength="240" autocomplete="street-address"></label>
+            <label class="wide">Servicios ofrecidos<textarea id="servicios" name="servicios" rows="4" maxlength="808" placeholder="Escribe un servicio por línea (hasta ocho)."></textarea><small>Incluye solo servicios que ofrece tu cooperativa. Máximo 100 caracteres por servicio.</small></label>
+          </div></section>
+          <section id="colores" class="coop-card editor-card"><div class="coop-heading"><div><h2>Colores de tu identidad</h2><p>Se aplican a la plantilla; la distribución de la página se mantiene.</p></div></div><div class="editor-colors"><label>Color principal<input id="principal" name="principal" type="color" value="#103971"><output id="principalValue">#103971</output></label><label>Color secundario<input id="secundario" name="secundario" type="color" value="#ffb900"><output id="secundarioValue">#ffb900</output></label></div></section>
+          <section id="imagenes" class="coop-card editor-card"><div class="coop-heading"><div><h2>Logotipo, portada y galería</h2><p>JPG, PNG o WebP sin animación, hasta 8 MB. El servidor verifica y procesa cada archivo.</p></div></div>
+            <div class="upload-grid">
+              <article><h3>Logotipo</h3><p>Tamaño recomendado: 600 × 600 px. Se aceptan otras dimensiones</p><label class="file-label">Seleccionar logotipo<input type="file" id="fileLogo" accept="image/jpeg,image/png,image/webp" data-upload="logo"></label><div id="preview-logo" class="local-preview">Sin archivo seleccionado</div><button type="button" data-send="logo" disabled>Subir a biblioteca privada</button></article>
+              <article><h3>Portada</h3><p>Tamaño recomendado: 1920 × 700 px. La imagen se adaptará automáticamente al banner</p><label class="file-label">Seleccionar portada<input type="file" id="filePortada" accept="image/jpeg,image/png,image/webp" data-upload="portada"></label><div id="preview-portada" class="local-preview">Sin archivo seleccionado</div><button type="button" data-send="portada" disabled>Subir a biblioteca privada</button></article>
+              <article><h3>Galería</h3><p>Tamaño recomendado: 1200 × 800 px. Se aceptan imágenes horizontales y verticales</p><label class="file-label">Seleccionar fotografía<input type="file" id="fileGaleria" accept="image/jpeg,image/png,image/webp" data-upload="galeria"></label><div id="preview-galeria" class="local-preview">Sin archivo seleccionado</div><button type="button" data-send="galeria" disabled>Subir a biblioteca privada</button></article>
+            </div><p class="editor-help">Sin tamaño mínimo obligatorio. Por seguridad: hasta 8 MB, 24 megapíxeles y 32768 píxeles por lado. Hasta seis fotos en la galería. Las imágenes pequeñas pueden verse pixeladas. Se conserva el archivo original; el encuadre se adapta visualmente. Subir un archivo no lo publica.</p>
+            <h3>Imágenes elegidas para el borrador</h3><div id="selectedImages" class="selected-images">Sin imágenes seleccionadas.</div>
+            <h3>Biblioteca privada</h3><div id="imageLibrary" class="image-library">Consulta no disponible.</div>
+          </section>
+        </fieldset></form>
+        <section id="previewSection" class="coop-card editor-card" hidden><div class="coop-heading"><div><h2>Vista previa privada</h2><p>Utiliza la misma página y estilos que la versión pública. Solo tú puedes consultar este borrador.</p></div><button id="closePreview" type="button">Cerrar</button></div><iframe id="previewFrame" title="Vista previa privada de mi cooperativa" referrerpolicy="same-origin"></iframe></section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

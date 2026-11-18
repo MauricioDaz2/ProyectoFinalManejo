@@ -1,0 +1,17 @@
+<dialog id="personalProfileDialog" class="personal-profile" aria-labelledby="personalProfileTitle">
+  <div class="personal-profile-heading"><div><small>Tu cuenta</small><h2 id="personalProfileTitle">Mi perfil</h2></div><button type="button" data-profile-close aria-label="Cerrar Mi perfil">×</button></div>
+  <form id="personalProfileForm">
+    <div class="personal-profile-photo"><span id="personalPhotoPreview" aria-label="Fotografía personal">♙</span><label>Fotografía personal<input id="personalPhotoFile" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG o WebP. Hasta 8 MB. Esta fotografía pertenece a tu cuenta.</small></label></div>
+    <fieldset id="personalProfileFields"><legend>Datos personales</legend><div class="personal-profile-grid">
+      <label>Nombres<input name="nombres" maxlength="15" required autocomplete="given-name"></label>
+      <label>Apellidos<input name="apellidos" maxlength="15" required autocomplete="family-name"></label>
+      <label>Correo de acceso<input name="correo" type="email" maxlength="40" required autocomplete="email"></label>
+      <label>Teléfono<input name="telefono" type="tel" pattern="[0-9]{7,20}" maxlength="20" required autocomplete="tel"></label>
+      <label id="personalEmailPasswordRow" hidden>Contraseña actual para cambiar el correo<input name="passwordActual" type="password" autocomplete="current-password"></label>
+    </div></fieldset>
+    <dl id="personalAccountDetails" class="personal-profile-details"></dl>
+    <p id="personalProfileStatus" role="status" aria-live="polite"></p>
+    <div class="personal-profile-actions"><button type="button" data-profile-close>Cancelar</button><button id="personalProfileSave" type="submit">Guardar cambios</button></div>
+  </form>
+  <details class="personal-profile-security"><summary>Cambiar contraseña</summary><form id="personalPasswordForm"><label>Contraseña actual<input name="actual" type="password" autocomplete="current-password" required></label><label>Nueva contraseña<input name="nueva" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></label><label>Repite la nueva contraseña<input name="confirmacion" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></label><p id="personalPasswordStatus" role="status" aria-live="polite"></p><button type="submit">Actualizar contraseña</button></form></details>
+</dialog>

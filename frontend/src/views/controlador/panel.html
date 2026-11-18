@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script src="../../js/transport_session.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel del Controlador | Transporte</title>
@@ -29,6 +30,8 @@
         .qr-preview { text-align: center; margin-top: 15px; }
         .qr-preview img { max-width: 150px; }
     </style>
+  <link rel="stylesheet" href="../../assets/mi_perfil.css">
+  <script src="../../js/mi_perfil.js" defer></script>
 </head>
 <body>
     <div class="container">
@@ -105,16 +108,14 @@
         
         
         // Obtener usuario desde localStorage o usar fallback
-        const usuarioSesion = JSON.parse(localStorage.getItem('usuario')) || { ID_USU: '3214569870', ID: '3214569870', nombre: 'Matias Toasa' };
-        const idControlador = usuarioSesion.ID_USU || usuarioSesion.ID || '3214569870';
+        const usuarioSesion = JSON.parse(localStorage.getItem('usuario') || 'null');
+        const idControlador = usuarioSesion?.id || '';
+        if (usuarioSesion?.rolId !== 'R004') window.location.replace('../auth/login.html');
 
         document.getElementById('nombreControlador').textContent = usuarioSesion.nombre || usuarioSesion.NOM_USU || 'Controlador';
         
-        // Función para cerrar sesión y regresar al login
         function cerrarSesion() {
-            localStorage.removeItem('usuario');
-            // .replace sobreescribe el historial para que el botón "Atrás" no pueda regresar al panel
-            window.location.replace('../auth/login.html');
+            window.TransportSession.logout().catch((error) => window.alert(error.message));
         }
         // 1. Cargar las hojas de ruta asignadas al controlador
         async function cargarHojasAsignadas() {

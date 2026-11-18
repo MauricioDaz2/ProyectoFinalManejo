@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   'use strict';
   if (!document.documentElement.classList.contains('admin-authorized')) return;
   const D = window.DashboardData;

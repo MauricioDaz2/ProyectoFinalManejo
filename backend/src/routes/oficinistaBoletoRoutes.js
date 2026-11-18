@@ -22,16 +22,7 @@ const {
     resumenOficinista
 } = require('../controllers/oficinistaBoletoController');
 
-router.use((req, res, next) => {
-    const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip);
-    if (!local && process.env.NODE_ENV === 'production') {
-        return res.status(403).json({
-            success: false,
-            message: 'Acceso deshabilitado hasta configurar la autenticación de oficinista.'
-        });
-    }
-    next();
-});
+router.use(require('../middleware/workerScope').workerScope('oficinista'));
 
 router.get('/resumen', resumenOficinista);
 

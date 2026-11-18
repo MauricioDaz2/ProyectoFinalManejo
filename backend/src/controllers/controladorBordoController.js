@@ -11,7 +11,8 @@ const listarHojasPorControlador = async (req, res) => {
     try {
         const pool = await conectarBD();
         const resultado = await pool.request()
-            .input('idCon', sql.VarChar, idControlador)
+            .input('idCon', sql.VarChar, req.auth.id)
+            .input('company', sql.VarChar(5), req.auth.cooperativaId)
             .query(`
                 SELECT H.ID_HOJ,
                        CONVERT(varchar(10), H.FEC_PRO_HOJ, 23) AS FEC_PRO_HOJ,
@@ -24,7 +25,8 @@ const listarHojasPorControlador = async (req, res) => {
                 FROM HOJAS_RUTAS H
                 INNER JOIN FRECUENCIAS F ON H.ID_FRE_PER = F.ID_FRE
                 INNER JOIN BUSES B       ON H.ID_BUS_PER = B.ID_BUS
-                WHERE H.ID_USU_CON = @idCon AND H.EST_VIA_HOJ = 'PROGRAMADO'
+                INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER
+                WHERE H.ID_USU_CON = @idCon AND B.ID_COP_PER=@company AND R.ID_COP_PER=@company AND H.EST_VIA_HOJ IN ('PROGRAMADO','PROGRAMADA','EN CURSO')
             `);
 
         res.status(200).json({ success: true, hojas: resultado.recordset });

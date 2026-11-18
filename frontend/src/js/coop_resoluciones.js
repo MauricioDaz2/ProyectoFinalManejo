@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const usuario = App.sesion();
+  let usuario = App.sesion();
   if (!usuario) return;
 
   const cooperativa = usuario.cooperativaId;
@@ -51,6 +51,7 @@
   let resolucionEnEdicion = null;
   let frecuenciaEnEdicion = null;
   let tabActiva = 'resoluciones';
+  const permitido = (permiso) => usuario.accesoConfigurado !== true || usuario.principal || usuario.permisos?.includes(permiso);
 
   function aviso(mensaje, tipo = 'warning') {
     avisoGlobal.innerHTML = `<div class="notice ${tipo}"><span aria-hidden="true">!</span><span>${App.escapar(mensaje)}</span></div>`;
@@ -222,6 +223,7 @@
   }
 
   async function cargarResoluciones() {
+    if (!permitido('resoluciones') && !permitido('rutas')) return;
     if (!cooperativa) {
       aviso('Tu usuario no tiene una cooperativa asignada.', 'danger');
       tablaResoluciones.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⚠</div><h3>Sin cooperativa asignada</h3><p>No se pueden consultar las resoluciones.</p></div></td></tr>`;
@@ -229,9 +231,9 @@
     }
 
     try {
-      const datos = await App.api('/coop/resoluciones', { query: { cooperativa } });
+      const datos = await App.api(permitido('resoluciones') ? '/coop/resoluciones' : '/coop/resoluciones-opciones', { query: { cooperativa } });
       resoluciones = datos.resoluciones || [];
-      renderResoluciones();
+      if (permitido('resoluciones')) renderResoluciones();
       actualizarSelectResoluciones();
     } catch (error) {
       App.aviso(error.message, 'error');
@@ -240,6 +242,7 @@
   }
 
   async function cargarFrecuencias() {
+    if (!permitido('rutas')) return;
     if (!cooperativa) return;
     try {
       const datos = await App.api('/coop/frecuencias', { query: { cooperativa } });
@@ -252,6 +255,11 @@
   }
 
   async function cargarTodo() {
+    try {
+      usuario = (await App.api('/auth/me')).usuario;
+      window.CoopAccess?.apply(usuario);
+      if (!permitido(tabActiva === 'frecuencias' ? 'rutas' : tabActiva)) activarTab(permitido('rutas') ? 'frecuencias' : 'resoluciones');
+    } catch (error) { aviso(error.message, 'danger'); return; }
     App.textoBoton(btnRecargar, 'Actualizando…');
     limpiarAviso();
     await Promise.all([cargarResoluciones(), cargarFrecuencias()]);

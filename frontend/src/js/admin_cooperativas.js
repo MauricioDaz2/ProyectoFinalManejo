@@ -136,6 +136,11 @@
     cambiarEstado.setAttribute('aria-label', `${cambiarEstado.textContent} ${cooperativa.NOM_COP}`);
 
     acciones.append(editar, cambiarEstado);
+    const personal = document.createElement('a');
+    personal.className = editar.className;
+    personal.textContent = 'Responsable';
+    personal.href = `usuarios.html?cooperativa=${encodeURIComponent(cooperativa.ID_COP)}#cooperativa`;
+    acciones.append(personal);
     accionesCelda.append(acciones);
     fila.append(accionesCelda);
     return fila;

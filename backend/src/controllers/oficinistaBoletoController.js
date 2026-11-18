@@ -70,7 +70,8 @@ async function siguienteCodigoBoleto(request) {
 }
 
 function manejarError(res, contexto, error) {
-    console.error(`Error en ${contexto}:`, error);
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    console.error(`Error en ${contexto}.`);
     const numero = error.number ?? error.originalError?.info?.number;
 
     if (numero === 2627 || numero === 2601) {
@@ -220,7 +221,7 @@ async function buscarPasajero(pool, cedula) {
         .query(`
             SELECT TOP (1) ID_USU, NOM_USU, APE_USU, COR_USU, TEL_USU
             FROM dbo.USUARIOS
-            WHERE COR_USU = @documento OR ID_USU = @documento
+            WHERE ID_ROL_PER = 'R005' AND (COR_USU = @documento OR ID_USU = @documento)
         `);
 
     return resultado.recordset[0] || null;
@@ -231,7 +232,7 @@ async function buscarPasajero(pool, cedula) {
 /* -------------------------------------------------------------------------- */
 
 async function listarHojasParaVentanilla(req, res) {
-    const cooperativa = cooperativaValida(req.query.cooperativa);
+    const cooperativa = cooperativaValida(req.scopeCompany);
     const fechaFiltro = fecha(req.query.fecha) || hoyISO();
 
     if (cooperativa === '') {
@@ -390,7 +391,7 @@ async function registrarPasajero(req, res) {
     const apellido = texto(req.body?.APELLIDO ?? req.body?.apellido);
     const telefono = soloDigitos(req.body?.TELEFONO ?? req.body?.telefono);
     const correo = texto(req.body?.CORREO ?? req.body?.correo).toLowerCase();
-    const cooperativa = cooperativaValida(req.body?.ID_COP_PER) || null;
+    const cooperativa = null;
 
     if (!/^[0-9]{6,10}$/.test(cedula)) {
         return res.status(400).json({ success: false, message: 'La cédula debe tener entre 6 y 10 dígitos.' });
@@ -434,13 +435,15 @@ async function registrarPasajero(req, res) {
             });
         }
 
-        const passwordTemporal = crypto.randomBytes(6).toString('hex');
+        await require('../security/passwords').ready(pool);
+        const passwordTemporal = crypto.randomBytes(12).toString('hex');
+        const passwordHash = await require('../security/passwords').hash(passwordTemporal);
         const resultado = await pool.request()
             .input('id', sql.VarChar(10), cedula)
             .input('nombre', sql.VarChar(15), nombre)
             .input('apellido', sql.VarChar(15), apellido)
             .input('correo', sql.VarChar(40), cedula)
-            .input('password', sql.VarChar(20), passwordTemporal)
+            .input('password', sql.VarChar(255), passwordHash)
             .input('telefono', sql.VarChar(20), telefono)
             .input('fecha', sql.Date, hoyISO())
             .input('estado', sql.Char(1), '1')
@@ -668,7 +671,7 @@ async function crearBoletoVentanilla(req, res) {
 
 async function buscarBoletos(req, res) {
     const busqueda = texto(req.query.q);
-    const cooperativa = cooperativaValida(req.query.cooperativa);
+    const cooperativa = cooperativaValida(req.scopeCompany);
 
     if (!busqueda || busqueda.length > 100) {
         return res.status(400).json({
@@ -724,7 +727,7 @@ async function obtenerBoleto(req, res) {
 
     try {
         const pool = await conectarBD();
-        const boleto = await consultarBoletoPorId(pool, id);
+        const boleto = await consultarBoletoPorId(pool, id, req.scopeCompany);
         if (!boleto) {
             return res.status(404).json({ success: false, message: 'Boleto no encontrado.' });
         }
@@ -821,7 +824,7 @@ async function cambiarEstadoBoleto(req, res) {
 async function validarBoleto(req, res) {
     const codigoIngresado = texto(req.body?.CODIGO ?? req.body?.codigo ?? req.body?.q);
     const idControlador = codigo(req.body?.ID_USU_CON ?? req.body?.ID_USU_OFI);
-    const cooperativa = cooperativaValida(req.body?.ID_COP_PER);
+    const cooperativa = cooperativaValida(req.scopeCompany);
 
     if (!codigoIngresado || codigoIngresado.length > 100) {
         return res.status(400).json({ success: false, message: 'Escanea un código QR o ingresa una cédula.' });
@@ -941,7 +944,7 @@ async function validarBoleto(req, res) {
 /* -------------------------------------------------------------------------- */
 
 async function resumenOficinista(req, res) {
-    const cooperativa = cooperativaValida(req.query.cooperativa);
+    const cooperativa = cooperativaValida(req.scopeCompany);
     const fechaFiltro = fecha(req.query.fecha) || hoyISO();
 
     if (cooperativa === '') {

@@ -1,0 +1,4 @@
+.usuario-search{grid-template-columns:repeat(4,minmax(0,1fr)) auto}
+.usuario-navigation [hidden]{display:none!important}
+@media(max-width:1000px){.usuario-search{grid-template-columns:repeat(2,minmax(0,1fr))}.usuario-search>button{grid-column:1/-1}}
+@media(max-width:600px){.usuario-search{grid-template-columns:1fr}}
