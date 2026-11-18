@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
     'use strict';
     const form = document.getElementById('loginForm');
     const correo = document.getElementById('correo');

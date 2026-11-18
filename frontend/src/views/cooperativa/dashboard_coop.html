@@ -1,103 +1,60 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel de la Cooperativa | Transporte UTA</title>
+  <title>Mi cooperativa | Transporte Interprovincial</title>
+  <script src="../../js/transport_session.js"></script>
   <link rel="stylesheet" href="../../assets/admin_layout.css">
-  <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <link rel="stylesheet" href="../../assets/coop_dashboard.css">
   <script src="../../js/api.js" defer></script>
-  <script src="../../js/panel_layout.js" defer></script>
+  <script src="../../js/coop_dashboard_data.js" defer></script>
   <script src="../../js/coop_dashboard.js" defer></script>
-</head>
-<body data-app="cooperativa" data-page="dashboard">
+  <link rel="stylesheet" href="../../assets/mi_perfil.css">
+  <script src="../../js/mi_perfil.js" defer></script>
+<script src="../../js/coop_access.js" defer></script></head>
+<body class="coop-dashboard" data-app="cooperativa" data-page="dashboard">
+  <a class="coop-skip" href="#main-content">Saltar al contenido</a>
   <div class="admin-shell">
-    <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
-    <div id="menuBackdrop" class="menu-backdrop" hidden></div>
-
-    <div class="admin-workspace">
-      <header id="adminTopbar" class="admin-topbar"></header>
-
+    <aside id="coopSidebar" class="admin-sidebar" aria-label="Panel de mi cooperativa">
+      <div class="coop-platform"><span data-icon="bus"></span><div>Transporte<br>Cooperativas<small>Gestión de transporte de pasajeros<br>del Ecuador</small></div></div>
+      <p class="coop-nav-label">PANEL DE MI COOPERATIVA</p>
+      <nav class="coop-nav">
+        <a href="dashboard_coop.html" class="active" aria-current="page"><span data-icon="home"></span>Inicio</a>
+        <a href="#mi-cooperativa"><span data-icon="building"></span>Mi cooperativa</a>
+        <a href="gestion_buses.html"><span data-icon="bus"></span>Buses <b>›</b></a>
+        <a href="resoluciones_ant.html#frecuencias"><span data-icon="route"></span>Rutas y frecuencias <b>›</b></a>
+        <a href="resoluciones_ant.html"><span data-icon="document"></span>Resoluciones ANT <b>›</b></a>
+        <a href="#salidas"><span data-icon="calendar"></span>Próximas salidas</a>
+        <a href="personalizar.html"><span data-icon="palette"></span>Personalización</a>
+        <a href="personal.html" data-coop-permission="trabajadores" hidden><span data-icon="person"></span>Personal y accesos</a>
+      </nav>
+      <div class="coop-sidebar-footer"><span data-icon="route"></span><strong>Conectamos destinos</strong><p>Tu operación, en un solo lugar.</p><small>Universidad Técnica de Ambato</small></div>
+    </aside>
+    <button id="coopBackdrop" class="coop-backdrop" aria-label="Cerrar menú" hidden></button>
+    <div id="coopWorkspace" class="admin-workspace">
+      <header class="coop-topbar">
+        <button id="coopMenu" class="coop-menu-button" aria-controls="coopSidebar" aria-expanded="false" aria-label="Abrir menú">☰</button>
+        <div class="coop-header-brand"><span id="headerLogo" class="coop-logo" data-icon="bus"></span><div><small>Cooperativa de Transporte</small><strong id="headerName">Mi cooperativa</strong></div></div>
+        <div class="coop-account"><span class="coop-avatar" data-icon="person"></span><div><strong id="representative">Verificando sesión…</strong><small>Representante de cooperativa</small></div><button id="btnCerrarSesion" type="button">Cerrar sesión</button></div>
+      </header>
       <main id="main-content" class="admin-main">
-        <section class="hero-banner">
-          <div>
-            <p class="hero-kicker">Resumen operativo del día</p>
-            <h2 id="heroNombre">Cooperativa</h2>
-            <p>Consulta el estado de la flota, las frecuencias vigentes y el movimiento de boletos de hoy en un solo lugar.</p>
-          </div>
-          <div class="hero-stat">
-            <strong id="heroHojas">—</strong>
-            <span>Hojas de ruta hoy</span>
-          </div>
+        <section class="coop-hero" aria-labelledby="heroName"><div id="heroCover" class="coop-cover-image" aria-hidden="true"></div><div class="coop-hero-identity"><span id="heroLogo" class="coop-logo" data-icon="bus"></span><span>COOPERATIVA DE TRANSPORTE</span></div><div class="coop-hero-copy"><p>BIENVENIDO A TU PANEL</p><h1 id="heroName">Mi cooperativa</h1><p>Gestiona tu flota, consulta tus rutas y acompaña<br>cada salida desde un mismo lugar.</p><a class="coop-button" href="personalizar.html"><span data-icon="palette"></span>Personalizar mi cooperativa →</a></div><span class="coop-hero-symbol" data-icon="bus" aria-hidden="true"></span></section>
+        <div class="coop-status-bar"><p id="panelStatus" role="status" aria-live="polite">Verificando acceso a la cooperativa…</p><button id="btnActualizar" type="button" disabled>Actualizar <span aria-hidden="true">↻</span></button></div>
+        <section data-coop-permission="dashboard" class="coop-metrics" aria-label="Estadísticas de mi cooperativa">
+          <a href="gestion_buses.html" class="coop-metric"><span data-icon="bus"></span><div><h2>Buses registrados</h2><strong id="totalBuses">—</strong><p id="activeBuses">Consultando flota</p></div></a>
+          <a href="resoluciones_ant.html#frecuencias" class="coop-metric"><span data-icon="route"></span><div><h2>Rutas activas</h2><strong id="totalRutas">—</strong><p>Origen y destino únicos</p></div></a>
+          <a href="resoluciones_ant.html#frecuencias" class="coop-metric"><span data-icon="clock"></span><div><h2>Frecuencias activas</h2><strong id="totalFrecuencias">—</strong><p>Registradas en tu cooperativa</p></div></a>
+          <a href="#salidas" class="coop-metric"><span data-icon="calendar"></span><div><h2>Salidas de hoy</h2><strong id="totalSalidas">—</strong><p>Programadas o en curso</p></div></a>
         </section>
-
-        <div id="avisoPanel"></div>
-
-        <section class="stat-grid" id="statGrid" aria-label="Indicadores del día">
-          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
-          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
-          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
-          <article class="stat-card"><div class="stat-icon">▤</div><div class="stat-copy"><div class="stat-label">Cargando indicadores</div><div class="stat-value">—</div></div></article>
-        </section>
-
-        <div class="section-head">
-          <div>
-            <h2>Próximas salidas</h2>
-            <p>Hojas de ruta programadas o en curso, ordenadas por fecha.</p>
-          </div>
-          <button class="btn btn-secondary btn-sm" type="button" id="btnActualizar">Actualizar</button>
+        <div class="coop-dashboard-grid">
+          <section id="mi-cooperativa" class="coop-card"><div class="coop-heading"><span data-icon="eye"></span><div><h2>Identidad de mi cooperativa</h2><p>La identidad publicada que ven tus pasajeros.</p></div></div><div class="coop-preview"><div class="coop-preview-cover"><div id="previewCover" class="coop-cover-image" aria-hidden="true"></div><span data-icon="route"></span><p>Un camino para conectar</p></div><div class="coop-preview-info"><span id="previewLogo" class="coop-logo" data-icon="bus"></span><div><h3 id="previewName">Mi cooperativa</h3><p>Transporte interprovincial de pasajeros</p></div></div><div id="previewRoutes" class="coop-route-chips">Consultando rutas…</div></div><div class="coop-preview-actions"><a id="publicProfileLink" class="coop-link" hidden>Ver mi página pública ↗</a><a href="../public/index.html" class="coop-link">Página principal del sistema ↗</a></div></section>
+          <section data-coop-permission="salidas" id="salidas" class="coop-card"><div class="coop-heading"><span data-icon="calendar"></span><div><h2>Próximas salidas</h2><p>La programación de tu cooperativa.</p></div></div><div class="coop-table-wrap" tabindex="0" role="region" aria-label="Tabla de próximas salidas"><table class="coop-table"><thead><tr><th scope="col">Ruta</th><th scope="col">Fecha</th><th scope="col">Bus</th><th scope="col">Estado</th></tr></thead><tbody id="tablaSalidas"><tr><td colspan="4">Consultando programación…</td></tr></tbody></table></div><p class="coop-note">Se muestran fechas registradas, sin horas de salida estimadas.</p></section>
+          <section data-coop-permission="buses" class="coop-card"><div class="coop-heading"><span data-icon="bus"></span><div><h2>Mi flota</h2><p>Buses registrados en tu cooperativa.</p></div><a href="gestion_buses.html" class="coop-link">Ver todos →</a></div><div id="fleetCards" class="coop-fleet"><p class="coop-empty">Consultando buses…</p></div></section>
+          <section data-coop-permission="personalizacion" id="personalizacion" class="coop-card"><div class="coop-heading"><span data-icon="palette"></span><div><h2>Personalizar mi cooperativa</h2><p>La identidad de tu empresa, con una estructura profesional.</p></div></div><div class="coop-customization"><a href="personalizar.html#imagenes"><span data-icon="image"></span><h3>Logotipo</h3><p>Identidad de tu cooperativa</p></a><a href="personalizar.html#imagenes"><span data-icon="image"></span><h3>Portada</h3><p>Una fotografía de tu empresa</p></a><a href="personalizar.html#colores"><span data-icon="palette"></span><h3>Colores</h3><p>Tu identidad visual</p></a><a href="personalizar.html#informacion"><span data-icon="document"></span><h3>Información</h3><p>Presentación y contacto</p></a></div><p class="coop-next-stage">Edita tu contenido, revisa el borrador privado y publica cuando esté listo.</p></section>
+          <section data-coop-permission="reportes" class="coop-card coop-operation"><div class="coop-heading"><span data-icon="document"></span><div><h2>Resumen de operaciones</h2><p>Indicadores existentes de tu cooperativa.</p></div></div><dl><div><dt>Resoluciones ANT</dt><dd id="totalResoluciones">—</dd></div><div><dt>Boletos vendidos hoy</dt><dd id="totalBoletos">—</dd></div><div><dt>Ingresos de hoy</dt><dd id="totalIngresos">—</dd></div><div><dt>Reservas pendientes</dt><dd id="totalReservas">—</dd></div></dl></section>
         </div>
-
-        <section class="panel">
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Hoja</th>
-                  <th>Fecha</th>
-                  <th>Ruta</th>
-                  <th>Bus</th>
-                  <th>Ocupación</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody id="tablaSalidas">
-                <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando próximas salidas…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <div class="section-head">
-          <div>
-            <h2>Accesos rápidos</h2>
-            <p>Continúa con la administración de tu cooperativa.</p>
-          </div>
-        </div>
-
-        <section class="quick-grid">
-          <a class="quick-card" href="gestion_buses.html">
-            <span class="quick-icon" aria-hidden="true">▤</span>
-            <span>
-              <strong>Flota de Buses</strong>
-              <span>Registra unidades, configura pisos y asientos, y controla su estado operativo.</span>
-            </span>
-          </a>
-          <a class="quick-card" href="resoluciones_ant.html">
-            <span class="quick-icon" aria-hidden="true">▧</span>
-            <span>
-              <strong>Resoluciones y Frecuencias</strong>
-              <span>Gestiona el cupo autorizado por la ANT y las frecuencias de viaje vigentes.</span>
-            </span>
-          </a>
-          <a class="quick-card" href="resoluciones_ant.html#frecuencias">
-            <span class="quick-icon" aria-hidden="true">⇄</span>
-            <span>
-              <strong>Frecuencias activas</strong>
-              <span>Consulta rutas, vigencias y cupos disponibles antes de programar una salida.</span>
-            </span>
-          </a>
-        </section>
+        <footer class="coop-page-footer">Universidad Técnica de Ambato <span>Panel privado de cooperativa</span></footer>
       </main>
     </div>
   </div>

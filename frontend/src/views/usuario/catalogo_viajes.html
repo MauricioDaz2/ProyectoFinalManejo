@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script src="../../js/transport_session.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buscar viajes | Transporte</title>
   <link rel="stylesheet" href="../../assets/usuario.css">
+  <link rel="stylesheet" href="../../assets/public_catalog.css">
   <script src="../../js/user_viajes.js" defer></script>
+  <link rel="stylesheet" href="../../assets/mi_perfil.css">
+  <script src="../../js/mi_perfil.js" defer></script>
 </head>
 <body>
   <div class="usuario-shell">
@@ -17,11 +21,13 @@
 
       <!-- Navegación colocada correctamente dentro del header -->
       <nav class="usuario-navigation" aria-label="Navegación de usuario">
+        <a id="cooperativeProfileLink" class="usuario-nav-button usuario-nav-button-light" hidden>Página de la cooperativa</a>
+        <a class="usuario-nav-button usuario-nav-button-light" href="../public/index.html">Inicio</a>
         <a class="usuario-nav-button" href="mis_boletos.html"><span aria-hidden="true">🎫</span>Mis Boletos</a>
         <a class="usuario-nav-button usuario-nav-button-light" href="catalogo_viajes.html"><span aria-hidden="true">⌂</span>Buscar viajes</a>
       </nav>
 
-      <span>Usuario final</span>
+      <span id="catalogSessionLabel">Usuario final</span>
       <button id="logoutButton" class="usuario-logout" type="button">Cerrar sesión</button>
     </header>
     
@@ -47,6 +53,14 @@
           <div class="usuario-field">
             <label for="fecha">Fecha de viaje</label>
             <input id="fecha" name="fecha" type="date" required>
+          </div>
+          <div class="usuario-field">
+            <label for="cantidadPasajeros">Pasajeros</label>
+            <select id="cantidadPasajeros" name="pasajeros">
+              <option value="1">1 pasajero</option><option value="2">2 pasajeros</option>
+              <option value="3">3 pasajeros</option><option value="4">4 pasajeros</option>
+              <option value="5">5 pasajeros</option><option value="6">6 pasajeros</option>
+            </select>
           </div>
           <button class="usuario-button" type="submit">Buscar viajes</button>
         </form>

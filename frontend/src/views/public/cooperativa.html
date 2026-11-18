@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Consulta la información, rutas y salidas de tu cooperativa de transporte interprovincial.">
+  <title>Cooperativa | Transporte Interprovincial</title>
+  <script src="../../js/transport_session.js"></script>
+  <link rel="stylesheet" href="../../assets/public_cooperativa.css">
+  <script src="../../js/public_cooperativa.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <div class="system-bar"><div class="container"><a href="index.html">← Sistema de Transporte Interprovincial</a><span>Universidad Técnica de Ambato</span></div></div>
+  <section id="pageStatus" class="page-status container" role="status" aria-live="polite"><span class="status-symbol" aria-hidden="true">↗</span><h1 id="statusTitle">Consultando cooperativa…</h1><p id="statusDetail">Estamos cargando su información pública.</p><button id="retryPage" class="button" type="button" hidden>Reintentar</button><a href="index.html">Ver cooperativas disponibles →</a></section>
+  <div id="profilePage" hidden>
+    <header class="site-header"><div class="container header-inner">
+      <a href="#inicio" class="brand"><span id="headerLogo" class="brand-logo" aria-hidden="true">↗</span><span><small>Cooperativa de transporte</small><strong data-company-name></strong></span></a>
+      <button id="menuToggle" class="menu-toggle" type="button" aria-controls="navigation" aria-expanded="false" aria-label="Abrir menú">☰</button>
+      <nav id="navigation" aria-label="Navegación de cooperativa"><a href="#inicio" aria-current="page">Inicio</a><a href="#conocenos">Conócenos</a><a href="#rutas">Rutas</a><a href="#servicios">Servicios</a><a href="#contacto">Contacto</a></nav>
+      <a class="button header-search" href="#buscar">Buscar viajes <span aria-hidden="true">→</span></a>
+    </div></header>
+    <main id="contenido">
+      <section id="inicio" class="hero"><div id="publishedCover" class="published-cover" hidden></div><div class="container hero-content"><p class="eyebrow">TRANSPORTE INTERPROVINCIAL</p><h1>Tu próximo destino,<br><span>con <span data-company-name></span></span></h1><p>Consulta las rutas y salidas de nuestra cooperativa.<br>Elige tu viaje y continúa con tu reserva.</p><span id="coverLabel" class="cover-label">Portada aún no disponible</span></div><div class="hero-lines" aria-hidden="true"></div></section>
+      <div class="container">
+        <section id="buscar" class="search-panel" aria-labelledby="searchTitle"><h2 id="searchTitle"><span aria-hidden="true">↗</span> Encuentra tu próximo viaje</h2>
+          <form id="cooperativeSearch"><label>Origen<select id="origen" name="origen" required disabled><option value="">Consultando rutas…</option></select></label><label>Destino<select id="destino" name="destino" required disabled><option value="">Selecciona un origen</option></select></label><label>Fecha de viaje<input id="fecha" name="fecha" type="date" required></label><label>Pasajeros<select id="pasajeros" name="pasajeros"><option value="1">1 pasajero</option><option value="2">2 pasajeros</option><option value="3">3 pasajeros</option><option value="4">4 pasajeros</option><option value="5">5 pasajeros</option><option value="6">6 pasajeros</option></select></label><button id="searchButton" type="submit" class="button" disabled>Buscar viajes →</button></form>
+          <p id="searchStatus" class="small-note" role="status">Consultando rutas de esta cooperativa…</p>
+        </section>
+        <section id="conocenos" class="intro section" aria-labelledby="introTitle"><div id="companyImage" class="neutral-image"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="10" y="8" width="44" height="44" rx="9"/><path d="M10 34h44M18 19h28M20 42h5m14 0h5M18 52v6m28-6v6"/></svg><span>Imágenes de la cooperativa<br>próximamente</span></div><div class="intro-copy"><p class="eyebrow">CONÓCENOS</p><h2 id="introTitle" data-company-name></h2><p id="companyDescription">Encuentra aquí la información de contacto y los viajes disponibles de nuestra cooperativa.</p><p id="descriptionEmpty" class="muted">La presentación empresarial aún no está disponible.</p><a href="#contacto" class="text-link">Información de contacto →</a></div><aside id="missionCard" class="intro-note"><span class="note-icon" aria-hidden="true">↗</span><h3 id="missionTitle">Planifica tu viaje</h3><p id="companyMission">Consulta una ruta, selecciona una fecha y revisa los asientos en el catálogo de pasajeros.</p><a href="#buscar" class="text-link">Ir al buscador →</a></aside></section>
+        <section id="servicios" class="section" aria-labelledby="servicesTitle"><div class="section-heading"><div><p class="eyebrow">NUESTROS SERVICIOS</p><h2 id="servicesTitle">Información para tu viaje</h2></div></div><div id="servicesContent" class="empty-state compact"><span class="empty-icon" aria-hidden="true">◇</span><div><strong>Servicios aún no publicados</strong><p>Consulta directamente con la cooperativa para conocer sus servicios.</p></div><a href="#contacto" class="text-link">Ver contacto →</a></div></section>
+        <div class="routes-contact section">
+          <section id="rutas" aria-labelledby="routesTitle"><div class="section-heading"><div><p class="eyebrow">NUESTROS DESTINOS</p><h2 id="routesTitle">Encuentra tu próxima ruta</h2></div><a id="allRoutes" class="text-link">Ver catálogo →</a></div><div id="routes" class="routes-grid" aria-live="polite"><p class="empty-state">Consultando rutas…</p></div></section>
+          <aside id="contacto" class="contact-card"><span class="note-icon" aria-hidden="true">⌖</span><h2>Contáctanos</h2><p>Información registrada de la cooperativa.</p><dl><div><dt>Teléfono</dt><dd id="contactPhone">No disponible</dd></div><div><dt>Dirección</dt><dd id="contactAddress">No disponible</dd></div><div id="contactEmailRow" hidden><dt>Correo</dt><dd id="contactEmail"></dd></div></dl></aside>
+        </div>
+        <section id="salidas" class="section" aria-labelledby="departuresTitle"><div class="section-heading"><div><p class="eyebrow">PLANIFICA TU VIAJE</p><h2 id="departuresTitle">Próximas salidas</h2></div><button id="retryTrips" class="text-button" type="button">Actualizar ↻</button></div><div id="departures" class="departures" aria-live="polite"><p class="empty-state">Consultando programación…</p></div></section>
+        <section class="section" aria-labelledby="galleryTitle"><div class="section-heading"><div><p class="eyebrow">NUESTRA COOPERATIVA</p><h2 id="galleryTitle">En imágenes</h2></div></div><div id="gallery" class="gallery"></div></section>
+        <section class="booking-banner"><span class="ticket-icon" aria-hidden="true">↗</span><div><h2>Tu viaje comienza aquí</h2><p>Encuentra una salida y continúa tu reserva en el catálogo.</p></div><a href="#buscar" class="button">Consultar viajes →</a></section>
+      </div>
+    </main>
+    <footer><div class="container footer-grid"><div class="footer-brand"><strong data-company-name></strong><p>Transporte interprovincial</p></div><div><h2>Contacto</h2><p id="footerContact"></p></div><nav aria-label="Enlaces del pie de página"><h2>Enlaces</h2><a href="#conocenos">Conócenos</a><a href="#rutas">Rutas y viajes</a><a href="#contacto">Contacto</a></nav><div><h2>La plataforma</h2><a href="index.html">Página principal del sistema →</a><p>Universidad Técnica de Ambato</p></div></div><div class="footer-bottom"><div class="container"><span data-company-name></span><span>Sistema de Transporte Interprovincial · Ecuador</span></div></div></footer>
+  </div>
+</body>
+</html>
