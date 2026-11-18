@@ -1,4 +1,15 @@
 .usuario-search{grid-template-columns:repeat(4,minmax(0,1fr)) auto}
 .usuario-navigation [hidden]{display:none!important}
+.usuario-header{background:#fff;color:#101d36;flex-wrap:wrap;border-bottom:1px solid #e5e9ef}
+.usuario-header [hidden]{display:none!important}
+.usuario-brand{min-width:0;max-width:100%;color:#b30919}
+.passenger-brand-logo{object-fit:contain;flex-shrink:0}
+.usuario-brand-name{overflow-wrap:anywhere}
+.usuario-brand-caption{display:block;color:#647082}
+.usuario-navigation{flex:1;min-width:0}
+.usuario-nav-button,.usuario-logout{min-height:44px;background:#fff;color:#101d36;border:1px solid #d2d9e5;white-space:normal}
+.usuario-nav-button:hover,.usuario-logout:hover{background:#f1f5fc;color:#101d36}
+.usuario-header .personal-header-button{color:#101d36;background:#f1f5fc;max-width:100%;overflow-wrap:anywhere}
+@media(max-width:600px){.usuario-header{padding:16px;gap:12px}.usuario-navigation{flex-basis:100%;justify-content:flex-start}.usuario-nav-button{flex:1;justify-content:center}}
 @media(max-width:1000px){.usuario-search{grid-template-columns:repeat(2,minmax(0,1fr))}.usuario-search>button{grid-column:1/-1}}
 @media(max-width:600px){.usuario-search{grid-template-columns:1fr}}

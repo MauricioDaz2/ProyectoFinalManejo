@@ -8,7 +8,7 @@
     document.querySelectorAll('a[href]').forEach((link) => {
       const href=link.getAttribute('href');
       const permission=href.includes('personal.html')?'trabajadores':href.includes('personalizar.html')?'personalizacion':href.includes('gestion_buses.html')?'buses':href.includes('resoluciones_ant.html#frecuencias')?'rutas':href.includes('resoluciones_ant.html')?'resoluciones':null;
-      if(href.includes('resoluciones_ant.html') && !href.includes('#frecuencias') && allowed('rutas') && !allowed('resoluciones')) { link.href='resoluciones_ant.html#frecuencias'; link.hidden=false; link.removeAttribute('data-access-hidden'); return; }
+      if(!link.dataset.coopPermission && href.includes('resoluciones_ant.html') && !href.includes('#frecuencias') && allowed('rutas') && !allowed('resoluciones')) { link.href='resoluciones_ant.html#frecuencias'; link.hidden=false; link.removeAttribute('data-access-hidden'); return; }
       if(permission && !link.classList.contains('coop-metric')) { link.hidden=!allowed(permission); link.toggleAttribute('data-access-hidden', !allowed(permission)); }
     });
     for(const [selector,permission] of [['#btnNuevaResolucion','resoluciones'],['#btnNuevaFrecuencia','rutas'],['#panelFrecuencias','rutas'],['[data-tab="frecuencias"]','rutas']])document.querySelectorAll(selector).forEach((node)=>{if(!allowed(permission))node.hidden=true;});

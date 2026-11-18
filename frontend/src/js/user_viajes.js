@@ -5,7 +5,6 @@ const status = document.querySelector('#searchStatus');
 const dateInput = document.querySelector('#fecha');
 const origenInput = document.querySelector('#origen');
 const destinoInput = document.querySelector('#destino');
-const logoutButton = document.querySelector('#logoutButton');
 let rutas = [];
 let passengers = 1;
 let pending = new URLSearchParams(window.location.search);
@@ -28,13 +27,6 @@ function searchContext() {
 passengers = Math.min(6, Math.max(1, Number(pending.get('pasajeros')) || 1));
 const passengersInput = document.querySelector('#cantidadPasajeros');
 passengersInput.value = String(passengers);
-let catalogUser;
-try { catalogUser = JSON.parse(localStorage.getItem('usuario') || 'null'); } catch {}
-if (!catalogUser) {
-    document.querySelector('#catalogSessionLabel').textContent = 'Visitante';
-    logoutButton.textContent = 'Iniciar sesión';
-    document.querySelector('a[href="mis_boletos.html"]').hidden = true;
-}
 
 const today = new Date();
 dateInput.min = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -80,13 +72,6 @@ origenInput.addEventListener('change', () => {
     destinoInput.disabled = destinos.length === 0;
 });
 
-logoutButton.addEventListener('click', () => {
-    if (catalogUser) { window.TransportSession.logout().catch((error) => { status.textContent = error.message; }); return; }
-    if (!catalogUser) { try { sessionStorage.setItem('publicTripSearch', searchContext().toString()); } catch {} }
-    localStorage.removeItem('usuario');
-    window.location.href = '../auth/login.html';
-});
-
 const renderResults = (viajes) => {
     if (!viajes.length) {
         results.innerHTML = '<p class="usuario-empty">No encontramos frecuencias para los criterios seleccionados.</p>';
@@ -109,17 +94,19 @@ const renderResults = (viajes) => {
     `).join('');
 };
 
-results.addEventListener('click', (event) => {
+results.addEventListener('click', async (event) => {
     const link = event.target.closest('a[href^="seleccion_asientos.html"]');
     if (!link) return;
-    let user;
-    try { user = JSON.parse(localStorage.getItem('usuario') || 'null'); } catch {}
-    if (user?.rolId === 'R005') return;
     event.preventDefault();
+    try {
+        const user = await window.TransportSession.current();
+        if (['R005','R004','R006'].includes(user?.rolId)) { window.location.href = link.href; return; }
+        if (user) { status.textContent = 'Esta cuenta no tiene habilitadas las reservas personales.'; return; }
+    } catch { status.textContent = 'No se pudo comprobar la sesión. Inténtalo nuevamente.'; return; }
     try {
         sessionStorage.setItem('publicTripSearch', searchContext().toString());
     } catch {}
-    window.location.href = '../auth/login.html';
+    window.location.href = '../public/index.html?login=1';
 });
 
 searchForm.addEventListener('submit', async (event) => {

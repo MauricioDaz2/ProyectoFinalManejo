@@ -6,8 +6,7 @@ document.querySelectorAll('a[href="catalogo_viajes.html"]').forEach((link) => {
     if (searchContext.has('cooperativa')) link.href = `catalogo_viajes.html?${searchContext}`;
 });
 
-const usuarioSesion = JSON.parse(localStorage.getItem('usuario') || 'null');
-const cedulaTitular = usuarioSesion?.id || usuarioSesion?.COR_USU || usuarioSesion?.cedula || '';
+let cedulaTitular = '';
 
 const tripSummary = document.querySelector('#tripSummary');
 const floorTabs = document.querySelector('#floorTabs');
@@ -210,4 +209,8 @@ reservationForm.addEventListener('submit', async (event) => {
 });
 
 cancelReservation.addEventListener('click', cancelarReserva);
-loadSeats();
+window.TransportSession.ready.then(user => {
+    if (!user) return;
+    cedulaTitular = user.id;
+    loadSeats();
+});

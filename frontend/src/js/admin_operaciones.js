@@ -14,11 +14,7 @@ const escapeHtml = (valor) => String(valor ?? '')
     .replace(/'/g, '&#39;');
 
 const usuarioActual = () => {
-    try {
-        return JSON.parse(localStorage.getItem('usuario')) || {};
-    } catch {
-        return {};
-    }
+    return window.TransportSession?.user || {};
 };
 
 let toastTimer = null;
@@ -336,14 +332,15 @@ const crearHoja = async () => {
     errorBox.textContent = '';
 
     const fecPro = document.getElementById('hojaFecha').value;
+    const horaSalida=document.getElementById('hojaSalida').value,llegadaLocal=document.getElementById('hojaLlegada').value;
     const idBus = document.getElementById('hojaBus').value;
     const idFre = document.getElementById('hojaFrecuencia').value;
     const idUsuCho = document.getElementById('hojaChofer').value;
     const idUsuCon = document.getElementById('hojaControlador').value;
     const obs = document.getElementById('hojaObs').value.trim();
 
-    if (!fecPro || !idBus || !idFre || !idUsuCho || !idUsuCon) {
-        errorBox.textContent = 'Complete fecha, bus, frecuencia, chofer y controlador.';
+    if (!fecPro || !horaSalida || !llegadaLocal || !idBus || !idFre || !idUsuCho || !idUsuCon) {
+        errorBox.textContent = 'Completa salida, llegada prevista, bus, frecuencia, chofer y controlador.';
         return;
     }
 
@@ -351,7 +348,7 @@ const crearHoja = async () => {
         const respuesta = await fetch(`${API}/admin/rutas/hojas`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fecPro, idBus, idFre, obs, idUsuCho, idUsuCon })
+            body: JSON.stringify({ fecPro, idBus, idFre, obs, idUsuCho, idUsuCon,salida:new Date(fecPro+'T'+horaSalida+':00-05:00').toISOString(),llegada:new Date(llegadaLocal+':00-05:00').toISOString() })
         });
         const data = await respuesta.json();
 
@@ -362,6 +359,8 @@ const crearHoja = async () => {
 
         cerrarModal('modalHoja');
         document.getElementById('hojaFecha').value = '';
+        document.getElementById('hojaSalida').value = '';
+        document.getElementById('hojaLlegada').value = '';
         document.getElementById('hojaBus').value = '';
         document.getElementById('hojaFrecuencia').value = '';
         document.getElementById('hojaChofer').value = '';

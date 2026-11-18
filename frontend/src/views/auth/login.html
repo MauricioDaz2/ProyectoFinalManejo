@@ -1,35 +1,13 @@
-<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="es">
 <head>
-  <script src="../../js/transport_session.js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - Transporte Interprovincial</title>
-    <link rel="stylesheet" href="login.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acceso | Sistema de Transporte Interprovincial</title>
+  <script src="../../js/login_redirect.js" defer></script>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-header">
-            <h2>Sistema de Transporte</h2>
-            <p>Inicie sesión con sus credenciales</p>
-        </div>
-        
-        <form id="loginForm">
-            <div class="input-group">
-                <label for="correo">Correo Electrónico</label>
-                <input type="email" id="correo" name="correo" autocomplete="username" required placeholder="ejemplo@transporte.ec">
-            </div>
-
-            <div class="input-group">
-                <label for="password">Contraseña</label>
-                <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="********">
-            </div>
-
-            <button type="submit" class="btn-login">Ingresar</button>
-            <div id="mensajeError" class="error-message" role="alert" aria-live="polite"></div>
-        </form>
-    </div>
-
-    <script src="login.js"></script>
+  <p>El acceso al sistema se encuentra en la página principal.</p>
+  <a href="../public/index.html?login=1">Abrir el inicio de sesión</a>
 </body>
 </html>

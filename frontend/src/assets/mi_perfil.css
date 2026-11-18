@@ -27,6 +27,8 @@
 .personal-header-photo { width:32px!important; height:32px!important; border-radius:50%; object-fit:contain!important; vertical-align:middle; margin-right:7px; background:#edf1f7; }
 .personal-header-button { border:0; background:transparent; color:inherit; font:inherit; display:inline-flex; align-items:center; gap:6px; padding:4px; }
 .coop-account .coop-avatar[data-profile-trigger] img { width:100%; height:100%; object-fit:contain; border-radius:50%; }
+.dash-avatar[data-profile-trigger] img, [data-personal-avatar] img { width:100%; height:100%; object-fit:contain; border-radius:50%; }
+span.personal-header-photo { display:inline-grid; place-items:center; color:#173657; }
 [data-access-hidden], [data-coop-permission][hidden],
 .coop-denied-resoluciones #panelResoluciones, .coop-denied-resoluciones [data-tab="resoluciones"], .coop-denied-resoluciones #btnNuevaResolucion, .coop-denied-resoluciones [data-accion-resolucion],
 .coop-denied-rutas #panelFrecuencias, .coop-denied-rutas [data-tab="frecuencias"], .coop-denied-rutas #btnNuevaFrecuencia { display:none!important; }

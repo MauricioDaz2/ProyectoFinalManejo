@@ -2,7 +2,7 @@
   'use strict';
   const source = document.currentScript.src;
   const api = window.API_BASE_URL || 'http://localhost:3000/api';
-  const roles = { R001:'Administrador', R002:'Gestor de cooperativa', R003:'Oficinista', R004:'Controlador', R005:'Pasajero' };
+  const roles = { R001:'Administrador', R002:'Gestor de cooperativa', R003:'Oficinista', R004:'Controlador', R005:'Pasajero', R006:'Chofer' };
   let user, dialog, form, busy = false, dirty = false, file, localPhoto, opener;
   const $ = (id) => document.getElementById(id);
   async function request(path, method = 'GET', body) {
@@ -19,14 +19,24 @@
   }
   function sync(value) {
     user = value;
-    localStorage.setItem('usuario', JSON.stringify(value));
+    try { localStorage.setItem('usuario', JSON.stringify(value)); } catch {}
     const targets = document.querySelectorAll('#nombreUsuario, #representative, #editorUser, #nombreControlador, #catalogSessionLabel, [data-personal-user]');
     targets.forEach((target) => {
       target.dataset.profileTrigger = ''; target.setAttribute('role','button'); target.tabIndex = 0; target.setAttribute('aria-label',`Mi perfil: ${value.nombre}`);
       target.textContent = value.nombre;
-      if (value.foto) { const image = new Image(); image.className = 'personal-header-photo'; image.alt = ''; image.src = new URL(value.foto, api).href; image.onerror = () => image.remove(); target.prepend(image); }
+      const group = target.closest?.('.coop-account, .topbar-right, .public-account, header');
+      const avatar = group?.querySelector('.coop-avatar, .dash-avatar, [data-personal-avatar]');
+      if (avatar) {
+        avatar.dataset.profileTrigger = ''; avatar.tabIndex = 0; avatar.removeAttribute?.('aria-hidden'); avatar.setAttribute('role','button'); avatar.setAttribute('aria-label','Abrir Mi perfil');
+        photo(avatar, value.foto);
+      } else {
+        const image = value.foto ? new Image() : document.createElement('span');
+        image.className = 'personal-header-photo';
+        if (value.foto) { image.alt = ''; image.src = new URL(value.foto, api).href; image.onerror = () => image.remove(); }
+        else { image.textContent = '♙'; image.setAttribute('aria-hidden','true'); }
+        target.prepend(image);
+      }
     });
-    document.querySelectorAll('.coop-account .coop-avatar').forEach((target) => { target.dataset.profileTrigger = ''; target.tabIndex = 0; target.setAttribute('role','button'); target.setAttribute('aria-label','Abrir Mi perfil'); photo(target, value.foto); });
     document.querySelectorAll('button[data-personal-user]').forEach((b) => { b.hidden = false; });
     window.dispatchEvent(new CustomEvent('transport:profile-updated', { detail:value }));
   }
@@ -54,6 +64,7 @@
     updateDirty(); status(user.perfilDisponible ? '' : 'El guardado requiere instalar la migración 005.'); state(false);
   }
   function close() {
+    updateDirty();
     if (busy || (dirty && !window.confirm('Hay cambios sin guardar. ¿Quieres descartarlos?'))) return;
     dirty = false; form.reset(); $('personalPasswordForm').reset(); file = null;
     if (localPhoto) URL.revokeObjectURL(localPhoto); localPhoto = null;
@@ -61,7 +72,7 @@
   }
   async function open(target) {
     if (!dialog || dialog.open) return;
-    opener = target; fill(); dialog.showModal();
+    opener = target; $('personalPasswordForm').reset(); fill(); dialog.showModal();
     state(true); status('Consultando tu cuenta…');
     try { sync((await request('/mi-perfil')).usuario); fill(); } catch (e) { status(e.message,true); } finally { state(false); }
   }
@@ -82,6 +93,7 @@
       if (localPhoto) URL.revokeObjectURL(localPhoto); localPhoto=null;
       if(file && (!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024)){file=null;$('personalPhotoFile').value='';status('Usa JPG, PNG o WebP de hasta 8 MB.',true);}
       if(file){localPhoto=URL.createObjectURL(file);photo($('personalPhotoPreview'),localPhoto);} else photo($('personalPhotoPreview'),user.foto);
+      updateDirty();
     });
     form.addEventListener('submit',async(e)=>{
       e.preventDefault();if(busy||!form.reportValidity())return;
@@ -92,7 +104,7 @@
         if(file){const data=new FormData();data.append('foto',file);sync((await request('/mi-perfil/foto','POST',data)).usuario);}
         fill();status(result.message);
       }catch(error){status((saved?'Los datos personales se guardaron; la fotografía sigue pendiente. ':'')+error.message,true);}
-      finally{state(false);form.elements.passwordActual.value='';}
+      finally{state(false);form.elements.passwordActual.value='';updateDirty();}
     });
     $('personalPasswordForm').addEventListener('submit',async(e)=>{
       e.preventDefault();const f=e.currentTarget;if(busy||!f.reportValidity())return;
@@ -102,7 +114,7 @@
       try{const data=await request('/mi-perfil/password','PUT',{actual:f.elements.actual.value,nueva:f.elements.nueva.value});f.reset();updateDirty();message.textContent=data.message;}
       catch(error){message.textContent=error.message;}finally{state(false);}
     });
-    window.addEventListener('beforeunload',(e)=>{if(dirty){e.preventDefault();e.returnValue='';}});
+    window.addEventListener('beforeunload',(e)=>{if(!dialog.open)return;updateDirty();if(dirty){e.preventDefault();e.returnValue='';}});
     window.addEventListener('transport:logout',()=>{dirty=false;dialog.close();form.reset();$('personalPasswordForm').reset();});
     window.addEventListener('transport:profile-updated', (e) => { if(e.detail!==user) sync(e.detail); });
     window.PersonalProfile = { setSession(value) { if(value.id===user.id) sync({...user,...value}); } };

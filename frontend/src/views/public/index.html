@@ -12,7 +12,7 @@
   <script src="../../js/public_home.js" defer></script>
   <script src="../auth/login.js" defer></script>
   <script src="../../js/login_modal.js" defer></script>
-</head>
+<link rel="stylesheet" href="../../assets/mi_perfil.css"><link rel="stylesheet" href="../../assets/public_session.css"><script src="../../js/mi_perfil.js" defer></script><script src="../../js/public_session.js" defer></script></head>
 <body>
   <a class="skip-link" href="#main">Saltar al contenido</a>
   <header class="header">
@@ -22,8 +22,9 @@
       <nav id="navigation" aria-label="Navegación principal"><a class="active" href="index.html" aria-current="page">Inicio</a><a href="#rutas">Rutas</a><a href="#cooperativas">Cooperativas</a><a href="#como-reservar">Cómo reservar</a></nav>
       <a class="button outline login" href="../auth/login.html">Iniciar sesión</a>
       <a class="button header-buy" href="#buscador">Comprar boleto <span aria-hidden="true">→</span></a>
+      <div id="publicAccount" class="public-account" hidden><span data-personal-avatar aria-label="Mi perfil"></span><div><strong id="publicUserName" data-personal-user></strong><small id="publicUserRole"></small></div><a id="publicPanelLink"></a><a id="publicTicketsLink" href="../usuario/mis_boletos.html" hidden>Mis boletos</a><button id="btnCerrarSesion" type="button">Cerrar sesión</button></div>
     </div>
-  </header>
+  </header><p id="publicSessionStatus" class="public-session-status" role="status"></p>
   <main id="main">
     <section class="hero" aria-labelledby="heroTitle">
       <div class="container hero-content"><div class="hero-copy"><p class="eyebrow">DESCUBRE EL ECUADOR, UN VIAJE A LA VEZ</p><h1 id="heroTitle">Reserva tu viaje<br>interprovincial en minutos</h1><p>Conecta ciudades, provincias y nuevos destinos.<br>Tu próximo viaje empieza aquí.</p></div></div>

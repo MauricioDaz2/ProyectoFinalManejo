@@ -598,6 +598,8 @@ async function crearBoletoVentanilla(req, res) {
         transaccion = new sql.Transaction(pool);
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
+        await require('../services/workerSchedule').reserve(transaccion,idPasajero,idHoja);
+
         const ocupados = await new sql.Request(transaccion)
             .input('asiento', sql.VarChar(5), idAsiento)
             .input('hoja', sql.VarChar(5), idHoja)

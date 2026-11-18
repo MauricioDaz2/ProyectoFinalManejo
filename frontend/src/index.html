@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Iniciar | Sistema de Transporte Interprovincial</title>
+  <link rel="icon" href="assets/images/transport-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/project_start.css">
+  <script src="js/project_start.js" defer></script>
+</head>
+<body>
+  <main>
+    <img src="assets/images/transport-logo.svg" width="72" height="60" alt="">
+    <h1>Sistema de Transporte Interprovincial</h1>
+    <p id="startStatus" role="status">Comprobando el servidor del proyecto…</p>
+    <section id="startHelp" hidden>
+      <p>Abre la carpeta ProyectoFinalManejo en VS Code. En su terminal ejecuta:</p>
+      <pre><code>npm run dev</code></pre>
+      <p>Si PowerShell bloquea npm.ps1, utiliza <code>npm.cmd run dev</code>. No necesitas cambiar la política de seguridad.</p>
+      <p>Mantén esa terminal abierta y SQL Server en Docker iniciado. Después pulsa Reintentar.</p>
+      <button id="startRetry" type="button">Reintentar</button>
+      <a id="startLink" href="http://localhost:3000/">Abrir el servidor del proyecto</a>
+    </section>
+    <noscript>Activa JavaScript y abre <a href="http://localhost:3000/">http://localhost:3000/</a> después de ejecutar npm run dev.</noscript>
+  </main>
+</body>
+</html>

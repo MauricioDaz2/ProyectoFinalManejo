@@ -1252,50 +1252,14 @@ async function validarRelacionesHoja(pool, datos, cooperativa) {
 }
 
 async function crearHojaRuta(req, res) {
-    const datos = normalizarHoja(req.body);
-    const problema = validarHoja(datos);
-    if (problema) return res.status(400).json({ success: false, message: problema });
-
-    const cooperativa = cooperativaSolicitada(req);
-    if (!cooperativa) {
-        return res.status(400).json({ success: false, message: 'Debes indicar una cooperativa válida.' });
-    }
-
     try {
-        const pool = await conectarBD();
-        const relacion = await validarRelacionesHoja(pool, datos, cooperativa);
-        if (relacion) return res.status(400).json({ success: false, message: relacion });
-
-        const id = datos.ID_HOJ || await siguienteCodigo(pool.request(), 'HOJAS_RUTAS', 'ID_HOJ', 'H');
-
-        if (datos.ID_HOJ) {
-            const existente = await pool.request()
-                .input('id', sql.VarChar(5), id)
-                .query('SELECT 1 AS existe FROM dbo.HOJAS_RUTAS WHERE ID_HOJ = @id');
-            if (existente.recordset.length > 0) {
-                return res.status(409).json({ success: false, message: 'Ya existe una hoja de ruta con ese código.' });
-            }
-        }
-
-        const resultado = await pool.request()
-            .input('id', sql.VarChar(5), id)
-            .input('fecha', sql.Date, datos.FEC_PRO_HOJ)
-            .input('estado', sql.VarChar(30), datos.EST_VIA_HOJ)
-            .input('observacion', sql.VarChar(50), datos.OBS_HOJ || null)
-            .input('bus', sql.VarChar(5), datos.ID_BUS_PER)
-            .input('frecuencia', sql.VarChar(5), datos.ID_FRE_PER)
-            .input('controlador', sql.VarChar(10), datos.ID_USU_CON || null)
-            .query(`
-                INSERT INTO dbo.HOJAS_RUTAS
-                    (ID_HOJ, FEC_PRO_HOJ, EST_VIA_HOJ, OBS_HOJ, ID_BUS_PER, ID_BUS_REE, ID_FRE_PER, ID_USU_CON)
-                OUTPUT INSERTED.*
-                VALUES (@id, @fecha, @estado, @observacion, @bus, NULL, @frecuencia, @controlador)
-            `);
-
-        return res.status(201).json({ success: true, message: 'Hoja de ruta creada correctamente.', hoja: resultado.recordset[0] });
-    } catch (error) {
-        return manejarError(res, 'registro de hoja de ruta', error);
-    }
+        const b=req.body||{};
+        const result=await require('../services/tripOperations').assign(req.auth,{
+            idBus:b.idBus||b.ID_BUS_PER,idFre:b.idFre||b.ID_FRE_PER,idUsuCho:b.idUsuCho||b.ID_USU_CHO,idUsuCon:b.idUsuCon||b.ID_USU_CON,
+            salida:b.salida||b.SALIDA_PLAN_UTC,llegada:b.llegada||b.LLEGADA_PLAN_UTC,obs:b.obs??b.OBS_HOJ
+        });
+        res.status(201).json({success:true,...result,hoja:{ID_HOJ:result.idHoja}});
+    }catch(error){if(error.status)return res.status(error.status).json({success:false,message:error.message});return manejarError(res,'registro de hoja de ruta',error);}
 }
 
 async function actualizarHojaRuta(req, res) {

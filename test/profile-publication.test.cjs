@@ -52,6 +52,7 @@ test('HTTP y repositorio: borradores privados, publicación atómica y separaci�
       statements.push({ sql, params: { ...p } });
       const rows = (recordset = []) => ({ recordset });
       if (sql.includes('AS PERSONAL_INSTALADO')) return rows([{ PERSONAL_INSTALADO: 0 }]);
+      if (sql.includes('AS REGISTRO_INSTALADO')) return rows([{ REGISTRO_INSTALADO: 0 }]);
       if (sql.includes('AS INSTALADO')) return rows([{ INSTALADO: state.installed ? 1 : 0 }]);
       if (sql.includes('WHERE U.ID_USU = @id')) {
         const u = users[p.id];

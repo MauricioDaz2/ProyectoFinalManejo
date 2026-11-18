@@ -159,7 +159,7 @@ test('la integración envía cookie y cabecera solo a la API, conservando FormDa
   const window = { fetch: async (...args) => { calls.push(args); return { ok: true }; } };
   vm.runInNewContext(fs.readFileSync('frontend/src/js/transport_session.js', 'utf8'), {
     window, URL, Request, Headers, AbortSignal,
-    location: { hostname: '127.0.0.1', href: 'http://127.0.0.1:5500/frontend/src/views/auth/login.html' },
+    location: { hostname: '127.0.0.1', href: 'http://127.0.0.1:3000/src/views/auth/login.html' },
     document: { addEventListener() {} }
   });
   const body = new FormData();

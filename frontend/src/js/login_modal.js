@@ -5,6 +5,11 @@
     if (typeof dialog.showModal !== 'function') return;
     let opener = null;
     let startedOutside = false;
+    function open() {
+        if (!dialog.open) dialog.showModal();
+        document.body.classList.add('login-modal-open');
+        document.getElementById('correo').focus();
+    }
 
     document.querySelectorAll('a[href="../auth/login.html"]').forEach((link) => {
         link.setAttribute('aria-haspopup', 'dialog');
@@ -13,9 +18,7 @@
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
             opener = link;
-            if (!dialog.open) dialog.showModal();
-            document.body.classList.add('login-modal-open');
-            document.getElementById('correo').focus();
+            open();
         });
     });
     const close = () => {
@@ -37,4 +40,18 @@
         document.body.classList.remove('login-modal-open');
         opener?.focus();
     });
+    const url = new URL(location.href);
+    if (url.searchParams.get('login') === '1') {
+        url.searchParams.delete('login');
+        history.replaceState(null, '', url.href);
+        window.TransportSession.current().then(user => {
+            if (user) {
+                const destination = new URL(window.TransportSession.panelFor(user.rolId), location.href);
+                if (destination.pathname !== url.pathname) location.replace(destination.href);
+            } else open();
+        }).catch(() => {
+            open();
+            document.getElementById('mensajeError').textContent = 'No se pudo comprobar la sesión. Revisa la conexión e inténtalo nuevamente.';
+        });
+    }
 })();

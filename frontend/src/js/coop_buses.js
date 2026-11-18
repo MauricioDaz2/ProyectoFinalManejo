@@ -1,5 +1,6 @@
-(() => {
+(async () => {
   'use strict';
+  if (window.TransportSession) await window.TransportSession.ready;
 
   const usuario = App.sesion();
   if (!usuario) return;

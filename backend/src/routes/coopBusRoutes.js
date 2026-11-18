@@ -68,6 +68,11 @@ router.delete('/frecuencias/:id', eliminarFrecuencia);
 
 router.get('/hojas-ruta', listarHojasRuta);
 router.post('/hojas-ruta', crearHojaRuta);
+router.use('/hojas-ruta/:id',async(req,res,next)=>{
+    if(!['PUT','PATCH','DELETE'].includes(req.method))return next();
+    try{await require('../services/tripOperations').protectOperationalSheet(req.params.id);next();}
+    catch(e){res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo verificar el estado de la salida.'});}
+});
 router.put('/hojas-ruta/:id', actualizarHojaRuta);
 router.patch('/hojas-ruta/:id/estado', cambiarEstadoHojaRuta);
 router.delete('/hojas-ruta/:id', eliminarHojaRuta);

@@ -102,15 +102,16 @@ test('editor, Dashboard y página pública tienen enlaces y elementos válidos',
   }
 });
 
-for (const [role, file] of [['R001', 'admin/dashboard.html'], ['R002', 'cooperativa/personalizar.html'], ['R003', 'oficinista/ventanilla_boletos.html'], ['R004', 'controlador/panel.html'], ['R005', 'usuario/catalogo_viajes.html']]) {
-  for (const prefix of ['http://localhost:3000/src/views/', 'http://127.0.0.1:5500/frontend/src/views/']) test(`${role}: cierre de sesión a portada desde ${new URL(prefix).port}`, async () => {
+for (const [role, file] of [['R001', 'admin/dashboard.html'], ['R002', 'cooperativa/personalizar.html'], ['R003', 'oficinista/ventanilla_boletos.html'], ['R004', 'controlador/panel.html'], ['R005', 'usuario/catalogo_viajes.html'], ['R006', 'chofer/bienvenida.html']]) {
+  for (const prefix of ['http://localhost:3000/src/views/', 'http://127.0.0.1:3000/src/views/']) test(`${role}: cierre de sesión a portada desde ${new URL(prefix).port}`, async () => {
     const browser = logoutBrowser(prefix + file);
+    await browser.window.TransportSession.ready;
     await browser.window.TransportSession.logout();
     assert.equal(browser.redirects[0], new URL('../public/index.html', prefix + file).href);
     assert.equal(browser.storage.has('usuario'), false); assert.equal(browser.storage.has('token'), false); assert.equal(browser.session.has('publicTripSearch'), false);
     assert.equal(browser.storage.get('preferencia'), 'conservar');
-    assert.equal(browser.requests[0].options.method, 'POST'); assert.equal(browser.requests[0].options.credentials, 'include');
-    assert.equal(browser.requests[0].options.headers.get('X-Transport-Client'), '1');
+    assert.equal(browser.requests.find(r=>r.url.endsWith('/auth/logout')).options.method, 'POST'); assert.equal(browser.requests.find(r=>r.url.endsWith('/auth/logout')).options.credentials, 'include');
+    assert.equal(browser.requests.find(r=>r.url.endsWith('/auth/logout')).options.headers.get('X-Transport-Client'), '1');
     assert.match(fs.readFileSync(`frontend/src/views/${file}`, 'utf8'), /transport_session.js/);
   });
 }
@@ -118,9 +119,9 @@ for (const [role, file] of [['R001', 'admin/dashboard.html'], ['R002', 'cooperat
 function logoutBrowser(href, fail = false) {
   const storage = new Map([['usuario', '{}'], ['token', 'antiguo'], ['preferencia', 'conservar']]), session = new Map([['publicTripSearch', 'busqueda']]);
   const requests = [], redirects = [];
-  const window = { dispatchEvent() {}, fetch: async (url, options) => { requests.push({ url, options }); return { ok: !fail }; } };
+  const window = { addEventListener(){}, dispatchEvent() {}, fetch: async (url, options) => { requests.push({ url, options }); return { ok: !fail || url.endsWith('/auth/me'), json:async()=>({usuario:{id:'test',rolId:href.includes('/admin/')?'R001':href.includes('/cooperativa/')?'R002':href.includes('/oficinista/')?'R003':href.includes('/controlador/')?'R004':'R006'}}) }; } };
   vm.runInNewContext(fs.readFileSync('frontend/src/js/transport_session.js', 'utf8'), {
-    window, URL, URLSearchParams, Headers, Request, AbortSignal, Event, document: { addEventListener() {} },
+    window, URL, URLSearchParams, Headers, Request, AbortSignal, Event, document: { documentElement:{},addEventListener() {} },
     location: { href, hostname: new URL(href).hostname, replace: (target) => redirects.push(new URL(target, href).href) },
     localStorage: { getItem: (key) => storage.get(key), removeItem: (key) => storage.delete(key) }, sessionStorage: { removeItem: (key) => session.delete(key) }
   });

@@ -7,12 +7,14 @@
   <title>Gestión de cooperativas | Transporte Admin</title>
   <link rel="stylesheet" href="../../assets/admin_layout.css">
   <link rel="stylesheet" href="../../assets/admin_cooperativas.css">
-  <script src="../../js/admin_layout.js" defer></script>
+  <script src="../../js/admin_layout.js" defer></script><script src="../../js/admin_shell.js" defer></script>
+  <link rel="stylesheet" href="../../assets/admin_dashboard.css"><link rel="stylesheet" href="../../assets/admin_company_registration.css"><script src="../../js/ecuador_validation.js" defer></script>
+  <link rel="stylesheet" href="../../assets/admin_company_detail.css"><script src="../../js/admin_company_accounts.js" defer></script>
   <script src="../../js/admin_cooperativas.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
-</head>
-<body data-page="cooperativas">
+<script src="../../js/admin_company_detail.js" defer></script></head>
+<body class="dashboard-page company-page" data-page="cooperativas">
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
     <div id="menuBackdrop" class="menu-backdrop" hidden></div>
@@ -21,6 +23,7 @@
       <header id="adminTopbar" class="admin-topbar"></header>
 
       <main id="main-content" class="admin-main">
+        <div id="companyList">
         <div class="page-title">
           <p class="eyebrow">Administración / Cooperativas</p>
           <h1>Gestión de cooperativas</h1>
@@ -46,8 +49,9 @@
           <article class="coop-summary-card">
             <span class="coop-summary-label">Inactivas</span>
             <strong id="cooperativasInactivas" class="coop-summary-number">0</strong>
-            <span class="coop-summary-detail">Suspendidas temporalmente</span>
+            <span class="coop-summary-detail">No habilitadas para operar</span>
           </article>
+          <article class="coop-summary-card" id="suspendedMetric" hidden><span class="coop-summary-label">Suspendidas</span><strong id="cooperativasSuspendidas" class="coop-summary-number">—</strong><span class="coop-summary-detail">Suspensión administrativa</span></article>
         </section>
 
         <section class="coop-panel" aria-labelledby="tituloListado">
@@ -67,14 +71,14 @@
           <div class="coop-toolbar">
             <label class="coop-search-field" for="buscarCooperativa">
               <span class="coop-field-label">Buscar cooperativa</span>
-              <input id="buscarCooperativa" type="search" placeholder="Nombre, código o RUC..." autocomplete="off">
+              <input id="buscarCooperativa" type="search" placeholder="Nombre, código, RUC o ciudad…" autocomplete="off">
             </label>
             <label class="coop-filter-field" for="filtrarEstado">
               <span class="coop-field-label">Estado</span>
               <select id="filtrarEstado">
                 <option value="todos">Todos los estados</option>
                 <option value="1">Activas</option>
-                <option value="0">Inactivas</option>
+                <option value="0">Inactivas</option><option value="S" id="suspendedFilter" hidden>Suspendidas</option>
               </select>
             </label>
           </div>
@@ -86,10 +90,9 @@
                   <th scope="col">Código</th>
                   <th scope="col">Cooperativa</th>
                   <th scope="col">RUC</th>
-                  <th scope="col">Dirección</th>
-                  <th scope="col">Teléfono</th>
+                  <th scope="col">Ciudad</th>
+                  <th scope="col">Responsable principal</th>
                   <th scope="col">Estado</th>
-                  <th scope="col">Acciones</th>
                 </tr>
               </thead>
               <tbody id="tablaCooperativas"></tbody>
@@ -105,12 +108,25 @@
             <span>Datos almacenados en SQL Server</span>
           </div>
         </section>
+        </div>
+        <section id="companyDetail" hidden aria-labelledby="detailName">
+          <a class="coop-button coop-button-secondary" href="#">← Volver a cooperativas</a>
+          <button id="detailReload" class="coop-button coop-button-secondary" type="button">Actualizar ficha</button>
+          <p id="detailStatus" role="status"></p>
+          <div id="detailContent" hidden>
+            <header class="company-detail-header"><img id="detailLogo" alt="Logotipo de la cooperativa" hidden><div><h1 id="detailName" tabindex="-1"></h1><p id="detailLocation"></p><p id="detailState"></p></div><a id="detailPublic" target="_blank" rel="noopener">Visitar página pública ↗</a></header>
+            <div class="company-tabs" role="tablist" aria-label="Ficha de cooperativa"><button id="companyTabEmpresa" type="button" role="tab" aria-controls="companyEmpresa" aria-selected="true" data-company-tab="Empresa">Empresa</button><button id="companyTabResponsables" type="button" role="tab" aria-controls="companyResponsables" aria-selected="false" tabindex="-1" data-company-tab="Responsables">Responsables</button><button id="companyTabPersonal" type="button" role="tab" aria-controls="companyPersonal" aria-selected="false" tabindex="-1" data-company-tab="Personal">Personal</button></div>
+            <section id="companyEmpresa" class="company-section" role="tabpanel" aria-labelledby="companyTabEmpresa"><h2>Información administrativa</h2><dl id="companyData" class="company-data"></dl><p id="companyMigration" class="company-pending" hidden></p><div class="company-actions"><button id="companyEdit" class="coop-button coop-button-primary" type="button">Editar información</button><button id="companyState" class="coop-button coop-button-secondary" type="button">Gestionar estado</button><button id="companyDelete" class="coop-button company-danger" type="button">Eliminar cooperativa</button></div><details><summary>Historial de estados</summary><div id="companyStateHistory"></div></details></section>
+            <section id="companyResponsables" class="company-section" role="tabpanel" aria-labelledby="companyTabResponsables" hidden><h2>Responsables y gestores</h2><p id="principalStatus"></p><button id="companyCreateAccount" class="coop-button coop-button-primary" type="button">Crear acceso principal</button><div class="company-directory-controls"><label>Buscar responsable<input id="managerSearch" type="search" placeholder="Nombre, identificación o correo"></label><label>Estado<select id="managerState"><option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option></select></label></div><div class="coop-table-scroll"><table class="coop-table company-directory"><thead><tr><th>Nombre e identificación</th><th>Contacto</th><th>Nivel y permisos</th><th>Estado</th><th>Administrar</th></tr></thead><tbody id="managerRows"></tbody></table></div><details><summary>Historial de responsables principales</summary><div id="companyPrincipalHistory"></div></details></section>
+            <section id="companyPersonal" class="company-section" role="tabpanel" aria-labelledby="companyTabPersonal" hidden><h2>Directorio de personal</h2><p class="company-help">La gestión cotidiana corresponde al representante R002. Aquí puedes consultar y realizar intervenciones administrativas.</p><div class="company-directory-controls"><label>Buscar trabajador<input id="workerSearch" type="search" placeholder="Nombre, identificación o correo"></label><label>Rol<select id="workerRole"><option value="">Todos</option><option value="R003">Oficinistas</option><option value="R004">Controladores</option><option value="R006">Choferes</option></select></label><label>Estado<select id="workerState"><option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option></select></label></div><div class="coop-table-scroll"><table class="coop-table company-directory"><thead><tr><th>Nombre e identificación</th><th>Contacto</th><th>Rol</th><th>Estado</th><th>Registro</th><th>Administrar</th></tr></thead><tbody id="workerRows"></tbody></table></div></section>
+          </div>
+        </section>
       </main>
     </div>
   </div>
 
   <dialog id="modalCooperativa" class="coop-dialog" aria-labelledby="tituloModal">
-    <form id="formCooperativa">
+    <form id="formCooperativa" novalidate>
       <div class="coop-dialog-heading">
         <div>
           <p class="coop-dialog-kicker">Información de cooperativa</p>
@@ -120,54 +136,26 @@
         <button type="button" class="coop-icon-button" id="btnCerrarModal" aria-label="Cerrar formulario">×</button>
       </div>
 
-      <div class="coop-dialog-content">
-        <div class="coop-form-grid">
-          <label class="coop-form-field" for="idCop">
-            <span>Código <span class="coop-required">*</span></span>
-            <input id="idCop" name="ID_COP" type="text" maxlength="5" required placeholder="COP01" autocomplete="off">
-            <small>Máximo 5 caracteres</small>
-          </label>
-          <label class="coop-form-field" for="nombreCop">
-            <span>Nombre de cooperativa <span class="coop-required">*</span></span>
-            <input id="nombreCop" name="NOM_COP" type="text" maxlength="20" required placeholder="Cooperativa Ambato">
-          </label>
-          <label class="coop-form-field" for="rucCop">
-            <span>RUC <span class="coop-required">*</span></span>
-            <input id="rucCop" name="RUC_COP" type="text" inputmode="numeric" pattern="[0-9]{13}" maxlength="13" required placeholder="13 dígitos" title="Ingresa exactamente 13 dígitos">
-            <small>Debe contener 13 dígitos</small>
-          </label>
-          <label class="coop-form-field" for="telefonoCop">
-            <span>Teléfono <span class="coop-required">*</span></span>
-            <input id="telefonoCop" name="TEL_COP" type="tel" inputmode="numeric" pattern="[0-9]{7,10}" maxlength="10" required placeholder="0999999999" title="Ingresa entre 7 y 10 dígitos">
-          </label>
-          <label class="coop-form-field coop-field-wide" for="direccionCop">
-            <span>Dirección <span class="coop-required">*</span></span>
-            <input id="direccionCop" name="DIR_COP" type="text" maxlength="20" required placeholder="Dirección principal">
-            <small>Máximo 20 caracteres según el modelo actual</small>
-          </label>
-          <label class="coop-form-field coop-field-wide" for="logoCop">
-            <span>URL del logotipo <span class="coop-required">*</span></span>
-            <input id="logoCop" name="LOG_URL_COP" type="url" maxlength="500" required placeholder="https://ejemplo.com/logo.png">
-          </label>
-          <label class="coop-form-field coop-field-wide" for="estadoCop">
-            <span>Estado</span>
-            <select id="estadoCop" name="EST_COP">
-              <option value="1">Activa</option>
-              <option value="0">Inactiva</option>
-            </select>
-          </label>
-        </div>
-        <p class="coop-form-help">Los campos marcados con * son obligatorios.</p>
-        <p id="errorFormulario" class="coop-form-error" role="alert" hidden></p>
-      </div>
-
+      <div class="coop-dialog-content"><ol class="company-steps" aria-label="Pasos del registro"><li data-step-label="0">1. Empresa</li><li data-step-label="1">2. Contacto</li><li data-step-label="2">3. Responsables</li></ol>
+<p id="registroAvailability" class="company-help" role="status"></p>
+<section data-step="0"><h3>Información empresarial</h3><div class="coop-form-grid">
+<label class="coop-form-field">Código interno<input id="idCop" readonly value="Se genera al guardar"><small>Asignación automática y única.</small></label>
+<label class="coop-form-field"><span>Razón social o nombre legal *</span><input name="NOM_COP" id="NOM_COP" type="text" maxlength="120" required aria-describedby="error-NOM_COP"><small id="error-NOM_COP" data-field-error="NOM_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>Nombre comercial, si es diferente</span><input name="NOM_COM_COP" id="NOM_COM_COP" type="text" maxlength="120"  aria-describedby="error-NOM_COM_COP"><small id="error-NOM_COM_COP" data-field-error="NOM_COM_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>RUC *</span><input name="RUC_COP" id="RUC_COP" type="text" maxlength="13" required aria-describedby="error-RUC_COP"><small id="error-RUC_COP" data-field-error="RUC_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>Tipo de organización</span><input name="TIP_ORG_COP" id="TIP_ORG_COP" type="text" maxlength="50"  aria-describedby="error-TIP_ORG_COP"><small id="error-TIP_ORG_COP" data-field-error="TIP_ORG_COP" class="company-field-error"></small></label>
+<label class="coop-form-field">Estado *<select id="estadoCop" name="EST_COP" disabled><option value="1">Activa</option><option value="0">Inactiva</option><option value="S">Suspendida</option></select><small data-field-error="EST_COP" class="company-field-error"></small></label></div>
+<p class="company-help">La validación local comprueba el formato; no confirma la existencia oficial del RUC. <a href="https://srienlinea.sri.gob.ec/sri-en-linea/SriRucWeb/ConsultaRuc/Consultas/consultaRuc" target="_blank" rel="noopener noreferrer">Consultar en SRI ↗</a></p></section>
+<section data-step="1" hidden><h3>Contacto y ubicación</h3><div class="coop-form-grid"><label class="coop-form-field"><span>Provincia *</span><input name="PROVINCIA_COP" id="PROVINCIA_COP" type="text" maxlength="60" required aria-describedby="error-PROVINCIA_COP"><small id="error-PROVINCIA_COP" data-field-error="PROVINCIA_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>Cantón o ciudad *</span><input name="CIUDAD_COP" id="CIUDAD_COP" type="text" maxlength="80" required aria-describedby="error-CIUDAD_COP"><small id="error-CIUDAD_COP" data-field-error="CIUDAD_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>Dirección principal *</span><input name="DIR_COP" id="DIR_COP" type="text" maxlength="240" required aria-describedby="error-DIR_COP"><small id="error-DIR_COP" data-field-error="DIR_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>Teléfono institucional *</span><input name="TEL_COP" id="TEL_COP" type="tel" maxlength="20" required aria-describedby="error-TEL_COP"><small id="error-TEL_COP" data-field-error="TEL_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>Correo institucional *</span><input name="COR_INS_COP" id="COR_INS_COP" type="email" maxlength="120" required aria-describedby="error-COR_INS_COP"><small id="error-COR_INS_COP" data-field-error="COR_INS_COP" class="company-field-error"></small></label><label class="coop-form-field"><span>Sitio web externo</span><input name="SIT_WEB_COP" id="SIT_WEB_COP" type="url" maxlength="500"  aria-describedby="error-SIT_WEB_COP"><small id="error-SIT_WEB_COP" data-field-error="SIT_WEB_COP" class="company-field-error"></small></label></div><p class="company-help">El sitio web externo es independiente de la página pública de esta plataforma. El representante podrá subir el logotipo desde Personalización. No es obligatorio para registrar la empresa.</p></section>
+<section data-step="2" hidden><h3>Accesos de la cooperativa</h3><p class="company-help">Un responsable principal obligatorio y gestores adicionales opcionales. Las cuentas se crearán juntas; no se guardarán parcialmente.</p><div id="initialPrincipal"></div><div id="initialManagers"></div><button id="addInitialManager" type="button" class="coop-button coop-button-secondary">+ Añadir gestor adicional</button><h3>Resumen de cuentas</h3><div id="initialAccountsSummary" class="company-account-summary"></div></section>
+<p class="coop-form-help">Los campos marcados con * son obligatorios.</p><p id="errorFormulario" class="coop-form-error" role="alert" hidden></p></div>
       <div class="coop-dialog-actions">
         <button type="button" class="coop-button coop-button-secondary" id="btnCancelarModal">Cancelar</button>
-        <button type="submit" class="coop-button coop-button-primary" id="btnGuardarCooperativa">Guardar registro</button>
+        <button type="button" class="coop-button coop-button-secondary" id="companyPrevious">Anterior</button><button type="button" class="coop-button coop-button-primary" id="companyNext">Continuar</button>
+        <button type="submit" class="coop-button coop-button-primary" id="btnGuardarCooperativa">Crear cooperativa y responsables</button>
       </div>
     </form>
   </dialog>
 
+  <dialog id="companyAccountDialog" class="coop-dialog" aria-labelledby="companyAccountTitle"><form id="companyAccountForm" novalidate><div class="coop-dialog-heading"><h2 id="companyAccountTitle">Cuenta</h2><button type="button" id="companyAccountClose" class="coop-icon-button" aria-label="Cerrar">×</button></div><div class="coop-dialog-content"><div id="companyAccountFields"></div><p id="companyAccountStatus" role="alert"></p></div><div class="coop-dialog-actions"><button id="companyAccountSave" class="coop-button coop-button-primary" type="submit">Guardar cuenta</button></div></form></dialog>
+  <dialog id="companyConfirmDialog" class="coop-dialog company-confirm" aria-labelledby="companyConfirmTitle"><form id="companyConfirmForm"><h2 id="companyConfirmTitle"></h2><p id="companyConfirmText"></p><label id="companyStateChoice">Nuevo estado<select id="companyNextState"><option value="1">Activa / Reactivar</option><option value="S">Suspendida</option><option value="0">Inactiva / Desactivar</option></select></label><label id="companyReasonLabel">Motivo de suspensión<textarea id="companyReason" maxlength="500"></textarea></label><label>Confirmación<input id="companyConfirmation" autocomplete="off" required></label><p id="companyConfirmStatus" role="alert"></p><div class="company-actions"><button type="button" id="companyConfirmCancel" class="coop-button coop-button-secondary">Cancelar</button><button id="companyConfirmSave" type="submit" class="coop-button coop-button-primary">Confirmar</button></div></form></dialog>
   <div id="notificacionCooperativa" class="coop-toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
