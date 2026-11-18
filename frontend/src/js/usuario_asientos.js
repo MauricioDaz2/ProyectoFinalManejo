@@ -28,6 +28,7 @@ const btnSubmitAccion = document.querySelector('#btnSubmitAccion');
 let seats = [];
 let selectedSeats = [];
 let activeFloor = 1;
+let cupoDisponible = Infinity;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
@@ -52,7 +53,7 @@ const renderFloor = (floor) => {
         rows.push(`<div class="bus-seat-row">${rowSeats.map((seat, seatIndex) => {
             const state = seatStatusClass(seat.ESTADO_ASIENTO);
             const selected = selectedSeats.some((item) => item.ID_ASI === seat.ID_ASI);
-            const disabled = state !== 'libre' ? 'disabled' : '';
+            const disabled = state !== 'libre' || cupoDisponible === 0 ? 'disabled' : '';
             const aisle = seatIndex === 2 ? '<span class="bus-aisle" aria-hidden="true"></span>' : '';
             const precioFiltro = Number(seat.PRE_TIP || 0).toFixed(2);
             return `${seatIndex === 2 ? aisle : ''}<button class="seat ${state}${selected ? ' selected' : ''}" data-seat="${escapeHtml(seat.ID_ASI)}" type="button" ${disabled} title="${escapeHtml(seat.NOM_TIP)} - $${precioFiltro}">${escapeHtml(seat.ID_ASI)}<small style="font-size:8px; display:block;">$${precioFiltro}</small></button>`;
@@ -94,6 +95,7 @@ const selectSeat = (seatId) => {
     if (selectedSeats.some((item) => item.ID_ASI === seatId)) {
         selectedSeats = selectedSeats.filter((item) => item.ID_ASI !== seatId);
     } else {
+        if (selectedSeats.length >= cupoDisponible) return showError('Alcanzaste el cupo disponible para esta frecuencia.');
         selectedSeats.push(seat);
     }
     renderFloor(activeFloor);
@@ -125,6 +127,7 @@ const loadSeats = async () => {
         seats = data.asientos;
         
         const viaje = data.viaje;
+        cupoDisponible = viaje.cupoPasajerosDisponible ?? Infinity;
         tripSummary.innerHTML = `
             ${viaje.imgBus ? `<img src="${escapeHtml(viaje.imgBus)}" alt="Bus ${escapeHtml(viaje.numeroBus)}" style="width: 110px; height: 75px; object-fit: cover; border-radius: 8px; border: 1px solid var(--usuario-border);" />` : ''}
             <div>
@@ -137,7 +140,8 @@ const loadSeats = async () => {
         activeFloor = floors[0];
         renderTabs(floors);
         renderFloor(activeFloor);
-        seatStatus.textContent = `Hay ${seats.filter((seat) => seat.ESTADO_ASIENTO === 'LIBRE').length} asiento(s) libre(s).`;
+        const libres = seats.filter((seat) => seat.ESTADO_ASIENTO === 'LIBRE').length;
+        seatStatus.textContent = `Hay ${Math.min(libres, cupoDisponible)} plaza(s) disponible(s).`;
     } catch (error) {
         showError(error.message);
         seatGrid.innerHTML = '<p class="usuario-empty">No se pudo cargar el mapa de asientos.</p>';

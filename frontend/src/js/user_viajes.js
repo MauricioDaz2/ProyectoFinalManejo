@@ -134,7 +134,8 @@ searchForm.addEventListener('submit', async (event) => {
             const seatsResponse = await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(trip.ID_HOJ)}/asientos${cooperativeQuery}`);
             const seatsData = await seatsResponse.json();
             if (!seatsResponse.ok || !seatsData.success) throw new Error('No se pudo comprobar la disponibilidad. Inténtalo nuevamente.');
-            return { trip, free: seatsData.asientos.filter((seat) => seat.ESTADO_ASIENTO === 'LIBRE').length };
+            const asientosLibres = seatsData.asientos.filter((seat) => seat.ESTADO_ASIENTO === 'LIBRE').length;
+            return { trip, free: Math.min(asientosLibres, seatsData.viaje?.cupoPasajerosDisponible ?? Infinity) };
         }));
         const available = checked.filter((item) => item.free >= passengers).map((item) => item.trip);
         renderResults(available);

@@ -494,6 +494,19 @@ body.modal-open {
     grid-column: span 2;
 }
 
+[data-page="resoluciones"] .modal fieldset {
+    min-width: 0;
+    margin: 15px 0 0;
+    padding: 10px;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+}
+
+[data-page="resoluciones"] .modal fieldset[hidden],
+[data-page="resoluciones"] .modal .field[hidden] { display: none; }
+[data-page="resoluciones"] #configFrecuencia fieldset { grid-template-columns: minmax(0, 1fr); }
+[data-page="resoluciones"] #resolucionRevocada { width: auto; }
+
 .field {
     display: flex;
     flex-direction: column;
