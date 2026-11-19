@@ -9,17 +9,18 @@ const fail = (status, code, message) => Object.assign(new Error(message), { stat
 const sqlErrors = {
     51201: 'OPERACION_OCUPADA', 51202: 'CUPO_RESOLUCION_AGOTADO', 51203: 'TRAYECTO_NO_ADMITIDO',
     51204: 'CUPO_INFERIOR_A_COMPROMISOS', 51205: 'SALIDA_CON_BOLETOS', 51206: 'FRECUENCIA_NO_VIGENTE',
-    51207: 'CUPO_UNIDADES_AGOTADO', 51208: 'SALIDA_NO_DISPONIBLE', 51209: 'CUPO_PASAJEROS_AGOTADO'
+    51207: 'CUPO_UNIDADES_AGOTADO', 51208: 'SALIDA_NO_DISPONIBLE', 51209: 'CUPO_PASAJEROS_AGOTADO',
+    51303: 'BUS_O_TRIPULACION_INVALIDOS', 51304: 'HORARIO_EN_CONFLICTO'
 };
 
 function respond(res, error) {
     const number = error.number ?? error.originalError?.info?.number;
-    if (sqlErrors[number]) return res.status(number === 51203 ? 422 : 409)
+    if (sqlErrors[number]) return res.status([51203, 51303].includes(number) ? 422 : 409)
         .json({ success: false, code: sqlErrors[number], message: error.message });
     if (enabled() && number === 1205) return res.status(409)
         .json({ success: false, code: 'OPERACION_OCUPADA', message: 'Otra operación está usando el cupo. Intenta nuevamente.' });
     if (error.status && error.code) return res.status(error.status)
-        .json({ success: false, code: error.code, message: error.message });
+        .json({ success: false, code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) });
     return null;
 }
 

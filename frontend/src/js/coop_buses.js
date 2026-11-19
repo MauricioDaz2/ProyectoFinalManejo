@@ -41,12 +41,21 @@
   const selectTipoAsiento = document.getElementById('selectTipoAsiento');
   const botonGuardarTipo = document.getElementById('btnGuardarTipoAsiento');
 
+  const modalCategoriasBus = document.getElementById('modalCategoriasBus');
+  const tituloModalCategoriasBus = document.getElementById('tituloModalCategoriasBus');
+  const categoriasBusLista = document.getElementById('categoriasBusLista');
+  const botonGuardarCategoriasBus = document.getElementById('btnGuardarCategoriasBus');
+
   let buses = [];
   let tiposAsiento = [];
   let busEnEdicion = null;
   let busAsientosActual = null;
   let asientoSeleccionado = null;
   let asientosOriginales = { p1: 20, p2: 0 };
+  let categorias = [];
+  let categoriasPorBus = new Map();
+  let cc02Disponible = false;
+  let busCategoriasEnEdicion = null;
 
   const cargando = new Set();
 
@@ -77,6 +86,15 @@
     `).join('');
   }
 
+  function celdaCategorias(bus) {
+    const asignadas = categoriasPorBus.get(bus.ID_BUS) || [];
+    if (!cc02Disponible || asignadas.length === 0) return '<span class="muted">—</span>';
+    return asignadas.map((id) => {
+      const categoria = categorias.find((elemento) => elemento.ID_CAT === id);
+      return `<span class="badge badge-info">${App.escapar(categoria?.NOM_CAT || id)}</span>`;
+    }).join(' ');
+  }
+
   function filaBus(bus) {
     const asientos = Number(bus.TOTAL_ASIENTOS) || (Number(bus.ASIENTOS_P1) || 0) + (Number(bus.ASIENTOS_P2) || 0);
     return `
@@ -91,10 +109,12 @@
         <td>${App.escapar(bus.ANIO_BUS)}</td>
         <td>${Number(bus.NUM_PIS) === 2 ? '2 pisos' : '1 piso'}</td>
         <td>${App.numero(asientos)}</td>
+        <td>${celdaCategorias(bus)}</td>
         <td>${App.insignia(bus.EST_BUS)}</td>
         <td>
           <div class="actions">
             <button class="btn btn-secondary btn-sm" type="button" data-accion="editar" data-id="${App.escapar(bus.ID_BUS)}">Editar</button>
+            ${cc02Disponible ? `<button class="btn btn-secondary btn-sm" type="button" data-accion="categorias" data-id="${App.escapar(bus.ID_BUS)}">Categorías</button>` : ''}
             <button class="btn btn-secondary btn-sm" type="button" data-accion="asientos" data-id="${App.escapar(bus.ID_BUS)}">Asientos</button>
             <select class="filter-select" data-estado-bus="${App.escapar(bus.ID_BUS)}" aria-label="Cambiar estado del bus ${App.escapar(bus.NUM_BUS)}">
               ${opcionesEstado(bus.EST_BUS)}
@@ -110,28 +130,82 @@
     contador.textContent = `${App.numero(filtrados.length)} bus${filtrados.length === 1 ? '' : 'es'}`;
     tabla.innerHTML = filtrados.length > 0
       ? filtrados.map(filaBus).join('')
-      : `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">▤</div>
+      : `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">▤</div>
           <h3>No hay buses para mostrar</h3>
           <p>Registra la primera unidad de la cooperativa o ajusta los filtros de búsqueda.</p>
           <button class="btn btn-primary mt-2" type="button" data-accion="nuevo">Registrar bus</button>
         </div></td></tr>`;
   }
 
+  async function cargarCategorias() {
+    if (!cooperativa) return;
+    try {
+      const datos = await App.api('/coop/categorias-operativas');
+      categorias = datos.categorias || [];
+      categoriasPorBus = new Map((datos.buses || []).map((bus) => [bus.ID_BUS, bus.categorias || []]));
+      cc02Disponible = true;
+    } catch (error) {
+      if (!['LOTES_NO_HABILITADOS', 'CC01_REQUERIDO'].includes(error.datos?.code)) {
+        console.warn('No se pudieron cargar las categorías operativas.', error);
+      }
+      cc02Disponible = false;
+    }
+  }
+
+  function abrirCategorias(id) {
+    const bus = buses.find((elemento) => elemento.ID_BUS === id);
+    if (!bus) return;
+    busCategoriasEnEdicion = bus;
+    const asignadas = new Set(categoriasPorBus.get(id) || []);
+    tituloModalCategoriasBus.textContent = `Categorías del bus ${bus.NUM_BUS}`;
+    categoriasBusLista.innerHTML = categorias.length
+      ? categorias.map((categoria) => `
+        <label class="category-choice">
+          <input type="checkbox" value="${App.escapar(categoria.ID_CAT)}" ${asignadas.has(categoria.ID_CAT) ? 'checked' : ''}>
+          <span>${App.escapar(categoria.NOM_CAT)}</span>
+        </label>`).join('')
+      : '<p class="muted">No hay categorías operativas configuradas.</p>';
+    App.abrirModal('modalCategoriasBus');
+  }
+
+  async function guardarCategoriasBus() {
+    if (!busCategoriasEnEdicion) return;
+    const valores = Array.from(categoriasBusLista.querySelectorAll('input:checked')).map((input) => input.value);
+    App.textoBoton(botonGuardarCategoriasBus, 'Guardando…');
+    try {
+      await App.api(`/coop/buses/${encodeURIComponent(busCategoriasEnEdicion.ID_BUS)}/categorias`, {
+        method: 'PUT',
+        body: { categorias: valores }
+      });
+      categoriasPorBus.set(busCategoriasEnEdicion.ID_BUS, valores);
+      App.cerrarModal('modalCategoriasBus');
+      render();
+      App.aviso('Categorías del bus actualizadas.', 'success');
+    } catch (error) {
+      App.aviso(error.message, 'error');
+    } finally {
+      App.restaurarBoton(botonGuardarCategoriasBus);
+    }
+  }
+
   async function cargar() {
     if (!cooperativa) {
-      tabla.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⚠</div><h3>Sin cooperativa asignada</h3><p>Tu usuario no tiene una cooperativa asociada.</p></div></td></tr>`;
+      tabla.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">⚠</div><h3>Sin cooperativa asignada</h3><p>Tu usuario no tiene una cooperativa asociada.</p></div></td></tr>`;
       return;
     }
 
     App.textoBoton(botonRecargar, 'Cargando…');
     try {
-      const datos = await App.api('/coop/buses', {
-        query: {
-          cooperativa,
-          buscar: buscar.value.trim(),
-          estado: filtroEstado.value
-        }
-      });
+      const [datos] = await Promise.all([
+        App.api('/coop/buses', {
+          query: {
+            cooperativa,
+            buscar: buscar.value.trim(),
+            estado: filtroEstado.value
+          }
+        }),
+        cargarCategorias()
+      ]);
       buses = datos.buses || [];
       render();
       if (!buscar.value.trim() && !filtroEstado.value) {
@@ -139,7 +213,7 @@
       }
     } catch (error) {
       App.aviso(error.message, 'error');
-      tabla.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">!</div><h3>No se pudo cargar la flota</h3><p>${App.escapar(error.message)}</p></div></td></tr>`;
+      tabla.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">!</div><h3>No se pudo cargar la flota</h3><p>${App.escapar(error.message)}</p></div></td></tr>`;
     } finally {
       App.restaurarBoton(botonRecargar);
     }
@@ -432,6 +506,7 @@
     const id = boton.dataset.id;
     if (accion === 'nuevo') abrirNuevoBus();
     if (accion === 'editar') abrirEdicion(id);
+    if (accion === 'categorias') abrirCategorias(id);
     if (accion === 'asientos') abrirAsientos(id);
     if (accion === 'baja') darDeBaja(id);
   });
@@ -451,6 +526,7 @@
   botonNuevo.addEventListener('click', abrirNuevoBus);
   botonRecargar.addEventListener('click', cargar);
   botonGuardarTipo.addEventListener('click', guardarTipoAsiento);
+  botonGuardarCategoriasBus.addEventListener('click', guardarCategoriasBus);
   filtroEstado.addEventListener('change', cargar);
   buscar.addEventListener('input', App.debounce(cargar, 380));
 

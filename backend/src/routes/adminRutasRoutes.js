@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const batches = require('../controllers/routeBatchController');
 const { listarHojasRuta, listarFrecuencias, listarResoluciones, crearFrecuencia, crearHojaRuta, asignarFrecuencia } = require('../controllers/adminRutasController');
 const { listarUsuariosOperativos } = require('../controllers/adminRutasController'); // O el controlador donde la hayas colocado
 
@@ -7,6 +8,8 @@ const { listarUsuariosOperativos } = require('../controllers/adminRutasControlle
 router.get('/usuarios', listarUsuariosOperativos);
 
 router.get('/hojas', listarHojasRuta);
+router.get('/hojas/disponibilidad', batches.availability);
+router.post('/hojas/lotes', batches.create);
 router.get('/frecuencias', listarFrecuencias);
 router.get('/resoluciones', listarResoluciones);
 router.post('/frecuencias', crearFrecuencia);

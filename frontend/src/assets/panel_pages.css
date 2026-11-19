@@ -1737,3 +1737,16 @@ table.data-table .actions {
         overflow: visible;
     }
 }
+
+.category-choice {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 0;
+    cursor: pointer;
+}
+
+.category-choice input {
+    width: auto;
+    margin: 0;
+}

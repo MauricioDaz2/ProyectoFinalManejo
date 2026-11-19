@@ -48,6 +48,8 @@
   const configFrecuencia = document.getElementById('configFrecuencia');
   const cupoUnidades = document.getElementById('cupoUnidadesFrecuencia');
   const cupoPasajeros = document.getElementById('cupoPasajerosFrecuencia');
+  const categoriaFrecuencia = document.getElementById('categoriaFrecuencia');
+  const campoCategoriaFrecuencia = categoriaFrecuencia.closest('.field');
   const estadoCatalogo = document.getElementById('catalogoFrecuenciaEstado');
   const niveles = [['Provincia','ID_PRO','NOM_PRO'], ['Canton','ID_CAN','NOM_CAN'],
     ['Parroquia','ID_PAR','NOM_PAR'], ['Punto','ID_PUN','NOM_PUN']];
@@ -65,6 +67,8 @@
   let frecuenciaEnEdicion = null;
   let tabActiva = 'resoluciones';
   let controlFrecuencias = false;
+  let categoriasOperativas = [];
+  let categoriasDisponibles = false;
   let puntos = [];
   let cargaCatalogo;
   let versionModal = 0;
@@ -258,6 +262,7 @@
   function filaFrecuencia(frecuencia) {
     const activa = String(frecuencia.EST_RES) === '1';
     const uso = (max, used, unidad) => max == null ? '' : `<small>${App.numero(used)} / ${App.numero(max)} ${unidad} hoy</small><br>`;
+    const categoria = frecuencia.NOM_CAT || categoriasOperativas.find((elemento) => elemento.ID_CAT === frecuencia.ID_CAT_OP)?.NOM_CAT;
     return `
       <tr>
         <td class="mono strong">${App.escapar(frecuencia.ID_FRE)}</td>
@@ -269,6 +274,7 @@
           </div>
           ${controlFrecuencias ? `<small>${frecuencia.TIPO_TRAYECTO === 'INTRACANTONAL' ? 'Intracantonal'
             : frecuencia.TIPO_TRAYECTO === 'INTERPROVINCIAL' ? 'Interprovincial' : 'Trayecto sin configurar'}</small>` : ''}
+          ${categoriasDisponibles ? `<small>${categoria ? App.escapar(categoria) : 'Sin categoría operativa'}</small>` : ''}
         </td>
         <td class="nowrap">${etiquetaVigencia(frecuencia)}</td>
         <td>${App.numero(frecuencia.DIAS_VIGENCIA)}</td>
@@ -352,6 +358,23 @@
     }
   }
 
+  async function cargarCategorias() {
+    try {
+      const datos = await App.api('/coop/categorias-operativas');
+      categoriasOperativas = datos.categorias || [];
+      categoriasDisponibles = Array.isArray(datos.categorias);
+    } catch (error) {
+      categoriasOperativas = [];
+      categoriasDisponibles = false;
+      if (!['LOTES_NO_HABILITADOS', 'CC01_REQUERIDO'].includes(error.datos?.code)) {
+        console.warn('No se pudieron cargar las categorías operativas.', error);
+      }
+    }
+    campoCategoriaFrecuencia.hidden = !categoriasDisponibles;
+    categoriaFrecuencia.replaceChildren(new Option('Selecciona…', ''),
+      ...categoriasOperativas.map((categoria) => new Option(categoria.NOM_CAT, categoria.ID_CAT)));
+  }
+
   async function cargarTodo() {
     try {
       usuario = (await App.api('/auth/me')).usuario;
@@ -360,6 +383,7 @@
     } catch (error) { aviso(error.message, 'danger'); return; }
     App.textoBoton(btnRecargar, 'Actualizando…');
     limpiarAviso();
+    await cargarCategorias();
     await Promise.all([cargarResoluciones(), cargarFrecuencias()]);
     App.restaurarBoton(btnRecargar);
   }
@@ -500,6 +524,7 @@
     inicioFrecuencia.value = App.hoyISO();
     finFrecuencia.value = '';
     estadoFrecuencia.value = '1';
+    categoriaFrecuencia.value = '';
     actualizarSelectResoluciones();
     tituloModalFrecuencia.textContent = 'Nueva frecuencia';
     App.abrirModal('modalFrecuencia');
@@ -521,6 +546,7 @@
     estadoFrecuencia.value = String(frecuencia.EST_RES) === '1' ? '1' : '0';
     cupoUnidades.value = frecuencia.MAX_UNIDADES ?? '';
     cupoPasajeros.value = frecuencia.MAX_PASAJEROS ?? '';
+    categoriaFrecuencia.value = frecuencia.ID_CAT_OP || '';
     tituloModalFrecuencia.textContent = `Editar frecuencia ${frecuencia.ID_FRE}`;
     App.abrirModal('modalFrecuencia');
     prepararCatalogo(frecuencia);
@@ -581,16 +607,33 @@
       const codigo = codigoFrecuencia.value.trim().toUpperCase();
       if (codigo) cuerpo.ID_FRE = codigo;
     }
+    if (categoriasDisponibles && !categoriaFrecuencia.value) {
+      App.aviso('Selecciona la categoría operativa de la frecuencia.', 'error');
+      return;
+    }
 
     App.textoBoton(btnGuardarFrecuencia, 'Guardando…');
     try {
+      let creada;
       if (frecuenciaEnEdicion) {
         await App.api(`/coop/frecuencias/${encodeURIComponent(frecuenciaEnEdicion.ID_FRE)}`, { method: 'PUT', body: cuerpo });
-        App.aviso('Frecuencia actualizada correctamente.', 'success');
       } else {
-        const datos = await App.api('/coop/frecuencias', { method: 'POST', body: cuerpo });
-        App.aviso(datos.message || 'Frecuencia registrada correctamente.', 'success');
+        creada = await App.api('/coop/frecuencias', { method: 'POST', body: cuerpo });
       }
+      const idFrecuencia = frecuenciaEnEdicion?.ID_FRE || creada?.frecuencia?.ID_FRE;
+      if (categoriasDisponibles && idFrecuencia) {
+        try {
+          await App.api(`/coop/frecuencias/${encodeURIComponent(idFrecuencia)}/categoria`, {
+            method: 'PUT',
+            body: { categoria: categoriaFrecuencia.value }
+          });
+        } catch (error) {
+          if (creada?.frecuencia) frecuenciaEnEdicion = creada.frecuencia;
+          App.aviso(`La frecuencia se guardó, pero no se asignó la categoría: ${error.message}`, 'error');
+          return;
+        }
+      }
+      App.aviso(frecuenciaEnEdicion ? 'Frecuencia actualizada correctamente.' : (creada?.message || 'Frecuencia registrada correctamente.'), 'success');
       App.cerrarModal('modalFrecuencia');
       await Promise.all([cargarFrecuencias(), cargarResoluciones()]);
     } catch (error) {
