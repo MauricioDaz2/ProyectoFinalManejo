@@ -1,0 +1,230 @@
+-- RFC-000070. Ejecutar tras 010 y 011 con sqlcmd -b o SSMS.
+SET XACT_ABORT ON;
+BEGIN TRY
+    BEGIN TRANSACTION;
+    IF COL_LENGTH('dbo.HOJAS_RUTAS','SALIDA_PLAN_UTC') IS NULL
+       OR COL_LENGTH('dbo.HOJAS_RUTAS','LLEGADA_PLAN_UTC') IS NULL
+       OR OBJECT_ID('dbo.fn_CC_VigenciaFrecuencia', 'IF') IS NULL
+        THROW 51200, 'Aplica primero las migraciones 010 y 011.', 1;
+
+    IF OBJECT_ID('dbo.CAT_PROVINCIAS','U') IS NULL
+        CREATE TABLE dbo.CAT_PROVINCIAS (
+            ID_PRO varchar(2) PRIMARY KEY, NOM_PRO nvarchar(100) NOT NULL
+        );
+    IF OBJECT_ID('dbo.CAT_CANTONES','U') IS NULL
+        CREATE TABLE dbo.CAT_CANTONES (
+            ID_CAN varchar(4) PRIMARY KEY, ID_PRO varchar(2) NOT NULL REFERENCES dbo.CAT_PROVINCIAS(ID_PRO),
+            NOM_CAN nvarchar(100) NOT NULL
+        );
+    IF OBJECT_ID('dbo.CAT_PARROQUIAS','U') IS NULL
+        CREATE TABLE dbo.CAT_PARROQUIAS (
+            ID_PAR varchar(6) PRIMARY KEY, ID_CAN varchar(4) NOT NULL REFERENCES dbo.CAT_CANTONES(ID_CAN),
+            NOM_PAR nvarchar(100) NOT NULL
+        );
+    IF OBJECT_ID('dbo.CAT_PUNTOS_TRAYECTO','U') IS NULL
+        CREATE TABLE dbo.CAT_PUNTOS_TRAYECTO (
+            ID_PUN int IDENTITY PRIMARY KEY, ID_PAR varchar(6) NOT NULL REFERENCES dbo.CAT_PARROQUIAS(ID_PAR),
+            NOM_PUN nvarchar(120) NOT NULL, ETIQUETA varchar(15) NOT NULL UNIQUE,
+            CONSTRAINT CK_PUN_ETIQUETA CHECK (LEN(LTRIM(RTRIM(ETIQUETA))) > 0),
+            CONSTRAINT UQ_PUN_PAR_NOM UNIQUE (ID_PAR, NOM_PUN)
+        );
+    IF COL_LENGTH('dbo.FRECUENCIAS','ID_PUN_ORI') IS NULL
+       ALTER TABLE dbo.FRECUENCIAS ADD
+          ID_PUN_ORI int NULL REFERENCES dbo.CAT_PUNTOS_TRAYECTO(ID_PUN),
+          ID_PUN_DES int NULL REFERENCES dbo.CAT_PUNTOS_TRAYECTO(ID_PUN),
+          MAX_UNIDADES int NULL CONSTRAINT CK_FRE_CC_UNIDADES CHECK (MAX_UNIDADES > 0),
+          MAX_PASAJEROS int NULL CONSTRAINT CK_FRE_CC_PASAJEROS CHECK (MAX_PASAJEROS > 0);
+    IF OBJECT_ID('dbo.CK_FRE_CC_CONFIG','C') IS NULL
+       EXEC(N'ALTER TABLE dbo.FRECUENCIAS ADD CONSTRAINT CK_FRE_CC_CONFIG CHECK (
+           (ID_PUN_ORI IS NULL AND ID_PUN_DES IS NULL AND MAX_UNIDADES IS NULL AND MAX_PASAJEROS IS NULL)
+           OR (ID_PUN_ORI IS NOT NULL AND ID_PUN_DES IS NOT NULL AND ID_PUN_ORI <> ID_PUN_DES
+               AND (MAX_UNIDADES IS NOT NULL OR MAX_PASAJEROS IS NOT NULL))
+       );');
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.FRECUENCIAS') AND name='IX_CC_FRE_RES')
+       CREATE INDEX IX_CC_FRE_RES ON dbo.FRECUENCIAS(ID_RES_PER);
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.HOJAS_RUTAS') AND name='IX_CC_HOJ_FRE_DIA')
+       CREATE INDEX IX_CC_HOJ_FRE_DIA ON dbo.HOJAS_RUTAS(ID_FRE_PER,FEC_PRO_HOJ)
+          INCLUDE (ID_BUS_PER,ID_BUS_REE,EST_VIA_HOJ);
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.BOLETOS') AND name='IX_CC_BOL_HOJ_EST')
+       CREATE INDEX IX_CC_BOL_HOJ_EST ON dbo.BOLETOS(ID_HOJ_PER,EST_BOL) INCLUDE (ID_ASI_PER);
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT>0 ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+GO
+
+CREATE OR ALTER VIEW dbo.v_CC_PuntosTrayecto AS
+SELECT p.ID_PUN,p.NOM_PUN,p.ETIQUETA,p.ID_PAR,a.ID_CAN,c.ID_PRO
+FROM dbo.CAT_PUNTOS_TRAYECTO p
+JOIN dbo.CAT_PARROQUIAS a ON a.ID_PAR=p.ID_PAR
+JOIN dbo.CAT_CANTONES c ON c.ID_CAN=a.ID_CAN;
+GO
+
+CREATE OR ALTER VIEW dbo.v_CC_TrayectoFrecuencia AS
+SELECT f.ID_FRE,
+       CASE WHEN o.ID_PRO<>d.ID_PRO THEN 'INTERPROVINCIAL'
+            WHEN o.ID_CAN=d.ID_CAN THEN 'INTRACANTONAL'
+            ELSE 'FUERA_DE_ALCANCE' END AS TIPO_TRAYECTO
+FROM dbo.FRECUENCIAS f
+JOIN dbo.v_CC_PuntosTrayecto o ON o.ID_PUN=f.ID_PUN_ORI
+JOIN dbo.v_CC_PuntosTrayecto d ON d.ID_PUN=f.ID_PUN_DES;
+GO
+
+CREATE OR ALTER VIEW dbo.v_CC_BoletosConCupo AS
+SELECT ID_BOL,ID_HOJ_PER,ID_ASI_PER
+FROM dbo.BOLETOS
+WHERE UPPER(LTRIM(RTRIM(ISNULL(EST_BOL,'')))) NOT IN
+    ('CANCELADO','CANCELADA','ANULADO','ANULADA','INVALIDO','INVALIDA','VENCIDO','VENCIDA','RECHAZADO','RECHAZADA');
+GO
+
+CREATE OR ALTER FUNCTION dbo.fn_CC_FechaEcuador(@UTC datetime2)
+RETURNS date AS
+BEGIN
+    RETURN CONVERT(date,@UTC AT TIME ZONE 'UTC' AT TIME ZONE 'SA Pacific Standard Time');
+END;
+GO
+
+CREATE OR ALTER FUNCTION dbo.fn_CC_CupoDia(@Frecuencia varchar(5), @Fecha date)
+RETURNS TABLE AS RETURN
+(
+    SELECT f.ID_FRE,f.MAX_UNIDADES,f.MAX_PASAJEROS,
+       (SELECT COUNT(DISTINCT COALESCE(h.ID_BUS_REE,h.ID_BUS_PER))
+        FROM dbo.HOJAS_RUTAS h WITH(HOLDLOCK) WHERE h.ID_FRE_PER=f.ID_FRE AND h.FEC_PRO_HOJ=@Fecha
+          AND UPPER(LTRIM(RTRIM(ISNULL(h.EST_VIA_HOJ,'')))) NOT IN ('CANCELADO','CANCELADA')) AS UNIDADES_USADAS,
+       (SELECT COUNT_BIG(*) FROM dbo.HOJAS_RUTAS h WITH(HOLDLOCK) JOIN dbo.v_CC_BoletosConCupo b WITH(HOLDLOCK) ON b.ID_HOJ_PER=h.ID_HOJ
+        WHERE h.ID_FRE_PER=f.ID_FRE AND h.FEC_PRO_HOJ=@Fecha) AS PASAJEROS_USADOS
+    FROM dbo.FRECUENCIAS f WHERE f.ID_FRE=@Frecuencia
+);
+GO
+
+CREATE OR ALTER FUNCTION dbo.fn_CC_HojaVigente(@Hoja varchar(5), @Hoy date)
+RETURNS TABLE AS RETURN
+(
+    SELECT h.ID_HOJ
+    FROM dbo.HOJAS_RUTAS h
+    JOIN dbo.v_CC_TrayectoFrecuencia t ON t.ID_FRE=h.ID_FRE_PER
+    CROSS APPLY dbo.fn_CC_VigenciaFrecuencia(h.ID_FRE_PER,h.FEC_PRO_HOJ) salida
+    CROSS APPLY dbo.fn_CC_VigenciaFrecuencia(h.ID_FRE_PER,
+        COALESCE(dbo.fn_CC_FechaEcuador(DATEADD(nanosecond,-100,h.LLEGADA_PLAN_UTC)),h.FEC_PRO_HOJ)) llegada
+    CROSS APPLY dbo.fn_CC_VigenciaFrecuencia(h.ID_FRE_PER,COALESCE(@Hoy,h.FEC_PRO_HOJ)) hoy
+    WHERE h.ID_HOJ=@Hoja AND t.TIPO_TRAYECTO IN ('INTRACANTONAL','INTERPROVINCIAL')
+      AND (h.SALIDA_PLAN_UTC IS NULL OR dbo.fn_CC_FechaEcuador(h.SALIDA_PLAN_UTC)=h.FEC_PRO_HOJ)
+      AND salida.EST_VIGENCIA='VIGENTE' AND llegada.EST_VIGENCIA='VIGENTE' AND hoy.EST_VIGENCIA='VIGENTE'
+);
+GO
+
+-- ponytail: bloqueo por base; pasar a bloqueos por frecuencia y resolución en
+-- orden fijo si el tiempo de espera se vuelve un problema medido.
+CREATE OR ALTER PROCEDURE dbo.cc_BloquearOperacion AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Resultado int;
+    EXEC @Resultado=sys.sp_getapplock @Resource=N'transporte:frecuencias',
+        @LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=5000,@DbPrincipal=N'public';
+    IF @Resultado<0 THROW 51201, 'La operación de cupo está ocupada. Intenta nuevamente.',1;
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.TR_CC_CupoResolucion ON dbo.RESOLUCIONES_ANT AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT UPDATE(CUP_FRE_MAX) RETURN;
+    IF NOT EXISTS (SELECT 1 FROM inserted i JOIN deleted d ON d.ID_RES=i.ID_RES WHERE i.CUP_FRE_MAX<d.CUP_FRE_MAX) RETURN;
+    EXEC dbo.cc_BloquearOperacion;
+    IF EXISTS (SELECT 1 FROM inserted i JOIN deleted d ON d.ID_RES=i.ID_RES
+        WHERE i.CUP_FRE_MAX<d.CUP_FRE_MAX
+          AND (SELECT COUNT_BIG(*) FROM dbo.FRECUENCIAS f WITH(HOLDLOCK) WHERE f.ID_RES_PER=i.ID_RES)>i.CUP_FRE_MAX)
+        THROW 51202, 'El cupo de la resolución es menor a sus frecuencias asignadas.',1;
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.TR_CC_Frecuencias ON dbo.FRECUENCIAS AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM inserted) RETURN;
+    EXEC dbo.cc_BloquearOperacion;
+    IF EXISTS (SELECT 1 FROM inserted i LEFT JOIN deleted d ON d.ID_FRE=i.ID_FRE
+        JOIN dbo.RESOLUCIONES_ANT r WITH(HOLDLOCK) ON r.ID_RES=i.ID_RES_PER
+        WHERE (d.ID_FRE IS NULL OR d.ID_RES_PER<>i.ID_RES_PER)
+          AND (SELECT COUNT_BIG(*) FROM dbo.FRECUENCIAS f WITH(HOLDLOCK) WHERE f.ID_RES_PER=r.ID_RES)>r.CUP_FRE_MAX)
+        THROW 51202, 'La resolución alcanzó su cupo de frecuencias.',1;
+    IF EXISTS (SELECT 1 FROM inserted i JOIN dbo.v_CC_TrayectoFrecuencia t ON t.ID_FRE=i.ID_FRE
+               WHERE t.TIPO_TRAYECTO='FUERA_DE_ALCANCE')
+        THROW 51203, 'El trayecto no es interprovincial ni intracantonal.',1;
+    IF EXISTS (SELECT 1 FROM inserted i
+        JOIN dbo.CAT_PUNTOS_TRAYECTO o ON o.ID_PUN=i.ID_PUN_ORI
+        JOIN dbo.CAT_PUNTOS_TRAYECTO d ON d.ID_PUN=i.ID_PUN_DES
+        WHERE i.CIU_ORI_FRE<>o.ETIQUETA OR i.CIU_DES_FRE<>d.ETIQUETA)
+        THROW 51203, 'El nombre operativo debe coincidir con la etiqueta del punto autorizado.',1;
+    IF EXISTS (
+        SELECT 1 FROM inserted i JOIN dbo.HOJAS_RUTAS h WITH(HOLDLOCK) ON h.ID_FRE_PER=i.ID_FRE
+        LEFT JOIN deleted d ON d.ID_FRE=i.ID_FRE
+        CROSS APPLY dbo.fn_CC_CupoDia(i.ID_FRE,h.FEC_PRO_HOJ) c
+        WHERE h.FEC_PRO_HOJ>=dbo.fn_CC_FechaEcuador(SYSUTCDATETIME()) AND
+          (((d.MAX_UNIDADES IS NULL OR i.MAX_UNIDADES<d.MAX_UNIDADES) AND c.UNIDADES_USADAS>i.MAX_UNIDADES)
+           OR ((d.MAX_PASAJEROS IS NULL OR i.MAX_PASAJEROS<d.MAX_PASAJEROS) AND c.PASAJEROS_USADOS>i.MAX_PASAJEROS))
+    ) THROW 51204, 'El nuevo cupo es menor que los compromisos de una salida vigente o futura.',1;
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.TR_CC_Hojas ON dbo.HOJAS_RUTAS AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Cambios TABLE (ID_HOJ varchar(5) PRIMARY KEY, ID_FRE varchar(5), DIA date, MOVIDA bit, OCUPA bit);
+    INSERT @Cambios
+    SELECT i.ID_HOJ,i.ID_FRE_PER,i.FEC_PRO_HOJ,m.MOVIDA,m.OCUPA
+    FROM inserted i LEFT JOIN deleted d ON d.ID_HOJ=i.ID_HOJ
+    CROSS APPLY (VALUES (
+        CASE WHEN d.ID_HOJ IS NOT NULL AND (d.FEC_PRO_HOJ<>i.FEC_PRO_HOJ OR d.ID_FRE_PER<>i.ID_FRE_PER
+          OR COALESCE(d.ID_BUS_REE,d.ID_BUS_PER)<>COALESCE(i.ID_BUS_REE,i.ID_BUS_PER)
+          OR EXISTS (SELECT i.SALIDA_PLAN_UTC,i.LLEGADA_PLAN_UTC EXCEPT SELECT d.SALIDA_PLAN_UTC,d.LLEGADA_PLAN_UTC))
+          THEN 1 ELSE 0 END,
+        CASE WHEN UPPER(LTRIM(RTRIM(ISNULL(i.EST_VIA_HOJ,'')))) IN ('CANCELADA','CANCELADO') THEN 0 ELSE 1 END
+    )) m(MOVIDA,OCUPA)
+    WHERE m.MOVIDA=1 OR (m.OCUPA=1 AND
+        (d.ID_HOJ IS NULL OR UPPER(LTRIM(RTRIM(d.EST_VIA_HOJ))) IN ('CANCELADA','CANCELADO')));
+    IF NOT EXISTS (SELECT 1 FROM @Cambios) RETURN;
+    EXEC dbo.cc_BloquearOperacion;
+    IF EXISTS (SELECT 1 FROM @Cambios c JOIN dbo.v_CC_BoletosConCupo b ON b.ID_HOJ_PER=c.ID_HOJ WHERE c.MOVIDA=1)
+        THROW 51205, 'La salida tiene boletos activos; no se puede cambiar su bus, frecuencia o fecha.',1;
+    IF EXISTS (SELECT 1 FROM @Cambios c JOIN dbo.FRECUENCIAS f WITH(HOLDLOCK) ON f.ID_FRE=c.ID_FRE
+        JOIN dbo.RESOLUCIONES_ANT r WITH(HOLDLOCK) ON r.ID_RES=f.ID_RES_PER
+        WHERE c.OCUPA=1 AND (r.REVOCADA_RES=1 OR (f.ID_PUN_ORI IS NOT NULL AND NOT EXISTS
+              (SELECT 1 FROM dbo.fn_CC_HojaVigente(c.ID_HOJ,NULL)))))
+        THROW 51206, 'La frecuencia o su resolución no cubren la fecha completa de la salida.',1;
+    IF EXISTS (SELECT 1 FROM @Cambios x CROSS APPLY dbo.fn_CC_CupoDia(x.ID_FRE,x.DIA) c
+               WHERE x.OCUPA=1 AND c.UNIDADES_USADAS>c.MAX_UNIDADES)
+        THROW 51207, 'Se alcanzó el cupo de unidades de la frecuencia para esta fecha.',1;
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.TR_CC_Boletos ON dbo.BOLETOS AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Nuevos TABLE (ID_HOJ varchar(5), ID_ASI varchar(5));
+    INSERT @Nuevos
+    SELECT i.ID_HOJ_PER,i.ID_ASI_PER FROM inserted i
+    JOIN dbo.v_CC_BoletosConCupo v ON v.ID_BOL=i.ID_BOL
+    LEFT JOIN deleted d ON d.ID_BOL=i.ID_BOL
+    WHERE d.ID_BOL IS NULL OR i.ID_HOJ_PER<>d.ID_HOJ_PER OR i.ID_ASI_PER<>d.ID_ASI_PER
+      OR UPPER(LTRIM(RTRIM(d.EST_BOL))) IN
+         ('CANCELADO','CANCELADA','ANULADO','ANULADA','INVALIDO','INVALIDA','VENCIDO','VENCIDA','RECHAZADO','RECHAZADA');
+    IF NOT EXISTS (SELECT 1 FROM @Nuevos) RETURN;
+    EXEC dbo.cc_BloquearOperacion;
+    IF EXISTS (
+        SELECT 1 FROM @Nuevos n JOIN dbo.HOJAS_RUTAS h WITH(HOLDLOCK) ON h.ID_HOJ=n.ID_HOJ
+        JOIN dbo.FRECUENCIAS f WITH(HOLDLOCK) ON f.ID_FRE=h.ID_FRE_PER
+        JOIN dbo.RESOLUCIONES_ANT r WITH(HOLDLOCK) ON r.ID_RES=f.ID_RES_PER
+        WHERE r.REVOCADA_RES=1 OR (f.ID_PUN_ORI IS NOT NULL AND (
+          UPPER(LTRIM(RTRIM(ISNULL(h.EST_VIA_HOJ,'')))) NOT IN ('PROGRAMADO','PROGRAMADA','EN CURSO')
+          OR NOT EXISTS (SELECT 1 FROM dbo.fn_CC_HojaVigente(n.ID_HOJ,dbo.fn_CC_FechaEcuador(SYSUTCDATETIME())))
+          OR NOT EXISTS (SELECT 1 FROM dbo.ASIENTOS_BUS a
+                         WHERE a.ID_ASI=n.ID_ASI AND a.ID_BUS_PER=COALESCE(h.ID_BUS_REE,h.ID_BUS_PER))))
+    ) THROW 51208, 'La salida no está vigente o el asiento no pertenece al bus operativo.',1;
+    IF EXISTS (SELECT 1 FROM @Nuevos n JOIN dbo.HOJAS_RUTAS h WITH(HOLDLOCK) ON h.ID_HOJ=n.ID_HOJ
+        CROSS APPLY dbo.fn_CC_CupoDia(h.ID_FRE_PER,h.FEC_PRO_HOJ) c WHERE c.PASAJEROS_USADOS>c.MAX_PASAJEROS)
+        THROW 51209, 'Se alcanzó el cupo de pasajeros de la frecuencia para esta fecha.',1;
+END;
+GO

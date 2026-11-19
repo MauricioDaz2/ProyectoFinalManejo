@@ -1,4 +1,5 @@
 const { sql, conectarBD } = require('../config/db');
+const cc = require('../services/frequencyControl');
 const crypto = require('crypto');
 
 /**
@@ -13,7 +14,7 @@ const CODIGO_RE = /^[A-Z0-9_-]{1,10}$/;
 const CODIGO_CORTO_RE = /^[A-Z0-9_-]{1,5}$/;
 const ESTADOS_BOLETO = ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO', 'USADO', 'CANCELADO', 'ANULADO'];
 const ESTADOS_ACTIVOS = ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO', 'USADO'];
-const ESTADOS_VIAJE = ['PROGRAMADA', 'EN CURSO'];
+const ESTADOS_VIAJE = ['PROGRAMADO', 'PROGRAMADA', 'EN CURSO'];
 const METODOS_PAGO = ['EFECTIVO', 'TRANSFERENCIA', 'DEPOSITO'];
 
 const TRANSICIONES = {
@@ -70,6 +71,8 @@ async function siguienteCodigoBoleto(request) {
 }
 
 function manejarError(res, contexto, error) {
+    const control = cc.respond(res, error);
+    if (control) return control;
     if (error.status) return res.status(error.status).json({ success: false, message: error.message, code: error.code });
     console.error(`Error en ${contexto}.`);
     const numero = error.number ?? error.originalError?.info?.number;
@@ -252,22 +255,28 @@ async function listarHojasParaVentanilla(req, res) {
                        (SELECT COUNT(*) FROM dbo.ASIENTOS_BUS A WHERE A.ID_BUS_PER = B.ID_BUS) AS TOTAL_ASIENTOS,
                        (SELECT COUNT(*) FROM dbo.BOLETOS BO
                          WHERE BO.ID_HOJ_PER = H.ID_HOJ
-                           AND BO.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')) AS ASIENTOS_OCUPADOS
-                FROM dbo.HOJAS_RUTAS H
-                INNER JOIN dbo.BUSES B ON B.ID_BUS = H.ID_BUS_PER
+                            AND ${cc.enabled() ? cc.activeTicket : "BO.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')"})
+                          AS ASIENTOS_OCUPADOS
+                        ${cc.enabled() ? ',CU.MAX_PASAJEROS,CU.PASAJEROS_USADOS' : ''}
+                 FROM dbo.HOJAS_RUTAS H
+                 INNER JOIN dbo.BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
                 INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
-                WHERE H.FEC_PRO_HOJ = @fecha
+                 INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
+                 ${cc.enabled() ? 'OUTER APPLY dbo.fn_CC_CupoDia(H.ID_FRE_PER,H.FEC_PRO_HOJ) CU' : ''}
+                 WHERE H.FEC_PRO_HOJ = @fecha
                   AND UPPER(H.EST_VIA_HOJ) IN ('PROGRAMADA','PROGRAMADO','EN CURSO')
-                  AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
+                   AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
+                   ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet} AND C.EST_COP='1'
+                     AND B.ID_COP_PER=C.ID_COP AND UPPER(LTRIM(RTRIM(B.EST_BUS))) IN ('ACTIVO','1','OPERANDO')` : ''}
                 ORDER BY C.NOM_COP, F.CIU_ORI_FRE, F.CIU_DES_FRE
             `);
 
         const hojas = resultado.recordset.map((hoja) => {
             const total = Number(hoja.TOTAL_ASIENTOS) || 0;
             const ocupados = Number(hoja.ASIENTOS_OCUPADOS) || 0;
-            const disponibles = total - ocupados;
+             const cupo = hoja.MAX_PASAJEROS == null ? Infinity : Number(hoja.MAX_PASAJEROS) - Number(hoja.PASAJEROS_USADOS);
+             const disponibles = Math.min(total - ocupados, cupo);
             return {
                 ...hoja,
                 ASIENTOS_OCUPADOS: ocupados,
@@ -303,11 +312,13 @@ async function obtenerMapaAsientosHoja(req, res) {
                        F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE,
                        C.ID_COP, C.NOM_COP
                 FROM dbo.HOJAS_RUTAS H
-                INNER JOIN dbo.BUSES B ON B.ID_BUS = H.ID_BUS_PER
+                 INNER JOIN dbo.BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
                 INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                 INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
-                WHERE H.ID_HOJ = @hoja
+                 WHERE H.ID_HOJ = @hoja
+                 ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet}
+                     AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADO','PROGRAMADA','EN CURSO')` : ''}
             `);
 
         if (hoja.recordset.length === 0) {
@@ -323,10 +334,10 @@ async function obtenerMapaAsientosHoja(req, res) {
                        USU.NOM_USU, USU.APE_USU, USU.COR_USU, USU.TEL_USU
                 FROM dbo.ASIENTOS_BUS A
                 INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
-                INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_BUS_PER = A.ID_BUS_PER
+                 INNER JOIN dbo.HOJAS_RUTAS H ON ${cc.effectiveBus()} = A.ID_BUS_PER
                 LEFT JOIN dbo.BOLETOS BOL ON BOL.ID_ASI_PER = A.ID_ASI
                      AND BOL.ID_HOJ_PER = H.ID_HOJ
-                     AND BOL.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')
+                      AND ${cc.enabled() ? cc.activeTicket.replaceAll('EST_BOL', 'BOL.EST_BOL') : "BOL.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')"}
                 LEFT JOIN dbo.USUARIOS USU ON USU.ID_USU = BOL.ID_USU_FIN
                 WHERE H.ID_HOJ = @hoja
                 ORDER BY A.PIS_ASI, TRY_CAST(A.ID_ASI AS INT), A.ID_ASI
@@ -555,7 +566,7 @@ async function crearBoletoVentanilla(req, res) {
                        A.ID_ASI, A.PIS_ASI, T.NOM_TIP, T.PRE_TIP
                 FROM dbo.HOJAS_RUTAS H
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                INNER JOIN dbo.ASIENTOS_BUS A ON A.ID_BUS_PER = H.ID_BUS_PER
+                 INNER JOIN dbo.ASIENTOS_BUS A ON A.ID_BUS_PER = ${cc.effectiveBus()}
                 INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
                 WHERE H.ID_HOJ = @hoja AND A.ID_ASI = @asiento
             `);
@@ -596,9 +607,11 @@ async function crearBoletoVentanilla(req, res) {
         }
 
         transaccion = new sql.Transaction(pool);
-        await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
-        await require('../services/workerSchedule').reserve(transaccion,idPasajero,idHoja);
+         await cc.lock(transaccion);
+         await cc.sale(transaccion,idHoja);
+         await require('../services/workerSchedule').reserve(transaccion,idPasajero,idHoja);
 
         const ocupados = await new sql.Request(transaccion)
             .input('asiento', sql.VarChar(5), idAsiento)
@@ -608,7 +621,7 @@ async function crearBoletoVentanilla(req, res) {
                 FROM dbo.BOLETOS WITH (UPDLOCK, HOLDLOCK)
                 WHERE ID_ASI_PER = @asiento
                   AND ID_HOJ_PER = @hoja
-                  AND EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')
+                   AND ${cc.enabled() ? cc.activeTicket : "EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')"}
             `);
 
         if (ocupados.recordset[0].total > 0) {

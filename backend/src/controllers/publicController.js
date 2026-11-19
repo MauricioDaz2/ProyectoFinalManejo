@@ -1,6 +1,7 @@
 const { conectarBD, sql } = require('../config/db');
 const profiles = require('../repositories/cooperativaProfileRepository');
 const { publicData } = require('../services/profileContent');
+const cc = require('../services/frequencyControl');
 
 async function cooperativas(req, res) {
     try {
@@ -32,13 +33,14 @@ async function salidas(req, res) {
                 F.CIU_DES_FRE, C.ID_COP, C.NOM_COP, B.NUM_BUS, H.EST_VIA_HOJ
             FROM HOJAS_RUTAS H
             INNER JOIN FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-            INNER JOIN BUSES B ON B.ID_BUS = H.ID_BUS_PER
+            INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
             INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
             INNER JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
             WHERE H.FEC_PRO_HOJ >= @hoy AND C.EST_COP = '1'
                 AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
                 AND B.ID_COP_PER = C.ID_COP
                 AND ISNULL(F.EST_RES, '1') <> '0'
+                ${cc.enabled() ? `AND ${cc.allowedSheet}` : ''}
                 AND UPPER(LTRIM(RTRIM(B.EST_BUS))) NOT IN ('INACTIVO', 'MANTENIMIENTO', 'TALLER')
                 AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADA', 'PROGRAMADO')
             ORDER BY H.FEC_PRO_HOJ, H.ID_HOJ

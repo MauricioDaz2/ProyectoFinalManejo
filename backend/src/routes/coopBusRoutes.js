@@ -4,7 +4,7 @@ const { cooperativaScope } = require('../middleware/cooperativaScope');
 router.use(cooperativaScope);
 router.use((req, res, next) => {
     const resource = req.path.split('/')[1];
-    const permission = { buses: 'buses', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'hojas-ruta': req.method === 'GET' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
+    const permission = { buses: 'buses', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'catalogo-territorial': 'rutas', 'hojas-ruta': req.method === 'GET' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
     if (!permission) return next();
     require('../security/permissions').requirePermission(permission)(req, res, next);
 });
@@ -30,6 +30,8 @@ const {
     actualizarResolucion,
     eliminarResolucion,
     listarFrecuencias,
+    catalogoTerritorial,
+    disponibilidadFrecuencia,
     crearFrecuencia,
     actualizarFrecuencia,
     cambiarEstadoFrecuencia,
@@ -61,6 +63,8 @@ router.put('/resoluciones/:id', actualizarResolucion);
 router.delete('/resoluciones/:id', eliminarResolucion);
 
 router.get('/frecuencias', listarFrecuencias);
+router.get('/frecuencias/:id/disponibilidad', disponibilidadFrecuencia);
+router.get('/catalogo-territorial', catalogoTerritorial);
 router.post('/frecuencias', crearFrecuencia);
 router.put('/frecuencias/:id', actualizarFrecuencia);
 router.patch('/frecuencias/:id/estado', cambiarEstadoFrecuencia);

@@ -1,5 +1,6 @@
 const { sql, conectarBD } = require('../config/db');
 const { failure } = require('../security/permissions');
+const cc = require('../services/frequencyControl');
 function workerScope(kind) {
     return async (req, res, next) => {
         try {
@@ -24,7 +25,8 @@ function workerScope(kind) {
                 hoja = found.ID_HOJ;
             }
             if (hoja) {
-                const result = await request().input('sheet', sql.VarChar(5), hoja).query('SELECT H.ID_USU_CON,H.ID_BUS_PER FROM dbo.HOJAS_RUTAS H JOIN dbo.BUSES B ON B.ID_BUS=H.ID_BUS_PER JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER WHERE H.ID_HOJ=@sheet AND B.ID_COP_PER=@company AND R.ID_COP_PER=@company');
+                const operativeBus = cc.effectiveBus();
+                const result = await request().input('sheet', sql.VarChar(5), hoja).query(`SELECT H.ID_USU_CON,${cc.enabled() ? 'B.ID_BUS AS ID_BUS_PER' : 'H.ID_BUS_PER'} FROM dbo.HOJAS_RUTAS H JOIN dbo.BUSES B ON B.ID_BUS=${operativeBus} JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER WHERE H.ID_HOJ=@sheet AND B.ID_COP_PER=@company AND R.ID_COP_PER=@company`);
                 const found = result.recordset[0];
                 if (!found || (kind === 'controlador' && found.ID_USU_CON !== user.id)) throw failure(404, 'Hoja no disponible para tu cuenta.');
                 const seat = req.body?.ID_ASI_PER || req.body?.idAsi;

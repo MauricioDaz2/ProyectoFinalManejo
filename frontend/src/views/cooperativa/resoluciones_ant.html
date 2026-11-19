@@ -78,7 +78,7 @@
                 <thead>
                   <tr>
                     <th>Código</th>
-                    <th>Emisión</th>
+                    <th>Emisión y vigencia</th>
                     <th>Cupo máximo</th>
                     <th>Frecuencias</th>
                     <th>Documento</th>
@@ -171,6 +171,21 @@
               <input type="url" id="documentoResolucion" maxlength="500" placeholder="https://…">
             </div>
           </div>
+          <fieldset class="form-grid" id="vigenciaResolucion" hidden disabled>
+            <legend>Vigencia legal</legend>
+            <div class="field">
+              <label for="inicioResolucion">Inicio de vigencia</label>
+              <input type="date" id="inicioResolucion" required>
+            </div>
+            <div class="field">
+              <label for="finResolucion">Último día de vigencia</label>
+              <input type="date" id="finResolucion" aria-describedby="ayudaVigenciaResolucion">
+              <span class="help" id="ayudaVigenciaResolucion">Déjalo vacío solo si el permiso no caduca.</span>
+            </div>
+            <div class="field">
+              <label for="resolucionRevocada"><input type="checkbox" id="resolucionRevocada"> Permiso revocado</label>
+            </div>
+          </fieldset>
         </div>
         <footer class="modal-footer">
           <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
@@ -222,11 +237,34 @@
             <div class="field">
               <label for="estadoFrecuencia">Estado</label>
               <select id="estadoFrecuencia">
-                <option value="1">Activa</option>
-                <option value="0">Inactiva</option>
+                <option value="1">Habilitada</option>
+                <option value="0">Suspendida</option>
               </select>
             </div>
           </div>
+          <fieldset id="configFrecuencia" hidden disabled>
+            <legend>Trayecto autorizado y cupos diarios</legend>
+            <p id="catalogoFrecuenciaEstado" role="status"></p>
+            <div class="form-grid">
+              <fieldset class="form-grid" id="catalogoOrigen">
+                <legend>Origen</legend>
+                <div class="field"><label for="origenProvincia">Provincia de origen</label><select id="origenProvincia" required></select></div>
+                <div class="field"><label for="origenCanton">Cantón de origen</label><select id="origenCanton" required></select></div>
+                <div class="field"><label for="origenParroquia">Parroquia de origen</label><select id="origenParroquia" required></select></div>
+                <div class="field"><label for="origenPunto">Punto de origen</label><select id="origenPunto" required></select></div>
+              </fieldset>
+              <fieldset class="form-grid" id="catalogoDestino">
+                <legend>Destino</legend>
+                <div class="field"><label for="destinoProvincia">Provincia de destino</label><select id="destinoProvincia" required></select></div>
+                <div class="field"><label for="destinoCanton">Cantón de destino</label><select id="destinoCanton" required></select></div>
+                <div class="field"><label for="destinoParroquia">Parroquia de destino</label><select id="destinoParroquia" required></select></div>
+                <div class="field"><label for="destinoPunto">Punto de destino</label><select id="destinoPunto" required></select></div>
+              </fieldset>
+              <div class="field"><label for="cupoUnidadesFrecuencia">Buses distintos por día</label><input id="cupoUnidadesFrecuencia" type="number" min="1" max="2147483647" step="1" aria-describedby="ayudaCuposFrecuencia"></div>
+              <div class="field"><label for="cupoPasajerosFrecuencia">Pasajeros por día</label><input id="cupoPasajerosFrecuencia" type="number" min="1" max="2147483647" step="1" aria-describedby="ayudaCuposFrecuencia"></div>
+            </div>
+            <p class="help" id="ayudaCuposFrecuencia">Indica al menos un límite. Se aplica a toda la frecuencia, no solo a un bus.</p>
+          </fieldset>
         </div>
         <footer class="modal-footer">
           <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>

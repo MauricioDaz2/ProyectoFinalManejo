@@ -27,6 +27,9 @@
   const tituloModalResolucion = document.getElementById('tituloModalResolucion');
   const codigoResolucion = document.getElementById('codigoResolucion');
   const fechaResolucion = document.getElementById('fechaResolucion');
+  const inicioResolucion = document.getElementById('inicioResolucion');
+  const finResolucion = document.getElementById('finResolucion');
+  const resolucionRevocada = document.getElementById('resolucionRevocada');
   const cupoResolucion = document.getElementById('cupoResolucion');
   const documentoResolucion = document.getElementById('documentoResolucion');
   const btnGuardarResolucion = document.getElementById('btnGuardarResolucion');
@@ -42,6 +45,15 @@
   const finFrecuencia = document.getElementById('finFrecuencia');
   const estadoFrecuencia = document.getElementById('estadoFrecuencia');
   const btnGuardarFrecuencia = document.getElementById('btnGuardarFrecuencia');
+  const configFrecuencia = document.getElementById('configFrecuencia');
+  const cupoUnidades = document.getElementById('cupoUnidadesFrecuencia');
+  const cupoPasajeros = document.getElementById('cupoPasajerosFrecuencia');
+  const estadoCatalogo = document.getElementById('catalogoFrecuenciaEstado');
+  const niveles = [['Provincia','ID_PRO','NOM_PRO'], ['Canton','ID_CAN','NOM_CAN'],
+    ['Parroquia','ID_PAR','NOM_PAR'], ['Punto','ID_PUN','NOM_PUN']];
+  const lados = Object.fromEntries(['origen','destino'].map(lado => [
+    lado, niveles.map(([campo]) => document.getElementById(lado + campo))
+  ]));
 
   const filtroOrigen = document.getElementById('filtroOrigen');
   const filtroDestino = document.getElementById('filtroDestino');
@@ -52,6 +64,10 @@
   let resolucionEnEdicion = null;
   let frecuenciaEnEdicion = null;
   let tabActiva = 'resoluciones';
+  let controlFrecuencias = false;
+  let puntos = [];
+  let cargaCatalogo;
+  let versionModal = 0;
   const permitido = (permiso) => usuario.accesoConfigurado !== true || usuario.principal || usuario.permisos?.includes(permiso);
 
   function aviso(mensaje, tipo = 'warning') {
@@ -61,6 +77,77 @@
   function limpiarAviso() {
     avisoGlobal.innerHTML = '';
   }
+
+  function activarControl(habilitado) {
+    controlFrecuencias = habilitado === true;
+    for (const fieldset of [document.getElementById('vigenciaResolucion'), configFrecuencia]) {
+      fieldset.hidden = fieldset.disabled = !controlFrecuencias;
+    }
+    for (const campo of [origenFrecuencia, destinoFrecuencia]) {
+      campo.disabled = campo.closest('.field').hidden = controlFrecuencias;
+    }
+  }
+
+  function renderCascada(lado, punto, desde = 0) {
+    const controles = lados[lado];
+    let filtrados = puntos;
+    niveles.forEach(([_, clave, nombre], i) => {
+      const campo = controles[i];
+      if (i >= desde) {
+        const valor = punto ? String(punto[clave]) : '';
+        const opciones = [...new Map(filtrados.map(p => [String(p[clave]), p[nombre]])).entries()];
+        campo.replaceChildren(new Option('Selecciona…', ''),
+          ...opciones.map(([id, texto]) => new Option(texto, id)));
+        campo.disabled = opciones.length === 0;
+        campo.value = valor;
+      }
+      filtrados = filtrados.filter(p => String(p[clave]) === campo.value);
+    });
+  }
+
+  function mostrarTrayecto() {
+    const [a,b] = Object.values(lados).map(controles =>
+      puntos.find(p => String(p.ID_PUN) === controles.at(-1).value));
+    estadoCatalogo.textContent = a && b
+      ? a.ID_PUN === b.ID_PUN ? 'Selecciona dos puntos distintos.'
+        : a.ID_PRO !== b.ID_PRO ? 'Trayecto interprovincial.'
+        : a.ID_CAN === b.ID_CAN ? 'Trayecto intracantonal.' : 'Trayecto entre cantones de una misma provincia: fuera de alcance.'
+      : 'Completa el origen y el destino.';
+  }
+
+  for (const lado of Object.keys(lados)) lados[lado].forEach((campo, i) => campo.addEventListener('change', () => {
+    renderCascada(lado, null, i + 1);
+    mostrarTrayecto();
+  }));
+
+  async function prepararCatalogo(frecuencia) {
+    const version = ++versionModal;
+    if (!controlFrecuencias) return;
+    puntos = [];
+    for (const lado of Object.keys(lados)) renderCascada(lado);
+    estadoCatalogo.textContent = 'Cargando catálogo territorial…';
+    try {
+      cargaCatalogo ||= App.api('/coop/catalogo-territorial').then(data => data.puntos || []).catch(error => {
+        cargaCatalogo = null;
+        throw error;
+      });
+      const lista = await cargaCatalogo;
+      if (version !== versionModal) return;
+      puntos = lista;
+      renderCascada('origen', puntos.find(p => p.ID_PUN === frecuencia?.ID_PUN_ORI));
+      renderCascada('destino', puntos.find(p => p.ID_PUN === frecuencia?.ID_PUN_DES));
+      if (puntos.length) mostrarTrayecto();
+      else estadoCatalogo.textContent = 'No hay puntos cargados. Solicita a Operaciones importar el catálogo.';
+    } catch (error) {
+      if (version !== versionModal) return;
+      estadoCatalogo.textContent = `No se pudo cargar el catálogo. Cierra y vuelve a abrir el formulario para reintentar.`;
+    }
+  }
+
+  const textoVigencia = estado => ({
+    VIGENTE: 'Vigente', PENDIENTE: 'Aún no vigente', VENCIDA: 'Vencida', REVOCADA: 'Revocada',
+    INACTIVA: 'Suspendida', SIN_VIGENCIA_ANT: 'Sin vigencia ANT registrada', SIN_VIGENCIA_COMUN: 'Sin vigencia común'
+  }[estado] || 'Sin configurar');
 
   function activarTab(nombre) {
     tabActiva = nombre;
@@ -129,7 +216,9 @@
     return `
       <tr>
         <td class="mono strong">${App.escapar(resolucion.ID_RES)}</td>
-        <td>${App.fecha(resolucion.FEC_EMI_RES)}</td>
+        <td>${App.fecha(resolucion.FEC_EMI_RES)}
+          ${controlFrecuencias ? `<br><small>${textoVigencia(resolucion.EST_VIGENCIA)}
+              ${resolucion.FEC_INI_VIG_RES ? ` · ${App.fecha(resolucion.FEC_INI_VIG_RES)} → ${resolucion.FEC_FIN_VIG_RES ? App.fecha(resolucion.FEC_FIN_VIG_RES) : 'Sin caducidad'}` : ''}</small>` : ''}</td>
         <td>${App.numero(cupo)}</td>
         <td>
           <div class="cell-main" style="min-width:120px;">
@@ -168,6 +257,7 @@
 
   function filaFrecuencia(frecuencia) {
     const activa = String(frecuencia.EST_RES) === '1';
+    const uso = (max, used, unidad) => max == null ? '' : `<small>${App.numero(used)} / ${App.numero(max)} ${unidad} hoy</small><br>`;
     return `
       <tr>
         <td class="mono strong">${App.escapar(frecuencia.ID_FRE)}</td>
@@ -177,16 +267,21 @@
             <span class="arrow" aria-hidden="true">→</span>
             <span>${App.escapar(frecuencia.CIU_DES_FRE)}</span>
           </div>
+          ${controlFrecuencias ? `<small>${frecuencia.TIPO_TRAYECTO === 'INTRACANTONAL' ? 'Intracantonal'
+            : frecuencia.TIPO_TRAYECTO === 'INTERPROVINCIAL' ? 'Interprovincial' : 'Trayecto sin configurar'}</small>` : ''}
         </td>
         <td class="nowrap">${etiquetaVigencia(frecuencia)}</td>
         <td>${App.numero(frecuencia.DIAS_VIGENCIA)}</td>
-        <td>${App.numero(frecuencia.TOTAL_HOJAS)}</td>
+        <td>${App.numero(frecuencia.TOTAL_HOJAS)}
+          ${controlFrecuencias ? `<br>${uso(frecuencia.MAX_UNIDADES, frecuencia.UNIDADES_USADAS, 'buses')}
+            ${uso(frecuencia.MAX_PASAJEROS, frecuencia.PASAJEROS_USADOS, 'pasajeros')}` : ''}</td>
         <td class="mono">${App.escapar(frecuencia.ID_RES_PER)}</td>
         <td>
           <label class="switch">
             <input type="checkbox" data-estado-frecuencia="${App.escapar(frecuencia.ID_FRE)}" ${activa ? 'checked' : ''} aria-label="Cambiar estado de la frecuencia ${App.escapar(frecuencia.ID_FRE)}">
-            <span>${activa ? 'Activa' : 'Inactiva'}</span>
-          </label>
+             <span>${activa ? (controlFrecuencias ? 'Habilitada' : 'Activa') : (controlFrecuencias ? 'Suspendida' : 'Inactiva')}</span>
+           </label>
+           ${controlFrecuencias ? `<br><small>${frecuencia.TIPO_TRAYECTO ? textoVigencia(frecuencia.EST_VIGENCIA) : 'Pendiente de configurar'}</small>` : ''}
         </td>
         <td>
           <div class="actions">
@@ -233,6 +328,7 @@
 
     try {
       const datos = await App.api(permitido('resoluciones') ? '/coop/resoluciones' : '/coop/resoluciones-opciones', { query: { cooperativa } });
+      activarControl(datos.controlFrecuencias);
       resoluciones = datos.resoluciones || [];
       if (permitido('resoluciones')) renderResoluciones();
       actualizarSelectResoluciones();
@@ -247,6 +343,7 @@
     if (!cooperativa) return;
     try {
       const datos = await App.api('/coop/frecuencias', { query: { cooperativa } });
+      activarControl(datos.controlFrecuencias);
       frecuencias = datos.frecuencias || [];
       renderFrecuencias();
     } catch (error) {
@@ -276,8 +373,11 @@
       const cupo = Number(resolucion.CUP_FRE_MAX) || 0;
       const usadas = Number(resolucion.TOTAL_FRECUENCIAS) || 0;
       const disponibles = Math.max(0, cupo - usadas);
-      return `<option value="${App.escapar(resolucion.ID_RES)}" ${seleccionada === resolucion.ID_RES ? 'selected' : ''}>
-        ${App.escapar(resolucion.ID_RES)} · ${App.fecha(resolucion.FEC_EMI_RES)} · ${disponibles} cupos libres
+       const noConfigurable = controlFrecuencias && (resolucion.REVOCADA_RES || !resolucion.FEC_INI_VIG_RES);
+       return `<option value="${App.escapar(resolucion.ID_RES)}" ${seleccionada === resolucion.ID_RES ? 'selected' : ''}
+         ${noConfigurable && seleccionada !== resolucion.ID_RES ? 'disabled' : ''}>
+         ${App.escapar(resolucion.ID_RES)} · ${controlFrecuencias ? `${textoVigencia(resolucion.EST_VIGENCIA || (resolucion.REVOCADA_RES ? 'REVOCADA' : !resolucion.FEC_INI_VIG_RES ? 'SIN_VIGENCIA_ANT' : ''))} · ` : ''}
+         ${App.fecha(resolucion.FEC_EMI_RES)} · ${disponibles} cupos libres
       </option>`;
     }).join('');
   }
@@ -302,6 +402,9 @@
     codigoResolucion.disabled = true;
     codigoResolucion.value = resolucion.ID_RES || '';
     fechaResolucion.value = App.fechaInput(resolucion.FEC_EMI_RES);
+    inicioResolucion.value = App.fechaInput(resolucion.FEC_INI_VIG_RES);
+    finResolucion.value = App.fechaInput(resolucion.FEC_FIN_VIG_RES);
+    resolucionRevocada.checked = Boolean(resolucion.REVOCADA_RES);
     cupoResolucion.value = Number(resolucion.CUP_FRE_MAX) || 1;
     documentoResolucion.value = resolucion.DOC_URL_RES || '';
     tituloModalResolucion.textContent = `Editar resolución ${resolucion.ID_RES}`;
@@ -329,6 +432,14 @@
       DOC_URL_RES: documentoResolucion.value.trim(),
       ID_COP_PER: cooperativa
     };
+    if (controlFrecuencias) {
+      if (!inicioResolucion.value || (finResolucion.value && finResolucion.value < inicioResolucion.value)) {
+        return App.aviso('Indica un inicio válido y un fin igual o posterior.', 'error');
+      }
+      cuerpo.FEC_INI_VIG_RES = inicioResolucion.value;
+      cuerpo.FEC_FIN_VIG_RES = finResolucion.value || null;
+      cuerpo.REVOCADA_RES = resolucionRevocada.checked;
+    }
 
     if (!resolucionEnEdicion) {
       const codigo = codigoResolucion.value.trim().toUpperCase();
@@ -392,6 +503,7 @@
     actualizarSelectResoluciones();
     tituloModalFrecuencia.textContent = 'Nueva frecuencia';
     App.abrirModal('modalFrecuencia');
+    prepararCatalogo(null);
   }
 
   function abrirEditarFrecuencia(id) {
@@ -407,8 +519,11 @@
     inicioFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_INI_FRE);
     finFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_FIN_FRE);
     estadoFrecuencia.value = String(frecuencia.EST_RES) === '1' ? '1' : '0';
+    cupoUnidades.value = frecuencia.MAX_UNIDADES ?? '';
+    cupoPasajeros.value = frecuencia.MAX_PASAJEROS ?? '';
     tituloModalFrecuencia.textContent = `Editar frecuencia ${frecuencia.ID_FRE}`;
     App.abrirModal('modalFrecuencia');
+    prepararCatalogo(frecuencia);
   }
 
   async function guardarFrecuencia(evento) {
@@ -420,11 +535,11 @@
     const fin = finFrecuencia.value;
     const resolucion = resolucionFrecuencia.value;
 
-    if (!origen || origen.length > 15 || !destino || destino.length > 15) {
+    if (!controlFrecuencias && (!origen || origen.length > 15 || !destino || destino.length > 15)) {
       App.aviso('Origen y destino son obligatorios (máximo 15 caracteres).', 'error');
       return;
     }
-    if (origen === destino) {
+    if (!controlFrecuencias && origen === destino) {
       App.aviso('La ciudad de origen y destino deben ser diferentes.', 'error');
       return;
     }
@@ -450,6 +565,17 @@
       ID_RES_PER: resolucion,
       ID_COP_PER: cooperativa
     };
+    if (controlFrecuencias) {
+      const origenId = Number(lados.origen.at(-1).value);
+      const destinoId = Number(lados.destino.at(-1).value);
+      if (!origenId || !destinoId || origenId === destinoId || (!cupoUnidades.value && !cupoPasajeros.value)) {
+        return App.aviso('Selecciona puntos distintos e indica al menos un cupo diario.', 'error');
+      }
+      delete cuerpo.CIU_ORI_FRE;
+      delete cuerpo.CIU_DES_FRE;
+      Object.assign(cuerpo, { ID_PUN_ORI: origenId, ID_PUN_DES: destinoId,
+        MAX_UNIDADES: cupoUnidades.value || null, MAX_PASAJEROS: cupoPasajeros.value || null });
+    }
 
     if (!frecuenciaEnEdicion) {
       const codigo = codigoFrecuencia.value.trim().toUpperCase();
@@ -501,11 +627,8 @@
         method: 'PATCH',
         body: { EST_RES: activa ? '1' : '0' }
       });
-      const frecuencia = frecuencias.find((elemento) => elemento.ID_FRE === id);
-      if (frecuencia) frecuencia.EST_RES = activa ? '1' : '0';
-      renderFrecuencias();
-      await cargarResoluciones();
-      App.aviso(activa ? 'Frecuencia activada.' : 'Frecuencia desactivada.', 'success');
+      await Promise.all([cargarFrecuencias(), cargarResoluciones()]);
+      App.aviso(activa ? 'Frecuencia habilitada sujeta a su vigencia.' : 'Frecuencia suspendida.', 'success');
     } catch (error) {
       App.aviso(error.message, 'error');
       checkbox.checked = !activa;

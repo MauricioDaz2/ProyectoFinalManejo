@@ -1,9 +1,11 @@
 const {sql,conectarBD}=require('../config/db');
 const rules=require('./tripRules');
 const schedule=require('./workerSchedule');
+const cc=require('./frequencyControl');
 const {fail,norm}=rules;
 const req=db=>new sql.Request(db);
 const code=id=>{if(!/^[A-Z0-9_-]{1,5}$/.test(id||''))throw fail(400,'Hoja de ruta inválida.');return id;};
+const localDay = date => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guayaquil',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 async function installed(db) {
  const r=await req(db).query("SELECT CASE WHEN COL_LENGTH('dbo.HOJAS_RUTAS','ID_USU_CHO') IS NOT NULL AND COL_LENGTH('dbo.HOJAS_RUTAS','RECORRIDO_JSON') IS NOT NULL AND COL_LENGTH('dbo.HOJAS_RUTAS','SALIDA_PLAN_UTC') IS NOT NULL AND COL_LENGTH('dbo.HOJAS_RUTAS','LLEGADA_PLAN_UTC') IS NOT NULL AND COL_LENGTH('dbo.HOJAS_RUTAS','INICIO_UTC') IS NOT NULL AND COL_LENGTH('dbo.HOJAS_RUTAS','FIN_UTC') IS NOT NULL AND COL_LENGTH('dbo.HOJAS_RUTAS','PARADA_ACTUAL') IS NOT NULL AND COL_LENGTH('dbo.HOJAS_RUTAS','EST_MOV') IS NOT NULL AND OBJECT_ID('dbo.HOJA_EVENTOS','U') IS NOT NULL AND OBJECT_ID('dbo.FRECUENCIA_PARADAS','U') IS NOT NULL THEN 1 ELSE 0 END AS OPERACION_INSTALADA");
  return r.recordset[0]?.OPERACION_INSTALADA===1;
@@ -66,12 +68,22 @@ async function event(user,id,body) {
  const note=typeof body.detalle==='string'?body.detalle.trim():'';
  if(action==='NOVEDAD'&&(!note||note.length>1000))throw fail(400,'Describe la novedad en un máximo de 1000 caracteres.');
  return transaction(async db=>{
-  const initial=await sheet(db,user,id);await schedule.lock(db,[initial.ID_USU_CHO,initial.ID_USU_CON]);
+   if(action==='INICIO')await cc.lock(db);
+   const initial=await sheet(db,user,id);await schedule.lock(db,[initial.ID_USU_CHO,initial.ID_USU_CON]);
   await actor(db,user);const h=await sheet(db,user,id,true);
   const existing=(await req(db).input('event',sql.UniqueIdentifier,body.evento).query('SELECT ID_HOJ,ID_USU,TIPO,DETALLE,ID_BOL FROM dbo.HOJA_EVENTOS WITH(UPDLOCK,HOLDLOCK) WHERE ID_EVENTO=@event')).recordset[0];
   if(existing){if(existing.ID_HOJ!==id||existing.ID_USU!==user.id||existing.TIPO!==action||(action==='NOVEDAD'&&existing.DETALLE!==note))throw fail(409,'El identificador ya corresponde a otra operación.');if(['ABORDAJE','DESCENSO'].includes(action)){const prior=(await tickets(db,id)).find(t=>t.ID_BOL===existing.ID_BOL);if(!prior||!rules.qrMatches(prior,body.codigo))throw fail(409,'El identificador pertenece a otro boleto.');}return {repetida:true,message:'La operación ya estaba confirmada.'};}
   if(user.rolId==='R006'&&body.vehiculoDetenido!==true)throw fail(400,'Confirma que el vehículo está detenido antes de registrar la operación.');
-  if(action==='INICIO')await schedule.work(db,h,{exclude:id});
+   if(action==='INICIO'){
+    await schedule.work(db,h,{exclude:id});
+    if(cc.enabled()){
+     const hoy=localDay(new Date());
+     const salida=localDay(new Date(h.SALIDA_PLAN_UTC));
+     const llegada=localDay(new Date(+new Date(h.LLEGADA_PLAN_UTC)-1));
+     await cc.scheduled(db,h.ID_FRE_PER,salida,llegada);
+     await cc.scheduled(db,h.ID_FRE_PER,hoy,hoy);
+    }
+   }
   const route=await stops(db,h);let position=h.PARADA_ACTUAL??0,next=norm(h.EST_VIA_HOJ),ticket=null;
   if(['FINALIZADO','FINALIZADA','CANCELADO','CANCELADA'].includes(next))throw fail(409,'El viaje está cerrado y no admite modificaciones.');
   if(['ABORDAJE','DESCENSO'].includes(action)) {
@@ -95,7 +107,8 @@ async function assign(user,body) {
  if(!/^[A-Z0-9]{5,10}$/.test(idUsuCho||'')||!/^[A-Z0-9]{5,10}$/.test(idUsuCon||''))throw fail(400,'Selecciona chofer y controlador.');
  const utc=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
  const start=new Date(salida),end=new Date(llegada);if(!utc.test(salida||'')||!utc.test(llegada||'')||!Number.isFinite(+start)||!Number.isFinite(+end)||end<=start||start.toISOString().slice(0,19)!==salida.slice(0,19)||end.toISOString().slice(0,19)!==llegada.slice(0,19))throw fail(400,'Indica salida y llegada previstas completas y coherentes.');
- return transaction(async db=>{
+  return transaction(async db=>{
+   await cc.lock(db);
   await schedule.lock(db,[idUsuCho,idUsuCon]);
   if(user.rolId==='R001')await require('./accounts').actor(db,user);
   else {await actor(db,user);if(!access.can({...user,...await access.context(db,user)},'rutas'))throw fail(403,'Tu permiso de rutas cambió.');}
@@ -105,12 +118,13 @@ async function assign(user,body) {
    FROM dbo.BUSES B WITH(UPDLOCK,HOLDLOCK) JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER
    JOIN dbo.FRECUENCIAS F ON F.ID_FRE=@frequency JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER
    JOIN dbo.USUARIOS D WITH(UPDLOCK,HOLDLOCK) ON D.ID_USU=@driver JOIN dbo.USUARIOS U WITH(UPDLOCK,HOLDLOCK) ON U.ID_USU=@controller WHERE B.ID_BUS=@bus`)).recordset[0];
-  if(!h||(user.rolId==='R002'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
+   if(!h||(user.rolId==='R002'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
+   const day=localDay(start);
+   await cc.scheduled(db,idFre,day,localDay(new Date(+end-1)));
   const route=await stops(db,h),places=await seats(db,h);
   if(rules.preparation({...h,SALIDA_PLAN_UTC:start,LLEGADA_PLAN_UTC:end,EST_VIA_HOJ:'PROGRAMADO'},places).some(c=>!c.ok))throw fail(409,'Bus, ruta, horario y trabajadores deben estar activos y pertenecer a la misma cooperativa.');
   await schedule.work(db,{...h,ID_USU_CHO:idUsuCho,ID_USU_CON:idUsuCon,SALIDA_PLAN_UTC:start,LLEGADA_PLAN_UTC:end});
   const used=new Set((await req(db).query('SELECT ID_HOJ FROM dbo.HOJAS_RUTAS WITH(UPDLOCK,HOLDLOCK)')).recordset.map(r=>r.ID_HOJ));let id;for(let i=1;i<=9999;i++){const candidate='H'+String(i).padStart(4,'0');if(!used.has(candidate)){id=candidate;break;}}if(!id)throw fail(409,'No hay códigos de hoja disponibles.');
-  const day=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guayaquil',year:'numeric',month:'2-digit',day:'2-digit'}).format(start);
   await req(db).input('id',sql.VarChar(5),id).input('date',sql.Date,day).input('bus',sql.VarChar(5),idBus).input('frequency',sql.VarChar(5),idFre).input('driver',sql.VarChar(10),idUsuCho).input('controller',sql.VarChar(10),idUsuCon).input('start',sql.DateTime2,start).input('end',sql.DateTime2,end).input('route',sql.NVarChar(sql.MAX),JSON.stringify(route)).input('observation',sql.VarChar(50),observation||null).query("INSERT INTO dbo.HOJAS_RUTAS(ID_HOJ,FEC_PRO_HOJ,EST_VIA_HOJ,ID_BUS_PER,ID_FRE_PER,ID_USU_CHO,ID_USU_CON,SALIDA_PLAN_UTC,LLEGADA_PLAN_UTC,PARADA_ACTUAL,EST_MOV,RECORRIDO_JSON,OBS_HOJ) VALUES(@id,@date,'PROGRAMADO',@bus,@frequency,@driver,@controller,@start,@end,0,'DETENIDO',@route,@observation)");
   return {idHoja:id,message:'Viaje programado.'};
  });
@@ -120,7 +134,10 @@ async function assignmentOptions(user) {
  const db=await conectarBD();await ready(db);
  const scoped=()=>req(db).input('company',sql.VarChar(5),user.rolId==='R001'?null:user.cooperativaId);
  const buses=(await scoped().query("SELECT B.ID_BUS,B.NUM_BUS,B.PLA_BUS FROM dbo.BUSES B JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER WHERE C.EST_COP='1' AND UPPER(B.EST_BUS) IN ('ACTIVO','1') AND (@company IS NULL OR B.ID_COP_PER=@company) ORDER BY B.NUM_BUS")).recordset;
- const frecuencias=(await scoped().query("SELECT F.ID_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE FROM dbo.FRECUENCIAS F JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER JOIN dbo.COOPERATIVAS C ON C.ID_COP=R.ID_COP_PER WHERE C.EST_COP='1' AND F.EST_RES='1' AND (@company IS NULL OR R.ID_COP_PER=@company) ORDER BY F.CIU_ORI_FRE,F.CIU_DES_FRE")).recordset;
+  const frecuencias=(await scoped().query(`SELECT F.ID_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE FROM dbo.FRECUENCIAS F JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER JOIN dbo.COOPERATIVAS C ON C.ID_COP=R.ID_COP_PER
+    WHERE C.EST_COP='1' AND F.EST_RES='1' AND (@company IS NULL OR R.ID_COP_PER=@company)
+    ${cc.enabled() ? 'AND F.ID_PUN_ORI IS NOT NULL AND R.REVOCADA_RES=0 AND R.FEC_INI_VIG_RES IS NOT NULL' : ''}
+    ORDER BY F.CIU_ORI_FRE,F.CIU_DES_FRE`)).recordset;
  const personal=(await scoped().query("SELECT U.ID_USU,U.NOM_USU,U.APE_USU,U.ID_ROL_PER FROM dbo.USUARIOS U JOIN dbo.COOPERATIVAS C ON C.ID_COP=U.ID_COP_PER WHERE U.EST_USU='1' AND C.EST_COP='1' AND U.ID_ROL_PER IN ('R004','R006') AND (@company IS NULL OR U.ID_COP_PER=@company) ORDER BY U.NOM_USU,U.APE_USU")).recordset;
  return {buses,frecuencias,personal};
 }

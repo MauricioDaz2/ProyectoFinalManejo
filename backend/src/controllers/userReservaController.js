@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs/promises');
 const { sql, conectarBD } = require('../config/db');
+const cc = require('../services/frequencyControl');
 
 const texto = (valor) => (typeof valor === 'string' ? valor.trim() : '');
 
@@ -33,20 +34,23 @@ const obtenerAsientos = async (req, res) => {
                    A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER, T.NOM_TIP, T.PRE_TIP,
                    CASE
                        WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO') THEN 'OCUPADO'
-                       WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('RESERVADO', 'PENDIENTE') THEN 'RESERVADO'
+                        WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('RESERVADO', 'PENDIENTE') THEN 'RESERVADO'
+                        ${cc.enabled() ? "WHEN O.ID_BOL IS NOT NULL THEN 'OCUPADO'" : ''}
                        ELSE 'LIBRE'
                    END AS ESTADO_ASIENTO,
-                   O.ID_BOL
+                    O.ID_BOL
+                    ${cc.enabled() ? ',CU.MAX_PASAJEROS,CU.PASAJEROS_USADOS' : ''}
             FROM HOJAS_RUTAS H
-            INNER JOIN BUSES B ON B.ID_BUS = H.ID_BUS_PER
+             INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
             INNER JOIN ASIENTOS_BUS A ON A.ID_BUS_PER = B.ID_BUS
-            INNER JOIN TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
+             INNER JOIN TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
+             ${cc.enabled() ? 'OUTER APPLY dbo.fn_CC_CupoDia(H.ID_FRE_PER,H.FEC_PRO_HOJ) CU' : ''}
             OUTER APPLY (
                 SELECT TOP 1 BO.ID_BOL, BO.EST_BOL
                 FROM BOLETOS BO
                 WHERE BO.ID_HOJ_PER = H.ID_HOJ 
                   AND BO.ID_ASI_PER = A.ID_ASI
-                  AND UPPER(LTRIM(RTRIM(ISNULL(BO.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO', 'RESERVADO', 'PENDIENTE')
+                  AND ${cc.enabled() ? cc.activeTicket : "UPPER(LTRIM(RTRIM(ISNULL(BO.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO', 'RESERVADO', 'PENDIENTE')"}
                 ORDER BY 
                     CASE 
                         WHEN UPPER(LTRIM(RTRIM(BO.EST_BOL))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO') THEN 0 
@@ -55,7 +59,10 @@ const obtenerAsientos = async (req, res) => {
                     END,
                     BO.FEC_COM_BOL DESC
             ) O
-            WHERE H.ID_HOJ = @idHoja
+             WHERE H.ID_HOJ = @idHoja
+               ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet}
+                   AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADO','PROGRAMADA')
+                   AND UPPER(LTRIM(RTRIM(B.EST_BUS))) IN ('ACTIVO','1','OPERANDO')` : ''}
               AND EXISTS (
                   SELECT 1 FROM FRECUENCIAS F
                   JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
@@ -71,6 +78,8 @@ const obtenerAsientos = async (req, res) => {
         }
 
         const primerAsiento = resultado.recordset[0];
+        const cupo = primerAsiento.MAX_PASAJEROS == null ? null
+            : Math.max(0, primerAsiento.MAX_PASAJEROS - Number(primerAsiento.PASAJEROS_USADOS));
         return res.status(200).json({
             success: true,
             viaje: {
@@ -80,7 +89,8 @@ const obtenerAsientos = async (req, res) => {
                 idBus: primerAsiento.ID_BUS,
                 numeroBus: primerAsiento.NUM_BUS,
                 pisos: primerAsiento.NUM_PIS,
-                imgBus: primerAsiento.IMG_URL_BUS
+                imgBus: primerAsiento.IMG_URL_BUS,
+                cupoPasajerosDisponible: cupo
             },
             asientos: resultado.recordset
         });
@@ -235,13 +245,15 @@ const reservarAsiento = async (req, res) => {
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
         const parametrosAsientos = idAsientos.map((_, index) => `@idAsiento${index}`);
+        await cc.lock(transaccion);
+        await cc.sale(transaccion,idHoja);
         await require('../services/workerSchedule').reserve(transaccion,cedulaTitular,idHoja,req.auth.rolId);
         const company = await transaccion.request().input('sheet', sql.VarChar(5), idHoja).query(`
             SELECT C.EST_COP FROM dbo.COOPERATIVAS C WITH (UPDLOCK,HOLDLOCK)
             JOIN dbo.RESOLUCIONES_ANT R ON R.ID_COP_PER=C.ID_COP
             JOIN dbo.FRECUENCIAS F ON F.ID_RES_PER=R.ID_RES
             JOIN dbo.HOJAS_RUTAS H ON H.ID_FRE_PER=F.ID_FRE
-            JOIN dbo.BUSES B ON B.ID_BUS=H.ID_BUS_PER AND B.ID_COP_PER=C.ID_COP
+             JOIN dbo.BUSES B ON B.ID_BUS=${cc.effectiveBus()} AND B.ID_COP_PER=C.ID_COP
             WHERE H.ID_HOJ=@sheet AND C.EST_COP='1' AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADO','PROGRAMADA')
         `);
         if (!company.recordset.length) {
@@ -256,7 +268,7 @@ const reservarAsiento = async (req, res) => {
             SELECT H.ID_HOJ, F.CIU_ORI_FRE, F.CIU_DES_FRE, A.ID_ASI, T.PRE_TIP, T.NOM_TIP
             FROM HOJAS_RUTAS H WITH (UPDLOCK, HOLDLOCK)
             INNER JOIN FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-            INNER JOIN ASIENTOS_BUS A ON A.ID_BUS_PER = H.ID_BUS_PER
+             INNER JOIN ASIENTOS_BUS A ON A.ID_BUS_PER = ${cc.effectiveBus()}
             INNER JOIN TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
             WHERE H.ID_HOJ = @idHoja AND A.ID_ASI IN (${parametrosAsientos.join(', ')})
         `);
@@ -268,7 +280,7 @@ const reservarAsiento = async (req, res) => {
 
         const occupiedRequest=transaccion.request().input('sheetOccupied',sql.VarChar(5),idHoja);
         idAsientos.forEach((id,i)=>occupiedRequest.input('occupied'+i,sql.VarChar(5),id));
-        const occupied=await occupiedRequest.query(`SELECT ID_BOL FROM dbo.BOLETOS WITH(UPDLOCK,HOLDLOCK) WHERE ID_HOJ_PER=@sheetOccupied AND ID_ASI_PER IN (${idAsientos.map((_,i)=>'@occupied'+i).join(',')}) AND UPPER(LTRIM(RTRIM(ISNULL(EST_BOL,'')))) NOT IN ('CANCELADO','ANULADO','INVALIDO','VENCIDO')`);
+        const occupied=await occupiedRequest.query(`SELECT ID_BOL FROM dbo.BOLETOS WITH(UPDLOCK,HOLDLOCK) WHERE ID_HOJ_PER=@sheetOccupied AND ID_ASI_PER IN (${idAsientos.map((_,i)=>'@occupied'+i).join(',')}) AND ${cc.enabled() ? cc.activeTicket : "UPPER(LTRIM(RTRIM(ISNULL(EST_BOL,'')))) NOT IN ('CANCELADO','ANULADO','INVALIDO','VENCIDO')"}`);
         if(occupied.recordset.length){await transaccion.rollback();if(req.file)await fs.unlink(req.file.path).catch(()=>{});return res.status(409).json({success:false,message:'Uno de los asientos ya está reservado o vendido. Actualiza la disponibilidad.'});}
 
         const usuario = await transaccion.request()
@@ -333,6 +345,8 @@ const reservarAsiento = async (req, res) => {
     } catch (error) {
         try { await transaccion.rollback(); } catch (e) {}
         if (req.file) { try { await fs.unlink(req.file.path); } catch (e) {} }
+        const control = cc.respond(res, error);
+        if (control) return control;
         if(error.status)return res.status(error.status).json({success:false,message:error.message});
         console.error('Error al procesar reserva:', error);
         return res.status(500).json({ success: false, message: 'No fue posible procesar la operación.' });
