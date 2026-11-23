@@ -12,7 +12,11 @@
   <script src="../../js/coop_buses.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
-<link rel="stylesheet" href="../../assets/coop_dashboard.css"><link rel="stylesheet" href="../../assets/coop_navigation.css"><script src="../../js/coop_navigation.js" defer></script><script src="../../js/coop_access.js" defer></script></head>
+  <link rel="stylesheet" href="../../assets/coop_dashboard.css">
+  <link rel="stylesheet" href="../../assets/coop_navigation.css">
+  <script src="../../js/coop_navigation.js" defer></script>
+  <script src="../../js/coop_access.js" defer></script>
+</head>
 <body class="coop-dashboard" data-app="cooperativa" data-page="buses">
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
@@ -26,7 +30,7 @@
           <div>
             <p class="eyebrow">Cooperativa / Flota</p>
             <h1>Gestión de flota de buses</h1>
-            <p>Registra las unidades de la cooperativa, configura sus pisos y asientos, y controla el estado operativo de cada bus.</p>
+            <p>Registra las unidades de la cooperativa con su fotografía local, configura su estructura y plantilla de asientos (ventanas, pasillo, baño, escaleras y accesibilidad), y asigna su grupo operativo.</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" type="button" id="btnRecargar">Actualizar</button>
@@ -45,7 +49,7 @@
           <div class="panel-toolbar">
             <div class="search-box">
               <label class="sr-only" for="buscarBus">Buscar bus</label>
-              <input type="search" id="buscarBus" placeholder="Buscar por código, número o placa…" autocomplete="off">
+              <input type="search" id="buscarBus" placeholder="Buscar por número de unidad o placa…" autocomplete="off">
             </div>
             <label class="sr-only" for="filtroEstado">Filtrar por estado</label>
             <select class="filter-select" id="filtroEstado">
@@ -62,12 +66,12 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Código</th>
-                  <th>Bus / Placa</th>
+                  <th>Fotografía</th>
+                  <th>Unidad / Placa</th>
                   <th>Año</th>
-                  <th>Pisos</th>
+                  <th>Pisos y Plantilla</th>
                   <th>Asientos</th>
-                  <th>Categorías</th>
+                  <th>Categoría operativa</th>
                   <th>Estado</th>
                   <th class="text-right">Acciones</th>
                 </tr>
@@ -89,21 +93,17 @@
       <header class="modal-header">
         <div>
           <h3 id="tituloModalBus">Nuevo bus</h3>
-          <p id="subtituloModalBus">Completa los datos de la unidad y su distribución de asientos.</p>
+          <p id="subtituloModalBus">Completa los datos de la unidad, su fotografía y la plantilla inicial de asientos.</p>
         </div>
         <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
       </header>
 
       <form id="formBus">
         <div class="modal-body">
+          <input type="hidden" id="codigoBus" value="">
           <div class="form-grid">
             <div class="field">
-              <label for="codigoBus">Código del bus</label>
-              <input type="text" id="codigoBus" maxlength="5" placeholder="Automático" autocomplete="off">
-              <span class="help">Déjalo vacío para generar el consecutivo B0001.</span>
-            </div>
-            <div class="field">
-              <label for="numeroBus">Número de bus <span class="req">*</span></label>
+              <label for="numeroBus">Número de unidad / disco <span class="req">*</span></label>
               <input type="text" id="numeroBus" maxlength="5" required autocomplete="off" placeholder="Ej. 12">
             </div>
             <div class="field">
@@ -115,14 +115,7 @@
               <input type="number" id="anioBus" min="1980" max="2100" required placeholder="2024">
             </div>
             <div class="field">
-              <label for="pisosBus">Número de pisos <span class="req">*</span></label>
-              <select id="pisosBus" required>
-                <option value="1">1 piso</option>
-                <option value="2">2 pisos</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="estadoBus">Estado <span class="req">*</span></label>
+              <label for="estadoBus">Estado operativo <span class="req">*</span></label>
               <select id="estadoBus" required>
                 <option value="ACTIVO">Activo</option>
                 <option value="TALLER">En taller</option>
@@ -130,23 +123,54 @@
               </select>
             </div>
             <div class="field">
+              <label for="pisosBus">Número de pisos <span class="req">*</span></label>
+              <select id="pisosBus" required>
+                <option value="1">1 piso</option>
+                <option value="2">2 pisos</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="plantillaModeloBus">Plantilla base de asientos <span class="req">*</span></label>
+              <select id="plantillaModeloBus">
+                <option value="MARCO_POLO_1P">Marco Polo Estándar (2x2 con baño)</option>
+                <option value="EJECUTIVO_2X1">Ejecutivo VIP (2x1 semicama/cama)</option>
+                <option value="MARCO_POLO_2P">Marco Polo Doble Piso (escalera + baño + VIP)</option>
+                <option value="DESDE_CERO">Personalizada (por número de asientos)</option>
+              </select>
+              <span class="help">Luego podrás editar cada asiento, baño, escalera o espacio en el diseñador.</span>
+            </div>
+            <div class="field">
               <label for="asientosP1">Asientos piso 1 <span class="req">*</span></label>
-              <input type="number" id="asientosP1" min="4" max="60" required value="20">
+              <input type="number" id="asientosP1" min="4" max="60" required value="38">
             </div>
             <div class="field">
               <label for="asientosP2">Asientos piso 2</label>
               <input type="number" id="asientosP2" min="0" max="60" value="0" disabled>
               <span class="help" id="ayudaAsientosP2">Disponible solo para buses de 2 pisos.</span>
             </div>
+
             <div class="field span-2">
-              <label for="imagenBus">URL de la imagen (opcional)</label>
-              <input type="url" id="imagenBus" maxlength="500" placeholder="https://…">
+              <label for="archivoImagenBus">Fotografía del bus (explorador local)</label>
+              <div class="bus-photo-upload">
+                <div class="bus-photo-preview" id="previewImagenBus">
+                  <span class="muted">Sin foto</span>
+                </div>
+                <div class="bus-photo-controls">
+                  <input type="file" id="archivoImagenBus" accept="image/jpeg,image/png,image/webp" hidden>
+                  <div class="inline-actions">
+                    <button class="btn btn-secondary btn-sm" type="button" id="btnSeleccionarFotoBus">Seleccionar fotografía del equipo…</button>
+                    <button class="btn btn-ghost btn-sm hidden" type="button" id="btnQuitarFotoBus">Quitar foto</button>
+                  </div>
+                  <span class="help" id="estadoImagenBus">Formatos admitidos: JPG, PNG o WebP (máx. 5 MB).</span>
+                  <input type="hidden" id="imagenBus" value="">
+                </div>
+              </div>
             </div>
           </div>
 
           <div class="notice warning mt-2 hidden" id="avisoAsientos">
             <span aria-hidden="true">!</span>
-            <span>Si el bus ya tiene boletos asociados no se podrá redistribuir la cantidad de asientos.</span>
+            <span>Si el bus ya tiene boletos asociados no se podrá redistribuir la plantilla completa de asientos.</span>
           </div>
         </div>
 
@@ -158,34 +182,71 @@
     </div>
   </div>
 
-  <!-- Modal de asientos -->
+  <!-- Modal de Diseñador / Plantilla de Estructura de Asientos -->
   <div class="modal" id="modalAsientos" hidden>
     <div class="modal-backdrop" data-cerrar-modal></div>
     <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="tituloModalAsientos">
       <header class="modal-header">
         <div>
-          <h3 id="tituloModalAsientos">Distribución de asientos</h3>
-          <p id="subtituloModalAsientos">Selecciona un asiento para cambiar su tipo.</p>
+          <h3 id="tituloModalAsientos">Diseñador de estructura y plantilla de asientos</h3>
+          <p id="subtituloModalAsientos">Elige un modelo de bus o haz clic sobre cualquier asiento/espacio del chasis para cambiarlo.</p>
         </div>
         <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
       </header>
       <div class="modal-body">
-        <div id="mapaAsientos">
-          <div class="empty-state"><div class="spinner"></div><p>Cargando asientos…</p></div>
+        <div class="template-toolbar">
+          <div class="template-preset-bar">
+            <label for="selectModeloPlantilla"><strong>Modelo de carrocería:</strong></label>
+            <select id="selectModeloPlantilla" class="filter-select">
+              <option value="MARCO_POLO_1P">Marco Polo Paradiso (1 piso · 2x2 con baño y discapacidad)</option>
+              <option value="EJECUTIVO_2X1">Ejecutivo VIP (2x1 · filas de 1 asiento + pasillo + ventana)</option>
+              <option value="MARCO_POLO_2P">Marco Polo G7 Doble Piso (Planta baja VIP + escalera + baño)</option>
+              <option value="DESDE_CERO">Personalizado desde cero (cuadrícula editable)</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" type="button" id="btnAplicarModeloPlantilla">Restablecer modelo</button>
+            <div class="floor-row-controls">
+              <button class="btn btn-secondary btn-sm" type="button" id="btnAgregarFilaPlantilla" title="Añadir una fila al piso activo">+ Añadir fila</button>
+              <button class="btn btn-secondary btn-sm" type="button" id="btnQuitarFilaPlantilla" title="Quitar la última fila del piso activo">− Quitar fila</button>
+              <button class="btn btn-ghost btn-sm" type="button" id="btnLimpiarPisoPlantilla" title="Poner todo el piso activo como asientos normales">Reiniciar piso</button>
+            </div>
+          </div>
+
+          <div class="template-tools" id="herramientasPlantilla" role="group" aria-label="Herramienta de edición de celda">
+            <span class="template-tools-label">1. Elige qué colocar y 2. Haz clic o arrastra en el bus:</span>
+            <button type="button" class="tool-chip active" data-tool="NORMAL"><span class="tool-emoji">💺</span> Asiento Normal</button>
+            <button type="button" class="tool-chip" data-tool="VIP"><span class="tool-emoji">⭐</span> Asiento VIP / Cama</button>
+            <button type="button" class="tool-chip" data-tool="DISCAPACIDAD"><span class="tool-emoji">♿</span> Discapacidad</button>
+            <button type="button" class="tool-chip" data-tool="PASILLO"><span class="tool-emoji">🚶</span> Pasillo</button>
+            <button type="button" class="tool-chip" data-tool="BANO"><span class="tool-emoji">🚻</span> Baño (WC)</button>
+            <button type="button" class="tool-chip" data-tool="ESCALERA"><span class="tool-emoji">🪜</span> Escalera</button>
+            <button type="button" class="tool-chip" data-tool="VACIO"><span class="tool-emoji">🚫</span> Bloquear espacio</button>
+          </div>
         </div>
+
+        <div id="tabsPisosDisenador" class="designer-floor-tabs mt-2"></div>
+
+        <div id="mapaAsientos" class="mt-2">
+          <div class="empty-state"><div class="spinner"></div><p>Cargando estructura del bus…</p></div>
+        </div>
+
         <div class="seat-legend">
-          <span><i class="legend-dot"></i> Normal</span>
+          <span><i class="legend-dot"></i> Normal (Ventana / Pasillo)</span>
           <span><i class="legend-dot vip"></i> VIP / Cama</span>
-          <span><i class="legend-dot occupied"></i> No editable</span>
+          <span><i class="legend-dot disability"></i> Personas con discapacidad ♿</span>
+          <span><i class="legend-dot wc"></i> Baño 🚻</span>
+          <span><i class="legend-dot stairs"></i> Escalera 🪜</span>
+          <span><i class="legend-dot aisle"></i> Pasillo central</span>
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cerrar</button>
+        <span class="muted" id="resumenPlantillaAsientos" style="margin-right:auto;">—</span>
+        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
+        <button class="btn btn-primary" type="button" id="btnGuardarPlantillaAsientos">Guardar plantilla del bus</button>
       </footer>
     </div>
   </div>
 
-  <!-- Modal de tipo de asiento -->
+  <!-- Modal de tipo de asiento individual (compatibilidad rápida) -->
   <div class="modal" id="modalTipoAsiento" hidden>
     <div class="modal-backdrop" data-cerrar-modal></div>
     <div class="modal-card modal-small" role="dialog" aria-modal="true" aria-labelledby="tituloTipoAsiento">
@@ -209,14 +270,14 @@
     </div>
   </div>
 
-  <!-- Modal de categorías operativas -->
+  <!-- Modal de categoría operativa única -->
   <div class="modal" id="modalCategoriasBus" hidden>
     <div class="modal-backdrop" data-cerrar-modal></div>
     <div class="modal-card modal-small" role="dialog" aria-modal="true" aria-labelledby="tituloModalCategoriasBus">
       <header class="modal-header">
         <div>
-          <h3 id="tituloModalCategoriasBus">Categorías del bus</h3>
-          <p id="subtituloModalCategoriasBus">Selecciona las categorías de servicio que puede operar.</p>
+          <h3 id="tituloModalCategoriasBus">Grupo / Categoría del bus</h3>
+          <p id="subtituloModalCategoriasBus">Cada unidad pertenece a un único grupo operativo (ej. Urbano o Interprovincial).</p>
         </div>
         <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
       </header>
@@ -225,7 +286,7 @@
       </div>
       <footer class="modal-footer">
         <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
-        <button class="btn btn-primary" type="button" id="btnGuardarCategoriasBus">Guardar categorías</button>
+        <button class="btn btn-primary" type="button" id="btnGuardarCategoriasBus">Guardar categoría</button>
       </footer>
     </div>
   </div>
