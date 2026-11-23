@@ -13,7 +13,11 @@
   <script src="../../js/coop_asignacion.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
-<link rel="stylesheet" href="../../assets/coop_dashboard.css"><link rel="stylesheet" href="../../assets/coop_navigation.css"><script src="../../js/coop_navigation.js" defer></script><script src="../../js/coop_access.js" defer></script></head>
+  <link rel="stylesheet" href="../../assets/coop_dashboard.css">
+  <link rel="stylesheet" href="../../assets/coop_navigation.css">
+  <script src="../../js/coop_navigation.js" defer></script>
+  <script src="../../js/coop_access.js" defer></script>
+</head>
 <body class="coop-dashboard" data-app="cooperativa" data-page="resoluciones">
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
@@ -27,7 +31,7 @@
           <div>
             <p class="eyebrow">Cooperativa / Operación</p>
             <h1>Resoluciones ANT y frecuencias</h1>
-            <p>Administra el cupo autorizado por la ANT y las rutas que tu cooperativa puede operar. Cada frecuencia debe estar respaldada por una resolución vigente.</p>
+            <p>Administra los permisos autorizados por la ANT y configura las rutas, horas de salida, tarifas base y categorías operativas de tu cooperativa.</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" type="button" id="btnRecargar">Actualizar</button>
@@ -110,7 +114,7 @@
               <table class="data-table" aria-label="Resoluciones ANT">
                 <thead>
                   <tr>
-                    <th>Código</th>
+                    <th>Permiso / Resolución ANT</th>
                     <th>Emisión y vigencia</th>
                     <th>Cupo máximo</th>
                     <th>Frecuencias</th>
@@ -150,18 +154,19 @@
               <table class="data-table" aria-label="Frecuencias de la cooperativa">
                 <thead>
                   <tr>
-                    <th>Código</th>
-                    <th>Ruta</th>
+                    <th>Ruta (Origen → Destino)</th>
+                    <th>Hora de salida</th>
+                    <th>Tarifa base</th>
                     <th>Vigencia</th>
                     <th>Días</th>
-                    <th>Hojas</th>
-                    <th>Resolución</th>
+                    <th>Salidas / Cupos</th>
+                    <th>Resolución ANT</th>
                     <th>Estado</th>
                     <th class="text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="tablaFrecuencias">
-                  <tr class="loading-row"><td colspan="8"><span class="spinner"></span>Cargando frecuencias…</td></tr>
+                  <tr class="loading-row"><td colspan="9"><span class="spinner"></span>Cargando frecuencias…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -178,17 +183,17 @@
       <header class="modal-header">
         <div>
           <h3 id="tituloModalResolucion">Nueva resolución ANT</h3>
-          <p>Registra el cupo de frecuencias autorizado para la cooperativa.</p>
+          <p>Registra el documento y cupo de frecuencias autorizado para la cooperativa.</p>
         </div>
         <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
       </header>
       <form id="formResolucion">
         <div class="modal-body">
+          <input type="hidden" id="codigoResolucion" value="">
           <div class="form-grid">
             <div class="field">
-              <label for="codigoResolucion">Código</label>
-              <input type="text" id="codigoResolucion" maxlength="5" placeholder="Automático (R0001)" autocomplete="off">
-              <span class="help">Déjalo vacío para generar el consecutivo.</span>
+              <label for="numeroDocumentoResolucion">Número de resolución oficial ANT</label>
+              <input type="text" id="numeroDocumentoResolucion" maxlength="40" placeholder="Ej. ANT-2026-0045" autocomplete="off">
             </div>
             <div class="field">
               <label for="fechaResolucion">Fecha de emisión <span class="req">*</span></label>
@@ -235,28 +240,64 @@
       <header class="modal-header">
         <div>
           <h3 id="tituloModalFrecuencia">Nueva frecuencia</h3>
-          <p>Define la ruta, la vigencia y la resolución que la respalda.</p>
+          <p>Define el origen y destino con buscador, la hora de salida, la tarifa base y la resolución que la respalda.</p>
         </div>
         <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
       </header>
       <form id="formFrecuencia">
         <div class="modal-body">
+          <input type="hidden" id="codigoFrecuencia" value="">
           <div class="form-grid">
-            <div class="field">
-              <label for="codigoFrecuencia">Código</label>
-              <input type="text" id="codigoFrecuencia" maxlength="5" placeholder="Automático (F0001)" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="resolucionFrecuencia">Resolución ANT <span class="req">*</span></label>
+            <div class="field span-2">
+              <label for="resolucionFrecuencia">Resolución ANT que respalda la ruta <span class="req">*</span></label>
               <select id="resolucionFrecuencia" required></select>
             </div>
             <div class="field">
               <label for="origenFrecuencia">Ciudad de origen <span class="req">*</span></label>
-              <input type="text" id="origenFrecuencia" maxlength="15" required placeholder="Ej. AMBATO" autocomplete="off">
+              <input type="text" id="origenFrecuencia" list="listaCiudadesEcuador" maxlength="15" required placeholder="Escribe o busca provincia/ciudad (ej. AMBATO)…" autocomplete="off">
             </div>
             <div class="field">
               <label for="destinoFrecuencia">Ciudad de destino <span class="req">*</span></label>
-              <input type="text" id="destinoFrecuencia" maxlength="15" required placeholder="Ej. QUITO" autocomplete="off">
+              <input type="text" id="destinoFrecuencia" list="listaCiudadesEcuador" maxlength="15" required placeholder="Escribe o busca provincia/ciudad (ej. QUITO)…" autocomplete="off">
+            </div>
+            <datalist id="listaCiudadesEcuador">
+              <option value="AMBATO">Tungurahua · Ambato</option>
+              <option value="BANOS">Tungurahua · Baños de Agua Santa</option>
+              <option value="PELILEO">Tungurahua · Pelileo</option>
+              <option value="PILLARO">Tungurahua · Píllaro</option>
+              <option value="QUITO">Pichincha · Quito</option>
+              <option value="SANGOLQUI">Pichincha · Sangolquí</option>
+              <option value="CAYAMBE">Pichincha · Cayambe</option>
+              <option value="GUAYAQUIL">Guayas · Guayaquil</option>
+              <option value="CUENCA">Azuay · Cuenca</option>
+              <option value="RIOBAMBA">Chimborazo · Riobamba</option>
+              <option value="LATACUNGA">Cotopaxi · Latacunga</option>
+              <option value="SALCEDO">Cotopaxi · Salcedo</option>
+              <option value="PUYO">Pastaza · Puyo</option>
+              <option value="TENA">Napo · Tena</option>
+              <option value="GUARANDA">Bolívar · Guaranda</option>
+              <option value="IBARRA">Imbabura · Ibarra</option>
+              <option value="OTAVALO">Imbabura · Otavalo</option>
+              <option value="LOJA">Loja · Loja</option>
+              <option value="MACHALA">El Oro · Machala</option>
+              <option value="MANTA">Manabí · Manta</option>
+              <option value="PORTOVIEJO">Manabí · Portoviejo</option>
+              <option value="SANTO DOMINGO">Sto. Domingo de los Tsáchilas · Santo Domingo</option>
+              <option value="ESMERALDAS">Esmeraldas · Esmeraldas</option>
+              <option value="TULCAN">Carchi · Tulcán</option>
+              <option value="BABAHOYO">Los Ríos · Babahoyo</option>
+              <option value="QUEVEDO">Los Ríos · Quevedo</option>
+              <option value="MACAS">Morona Santiago · Macas</option>
+            </datalist>
+            <div class="field">
+              <label for="horaFrecuencia">Hora de salida <span class="req">*</span></label>
+              <input type="time" id="horaFrecuencia" required value="08:00">
+              <span class="help">Horario oficial de despacho de la frecuencia.</span>
+            </div>
+            <div class="field">
+              <label for="tarifaBaseFrecuencia">Tarifa base (USD) <span class="req">*</span></label>
+              <input type="number" id="tarifaBaseFrecuencia" min="0.25" max="500" step="0.25" required value="5.00" placeholder="5.00">
+              <span class="help">Precio base del trayecto para el cálculo automático de boletos.</span>
             </div>
             <div class="field">
               <label for="inicioFrecuencia">Inicio de vigencia <span class="req">*</span></label>
@@ -276,11 +317,16 @@
             </div>
           </div>
           <fieldset id="configFrecuencia" hidden disabled>
-            <legend>Trayecto autorizado y cupos diarios</legend>
+            <legend>Trayecto autorizado (Combobox con buscador) y cupos diarios</legend>
             <p id="catalogoFrecuenciaEstado" role="status"></p>
             <div class="form-grid">
               <fieldset class="form-grid" id="catalogoOrigen">
                 <legend>Origen</legend>
+                <div class="field">
+                  <label for="buscarOrigenTerritorial">Buscador rápido de origen</label>
+                  <input type="search" id="buscarOrigenTerritorial" placeholder="Buscar provincia, cantón o ciudad de origen…" autocomplete="off">
+                  <div id="sugerenciasOrigenTerritorial" class="combobox-suggestions" hidden></div>
+                </div>
                 <div class="field"><label for="origenProvincia">Provincia de origen</label><select id="origenProvincia" required></select></div>
                 <div class="field"><label for="origenCanton">Cantón de origen</label><select id="origenCanton" required></select></div>
                 <div class="field"><label for="origenParroquia">Parroquia de origen</label><select id="origenParroquia" required></select></div>
@@ -288,6 +334,11 @@
               </fieldset>
               <fieldset class="form-grid" id="catalogoDestino">
                 <legend>Destino</legend>
+                <div class="field">
+                  <label for="buscarDestinoTerritorial">Buscador rápido de destino</label>
+                  <input type="search" id="buscarDestinoTerritorial" placeholder="Buscar provincia, cantón o ciudad de destino…" autocomplete="off">
+                  <div id="sugerenciasDestinoTerritorial" class="combobox-suggestions" hidden></div>
+                </div>
                 <div class="field"><label for="destinoProvincia">Provincia de destino</label><select id="destinoProvincia" required></select></div>
                 <div class="field"><label for="destinoCanton">Cantón de destino</label><select id="destinoCanton" required></select></div>
                 <div class="field"><label for="destinoParroquia">Parroquia de destino</label><select id="destinoParroquia" required></select></div>
