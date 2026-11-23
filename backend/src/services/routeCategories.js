@@ -64,9 +64,10 @@ async function setFrequency(company, id, category) {
 
 async function setBus(company, id, values) {
     requireEnabled();
-    if (!Array.isArray(values) || values.length > 30 ||
-        values.some(value => typeof value !== 'string' || !categoryCode.test(value)) || new Set(values).size !== values.length)
-        throw cc.fail(422, 'CATEGORIAS_INVALIDAS', 'Selecciona categorías válidas y no repetidas.');
+    if (typeof values === 'string') values = values.trim() ? [values.trim()] : [];
+    if (!Array.isArray(values) || values.length > 1 ||
+        values.some(value => typeof value !== 'string' || !categoryCode.test(value)))
+        throw cc.fail(422, 'CATEGORIAS_INVALIDAS', 'Un bus solo puede pertenecer a una categoría o grupo operativo a la vez.');
     return cc.operation(await conectarBD(), async db => {
         const { recordset } = await db.request().input('id', sql.VarChar(5), id)
             .input('empresa', sql.VarChar(5), company).query('SELECT ID_BUS FROM dbo.BUSES WHERE ID_BUS=@id AND ID_COP_PER=@empresa');
