@@ -96,43 +96,108 @@ async function siguienteAsiento(request) {
     return Number(resultado.recordset[0].siguiente);
 }
 
-async function asegurarTipoNormal(gestor) {
+async function asegurarTiposAsiento(gestor) {
     await new sql.Request(gestor).query(`
-        IF NOT EXISTS (SELECT 1 FROM dbo.TIPOS_ASIENTOS WHERE ID_TIP = '${TIPO_ASIENTO_NORMAL}')
-        BEGIN
-            INSERT INTO dbo.TIPOS_ASIENTOS (ID_TIP, NOM_TIP, PRE_TIP)
-            VALUES ('${TIPO_ASIENTO_NORMAL}', 'NORMAL', 0)
-        END
+        IF NOT EXISTS (SELECT 1 FROM dbo.TIPOS_ASIENTOS WHERE ID_TIP = 'TIP01')
+            INSERT INTO dbo.TIPOS_ASIENTOS (ID_TIP, NOM_TIP, PRE_TIP) VALUES ('TIP01', 'NORMAL', 0);
+        IF NOT EXISTS (SELECT 1 FROM dbo.TIPOS_ASIENTOS WHERE ID_TIP = 'TIP02')
+            INSERT INTO dbo.TIPOS_ASIENTOS (ID_TIP, NOM_TIP, PRE_TIP) VALUES ('TIP02', 'VIP', 3);
+        IF NOT EXISTS (SELECT 1 FROM dbo.TIPOS_ASIENTOS WHERE ID_TIP = 'TIP03')
+            INSERT INTO dbo.TIPOS_ASIENTOS (ID_TIP, NOM_TIP, PRE_TIP) VALUES ('TIP03', 'DISCAPACIDAD', 0);
     `);
 }
 
+async function columnasEsquemaExtendidas(gestor) {
+    try {
+        const { recordset: [row] } = await new sql.Request(gestor).query(`
+            SELECT
+                CASE WHEN COL_LENGTH('dbo.BUSES','PLANTILLA_JSON') IS NOT NULL THEN 1 ELSE 0 END AS BUS_PLANTILLA,
+                CASE WHEN COL_LENGTH('dbo.ASIENTOS_BUS','FIL_ASI') IS NOT NULL THEN 1 ELSE 0 END AS ASI_ESPACIAL,
+                CASE WHEN COL_LENGTH('dbo.FRECUENCIAS','HORA_SAL_FRE') IS NOT NULL THEN 1 ELSE 0 END AS FRE_HORA_TARIFA,
+                CASE WHEN COL_LENGTH('dbo.RESOLUCIONES_ANT','NUM_DOC_RES') IS NOT NULL THEN 1 ELSE 0 END AS RES_NUM_DOC
+        `);
+        return row || { BUS_PLANTILLA: 0, ASI_ESPACIAL: 0, FRE_HORA_TARIFA: 0, RES_NUM_DOC: 0 };
+    } catch {
+        return { BUS_PLANTILLA: 0, ASI_ESPACIAL: 0, FRE_HORA_TARIFA: 0, RES_NUM_DOC: 0 };
+    }
+}
+
+function ubicacionPorColumna(col) {
+    if (col === 0 || col === 4) return 'VENTANA';
+    if (col === 1 || col === 3) return 'PASILLO';
+    return 'CENTRO';
+}
+
 /**
- * Crea los asientos de un bus. El ID_ASI es la clave global de 5 caracteres,
- * por eso se usa un consecutivo numérico y la etiqueta visible se calcula
- * en la API como piso + número de asiento.
+ * Crea los asientos de un bus a partir de una plantilla espacial (o por conteo P1/P2).
+ * El ID_ASI es la clave global de 5 caracteres.
  */
-async function crearAsientos(gestor, idBus, piso1, piso2) {
-    await asegurarTipoNormal(gestor);
+async function crearAsientos(gestor, idBus, piso1, piso2, plantilla = null) {
+    await asegurarTiposAsiento(gestor);
+    const esquema = await columnasEsquemaExtendidas(gestor);
     const base = await siguienteAsiento(new sql.Request(gestor));
     let consecutivo = base;
 
     const asientos = [];
-    for (let i = 0; i < piso1; i += 1) asientos.push({ piso: 1 });
-    for (let i = 0; i < piso2; i += 1) asientos.push({ piso: 2 });
+    if (plantilla && Array.isArray(plantilla.pisos) && plantilla.pisos.length > 0) {
+        for (const p of plantilla.pisos) {
+            const numPiso = Number(p.piso) === 2 ? 2 : 1;
+            const celdas = Array.isArray(p.celdas) ? p.celdas : [];
+            for (const celda of celdas) {
+                const tipoCelda = codigo(celda.tipoCelda || celda.rol);
+                if (['ASIENTO', 'NORMAL', 'VIP', 'DISCAPACIDAD'].includes(tipoCelda)) {
+                    let idTipo = codigo(celda.idTipo);
+                    if (!idTipo) {
+                        if (tipoCelda === 'VIP') idTipo = 'TIP02';
+                        else if (tipoCelda === 'DISCAPACIDAD') idTipo = 'TIP03';
+                        else idTipo = TIPO_ASIENTO_NORMAL;
+                    }
+                    const fila = Number.isInteger(Number(celda.fila)) ? Number(celda.fila) : null;
+                    const col = Number.isInteger(Number(celda.col)) ? Number(celda.col) : null;
+                    const ubicacion = texto(celda.ubicacion).toUpperCase() || (col !== null ? ubicacionPorColumna(col) : 'VENTANA');
+                    asientos.push({ piso: numPiso, idTipo, fila, col, ubicacion });
+                }
+            }
+        }
+    } else {
+        for (let i = 0; i < piso1; i += 1) {
+            const fila = Math.floor(i / 4) + 1;
+            const idxCol = i % 4;
+            const col = idxCol < 2 ? idxCol : idxCol + 1;
+            asientos.push({ piso: 1, idTipo: TIPO_ASIENTO_NORMAL, fila, col, ubicacion: ubicacionPorColumna(col) });
+        }
+        for (let i = 0; i < piso2; i += 1) {
+            const fila = Math.floor(i / 4) + 1;
+            const idxCol = i % 4;
+            const col = idxCol < 2 ? idxCol : idxCol + 1;
+            asientos.push({ piso: 2, idTipo: TIPO_ASIENTO_NORMAL, fila, col, ubicacion: ubicacionPorColumna(col) });
+        }
+    }
 
     for (const asiento of asientos) {
         const id = String(consecutivo).padStart(5, '0');
         consecutivo += 1;
 
-        await new sql.Request(gestor)
+        const req = new sql.Request(gestor)
             .input('id', sql.VarChar(5), id)
             .input('piso', sql.Int, asiento.piso)
             .input('bus', sql.VarChar(5), idBus)
-            .input('tipo', sql.VarChar(5), TIPO_ASIENTO_NORMAL)
-            .query(`
+            .input('tipo', sql.VarChar(5), asiento.idTipo || TIPO_ASIENTO_NORMAL);
+
+        if (esquema.ASI_ESPACIAL) {
+            req.input('fila', sql.Int, asiento.fila)
+               .input('col', sql.Int, asiento.col)
+               .input('ubi', sql.VarChar(15), asiento.ubicacion || null);
+            await req.query(`
+                INSERT INTO dbo.ASIENTOS_BUS (ID_ASI, PIS_ASI, ID_BUS_PER, ID_TIP_PER, FIL_ASI, COL_ASI, UBI_ASI)
+                VALUES (@id, @piso, @bus, @tipo, @fila, @col, @ubi)
+            `);
+        } else {
+            await req.query(`
                 INSERT INTO dbo.ASIENTOS_BUS (ID_ASI, PIS_ASI, ID_BUS_PER, ID_TIP_PER)
                 VALUES (@id, @piso, @bus, @tipo)
             `);
+        }
     }
 
     return asientos.length;
@@ -150,9 +215,35 @@ async function contarBoletosDelBus(pool, idBus) {
     return resultado.recordset[0].total;
 }
 
+function normalizarPlantilla(raw) {
+    if (!raw) return null;
+    let obj = raw;
+    if (typeof raw === 'string') {
+        try { obj = JSON.parse(raw); } catch { return null; }
+    }
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.pisos)) return null;
+    return obj;
+}
+
+function contarAsientosDePlantilla(plantilla) {
+    if (!plantilla || !Array.isArray(plantilla.pisos)) return { p1: 0, p2: 0 };
+    let p1 = 0;
+    let p2 = 0;
+    for (const p of plantilla.pisos) {
+        const numPiso = Number(p.piso) === 2 ? 2 : 1;
+        const celdas = Array.isArray(p.celdas) ? p.celdas : [];
+        const totalPiso = celdas.filter((c) => ['ASIENTO', 'NORMAL', 'VIP', 'DISCAPACIDAD'].includes(codigo(c.tipoCelda || c.rol))).length;
+        if (numPiso === 2) p2 += totalPiso;
+        else p1 += totalPiso;
+    }
+    return { p1, p2 };
+}
+
 function normalizarBus(body, id = null) {
     const datos = body && typeof body === 'object' ? body : {};
     const pisos = entero(datos.NUM_PIS ?? 1);
+    const plantilla = normalizarPlantilla(datos.PLANTILLA ?? datos.PLANTILLA_JSON);
+    const conteoPlantilla = plantilla ? contarAsientosDePlantilla(plantilla) : null;
 
     return {
         ID_BUS: id === null ? codigo(datos.ID_BUS) : codigo(id),
@@ -163,8 +254,13 @@ function normalizarBus(body, id = null) {
         IMG_URL_BUS: texto(datos.IMG_URL_BUS),
         EST_BUS: datos.EST_BUS === undefined ? 'ACTIVO' : codigo(datos.EST_BUS),
         ID_COP_PER: codigo(datos.ID_COP_PER),
-        ASIENTOS_P1: entero(datos.ASIENTOS_P1 ?? 20),
-        ASIENTOS_P2: entero(datos.ASIENTOS_P2 ?? 0)
+        MOD_PLA_BUS: texto(datos.MOD_PLA_BUS || plantilla?.modelo || '').slice(0, 30) || null,
+        PLANTILLA: plantilla,
+        PLANTILLA_JSON: plantilla ? JSON.stringify(plantilla) : null,
+        ASIENTOS_P1: conteoPlantilla && conteoPlantilla.p1 > 0 ? conteoPlantilla.p1 : entero(datos.ASIENTOS_P1 ?? 20),
+        ASIENTOS_P2: conteoPlantilla && (Number.isInteger(pisos) ? pisos : 1) === 2 && conteoPlantilla.p2 > 0
+            ? conteoPlantilla.p2
+            : entero(datos.ASIENTOS_P2 ?? 0)
     };
 }
 
@@ -246,8 +342,7 @@ async function listarBuses(req, res) {
             .input('estado', sql.VarChar(10), estado)
             .query(`
                 SELECT
-                    B.ID_BUS, B.NUM_BUS, B.PLA_BUS, B.ANIO_BUS, B.NUM_PIS,
-                    B.IMG_URL_BUS, B.EST_BUS, B.ID_COP_PER,
+                    B.*,
                     C.NOM_COP,
                     (SELECT COUNT(*) FROM dbo.ASIENTOS_BUS A WHERE A.ID_BUS_PER = B.ID_BUS) AS TOTAL_ASIENTOS,
                     (SELECT COUNT(*) FROM dbo.ASIENTOS_BUS A WHERE A.ID_BUS_PER = B.ID_BUS AND A.PIS_ASI = 1) AS ASIENTOS_P1,
@@ -320,6 +415,7 @@ async function crearBus(req, res) {
         transaccion = new sql.Transaction(pool);
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
+        const esquema = await columnasEsquemaExtendidas(transaccion);
         const peticion = new sql.Request(transaccion);
         const idBus = datos.ID_BUS || await siguienteCodigo(peticion, 'BUSES', 'ID_BUS', 'B');
 
@@ -333,7 +429,7 @@ async function crearBus(req, res) {
             }
         }
 
-        await new sql.Request(transaccion)
+        const insertReq = new sql.Request(transaccion)
             .input('id', sql.VarChar(5), idBus)
             .input('numero', sql.VarChar(5), datos.NUM_BUS)
             .input('placa', sql.VarChar(10), datos.PLA_BUS)
@@ -341,14 +437,25 @@ async function crearBus(req, res) {
             .input('pisos', sql.Int, datos.NUM_PIS)
             .input('imagen', sql.VarChar(500), datos.IMG_URL_BUS || null)
             .input('estado', sql.VarChar(10), datos.EST_BUS)
-            .input('cooperativa', sql.VarChar(5), datos.ID_COP_PER)
-            .query(`
+            .input('cooperativa', sql.VarChar(5), datos.ID_COP_PER);
+
+        if (esquema.BUS_PLANTILLA) {
+            insertReq.input('modelo', sql.VarChar(30), datos.MOD_PLA_BUS)
+                     .input('plantilla', sql.NVarChar(sql.MAX), datos.PLANTILLA_JSON);
+            await insertReq.query(`
+                INSERT INTO dbo.BUSES
+                    (ID_BUS, NUM_BUS, PLA_BUS, ANIO_BUS, NUM_PIS, IMG_URL_BUS, EST_BUS, ID_COP_PER, MOD_PLA_BUS, PLANTILLA_JSON)
+                VALUES (@id, @numero, @placa, @anio, @pisos, @imagen, @estado, @cooperativa, @modelo, @plantilla)
+            `);
+        } else {
+            await insertReq.query(`
                 INSERT INTO dbo.BUSES
                     (ID_BUS, NUM_BUS, PLA_BUS, ANIO_BUS, NUM_PIS, IMG_URL_BUS, EST_BUS, ID_COP_PER)
                 VALUES (@id, @numero, @placa, @anio, @pisos, @imagen, @estado, @cooperativa)
             `);
+        }
 
-        const totalAsientos = await crearAsientos(transaccion, idBus, datos.ASIENTOS_P1, datos.ASIENTOS_P2);
+        const totalAsientos = await crearAsientos(transaccion, idBus, datos.ASIENTOS_P1, datos.ASIENTOS_P2, datos.PLANTILLA);
         await transaccion.commit();
 
         return res.status(201).json({
@@ -361,6 +468,7 @@ async function crearBus(req, res) {
                 ANIO_BUS: datos.ANIO_BUS,
                 NUM_PIS: datos.NUM_PIS,
                 EST_BUS: datos.EST_BUS,
+                MOD_PLA_BUS: datos.MOD_PLA_BUS,
                 TOTAL_ASIENTOS: totalAsientos
             }
         });
@@ -400,28 +508,47 @@ async function actualizarBus(req, res) {
             return res.status(409).json({ success: false, message: 'Ya existe otro bus con esa placa.' });
         }
 
-        const configuraAsientos = req.body?.ASIENTOS_P1 !== undefined || req.body?.ASIENTOS_P2 !== undefined;
+        const configuraAsientos = req.body?.ASIENTOS_P1 !== undefined || req.body?.ASIENTOS_P2 !== undefined || Boolean(datos.PLANTILLA);
         const cambiaPisos = datos.NUM_PIS !== busActual.NUM_PIS;
 
         if ((configuraAsientos || cambiaPisos) && (await contarBoletosDelBus(pool, id)) > 0) {
             return res.status(409).json({
                 success: false,
+                codigo: 'ASIENTOS_BLOQUEADOS',
                 message: 'No se pueden redistribuir los asientos porque el bus ya tiene boletos asociados.'
             });
         }
 
         transaccion = new sql.Transaction(pool);
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+        const esquema = await columnasEsquemaExtendidas(transaccion);
 
-        await new sql.Request(transaccion)
+        const updateReq = new sql.Request(transaccion)
             .input('id', sql.VarChar(5), id)
             .input('numero', sql.VarChar(5), datos.NUM_BUS)
             .input('placa', sql.VarChar(10), datos.PLA_BUS)
             .input('anio', sql.Int, datos.ANIO_BUS)
             .input('pisos', sql.Int, datos.NUM_PIS)
             .input('imagen', sql.VarChar(500), datos.IMG_URL_BUS || null)
-            .input('estado', sql.VarChar(10), datos.EST_BUS)
-            .query(`
+            .input('estado', sql.VarChar(10), datos.EST_BUS);
+
+        if (esquema.BUS_PLANTILLA && datos.PLANTILLA_JSON !== null) {
+            updateReq.input('modelo', sql.VarChar(30), datos.MOD_PLA_BUS)
+                     .input('plantilla', sql.NVarChar(sql.MAX), datos.PLANTILLA_JSON);
+            await updateReq.query(`
+                UPDATE dbo.BUSES
+                SET NUM_BUS = @numero,
+                    PLA_BUS = @placa,
+                    ANIO_BUS = @anio,
+                    NUM_PIS = @pisos,
+                    IMG_URL_BUS = @imagen,
+                    EST_BUS = @estado,
+                    MOD_PLA_BUS = @modelo,
+                    PLANTILLA_JSON = @plantilla
+                WHERE ID_BUS = @id
+            `);
+        } else {
+            await updateReq.query(`
                 UPDATE dbo.BUSES
                 SET NUM_BUS = @numero,
                     PLA_BUS = @placa,
@@ -431,6 +558,7 @@ async function actualizarBus(req, res) {
                     EST_BUS = @estado
                 WHERE ID_BUS = @id
             `);
+        }
 
         if (configuraAsientos || cambiaPisos) {
             let piso1 = configuraAsientos ? datos.ASIENTOS_P1 : busActual.ASIENTOS_P1 ?? 20;
@@ -443,7 +571,7 @@ async function actualizarBus(req, res) {
                 .input('bus', sql.VarChar(5), id)
                 .query('DELETE FROM dbo.ASIENTOS_BUS WHERE ID_BUS_PER = @bus');
 
-            await crearAsientos(transaccion, id, piso1, piso2);
+            await crearAsientos(transaccion, id, piso1, piso2, datos.PLANTILLA);
         }
 
         await transaccion.commit();
@@ -506,7 +634,7 @@ async function listarAsientos(req, res) {
         const pool = await conectarBD();
         const bus = await pool.request()
             .input('id', sql.VarChar(5), id)
-            .query('SELECT ID_BUS, NUM_BUS, PLA_BUS, NUM_PIS FROM dbo.BUSES WHERE ID_BUS = @id');
+            .query('SELECT B.* FROM dbo.BUSES B WHERE B.ID_BUS = @id');
 
         if (bus.recordset.length === 0) {
             return res.status(404).json({ success: false, message: 'Bus no encontrado.' });
@@ -515,7 +643,7 @@ async function listarAsientos(req, res) {
         const resultado = await pool.request()
             .input('id', sql.VarChar(5), id)
             .query(`
-                SELECT A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER,
+                SELECT A.*,
                        T.NOM_TIP, T.PRE_TIP
                 FROM dbo.ASIENTOS_BUS A
                 INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
@@ -537,9 +665,13 @@ async function listarAsientos(req, res) {
             };
         });
 
+        const datosBus = bus.recordset[0];
+        const plantilla = normalizarPlantilla(datosBus.PLANTILLA_JSON);
+
         return res.status(200).json({
             success: true,
-            bus: bus.recordset[0],
+            bus: datosBus,
+            plantilla,
             pisos: [1, 2].map((piso) => ({
                 piso,
                 asientos: asientos.filter((asiento) => asiento.PIS_ASI === piso)
@@ -549,6 +681,96 @@ async function listarAsientos(req, res) {
     } catch (error) {
         return manejarError(res, 'listado de asientos', error);
     }
+}
+
+async function guardarPlantillaAsientos(req, res) {
+    const id = codigo(req.params.id);
+    if (!CODIGO_RE.test(id)) {
+        return res.status(400).json({ success: false, message: 'Código de bus inválido.' });
+    }
+
+    const plantilla = normalizarPlantilla(req.body?.PLANTILLA ?? req.body?.plantilla);
+    const modelo = texto(req.body?.MOD_PLA_BUS || plantilla?.modelo || 'PERSONALIZADA').slice(0, 30);
+    if (!plantilla) {
+        return res.status(400).json({ success: false, message: 'La plantilla de estructura de asientos no es válida.' });
+    }
+
+    const conteo = contarAsientosDePlantilla(plantilla);
+    if (conteo.p1 < 4 || conteo.p1 > 60) {
+        return res.status(400).json({ success: false, message: 'El piso 1 de la plantilla debe tener entre 4 y 60 asientos.' });
+    }
+
+    let transaccion;
+    try {
+        const pool = await conectarBD();
+        const actual = await pool.request()
+            .input('id', sql.VarChar(5), id)
+            .query('SELECT * FROM dbo.BUSES WHERE ID_BUS = @id');
+
+        if (actual.recordset.length === 0) {
+            return res.status(404).json({ success: false, message: 'Bus no encontrado.' });
+        }
+
+        const busActual = actual.recordset[0];
+        if (Number(busActual.NUM_PIS) === 2 && (conteo.p2 < 4 || conteo.p2 > 60)) {
+            return res.status(400).json({ success: false, message: 'El piso 2 de la plantilla debe tener entre 4 y 60 asientos.' });
+        }
+
+        if ((await contarBoletosDelBus(pool, id)) > 0) {
+            return res.status(409).json({
+                success: false,
+                codigo: 'ASIENTOS_BLOQUEADOS',
+                message: 'No se puede regenerar la estructura de asientos porque el bus ya tiene boletos emitidos.'
+            });
+        }
+
+        transaccion = new sql.Transaction(pool);
+        await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+        const esquema = await columnasEsquemaExtendidas(transaccion);
+
+        if (esquema.BUS_PLANTILLA) {
+            await new sql.Request(transaccion)
+                .input('id', sql.VarChar(5), id)
+                .input('modelo', sql.VarChar(30), modelo)
+                .input('plantilla', sql.NVarChar(sql.MAX), JSON.stringify({ ...plantilla, modelo }))
+                .query(`
+                    UPDATE dbo.BUSES
+                    SET MOD_PLA_BUS = @modelo,
+                        PLANTILLA_JSON = @plantilla
+                    WHERE ID_BUS = @id
+                `);
+        }
+
+        await new sql.Request(transaccion)
+            .input('bus', sql.VarChar(5), id)
+            .query('DELETE FROM dbo.ASIENTOS_BUS WHERE ID_BUS_PER = @bus');
+
+        const total = await crearAsientos(transaccion, id, conteo.p1, Number(busActual.NUM_PIS) === 2 ? conteo.p2 : 0, plantilla);
+        await transaccion.commit();
+
+        return res.status(200).json({
+            success: true,
+            message: `Plantilla de asientos guardada correctamente (${total} asientos configurados).`,
+            totalAsientos: total
+        });
+    } catch (error) {
+        if (transaccion) {
+            try { await transaccion.rollback(); } catch { /* cerrada */ }
+        }
+        return manejarError(res, 'guardado de plantilla de asientos', error);
+    }
+}
+
+async function subirImagenBus(req, res) {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'Selecciona una imagen desde tu dispositivo (JPG, PNG o WebP).' });
+    }
+    const url = `/uploads/${req.file.filename}`;
+    return res.status(201).json({
+        success: true,
+        message: 'Fotografía del bus cargada correctamente.',
+        url
+    });
 }
 
 async function cambiarTipoAsiento(req, res) {
@@ -607,6 +829,7 @@ function normalizarResolucion(body, id = null) {
     const datos = body && typeof body === 'object' ? body : {};
     return {
         ID_RES: id === null ? codigo(datos.ID_RES) : codigo(id),
+        NUM_DOC_RES: texto(datos.NUM_DOC_RES).slice(0, 40) || null,
         FEC_EMI_RES: fecha(datos.FEC_EMI_RES) || hoyISO(),
         CUP_FRE_MAX: entero(datos.CUP_FRE_MAX),
         DOC_URL_RES: texto(datos.DOC_URL_RES),
@@ -648,9 +871,8 @@ async function listarResoluciones(req, res) {
         const resultado = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa)
             .query(`
-                SELECT R.ID_RES, R.FEC_EMI_RES, R.CUP_FRE_MAX, R.DOC_URL_RES, R.ID_COP_PER,
-                       ${cc.enabled() ? `R.FEC_INI_VIG_RES,R.FEC_FIN_VIG_RES,R.REVOCADA_RES,
-                           CASE WHEN R.REVOCADA_RES=1 THEN 'REVOCADA' WHEN R.FEC_INI_VIG_RES IS NULL THEN 'SIN_VIGENCIA_ANT'
+                SELECT R.*,
+                       ${cc.enabled() ? `CASE WHEN R.REVOCADA_RES=1 THEN 'REVOCADA' WHEN R.FEC_INI_VIG_RES IS NULL THEN 'SIN_VIGENCIA_ANT'
                                 WHEN R.FEC_INI_VIG_RES>${cc.today} THEN 'PENDIENTE'
                                 WHEN R.FEC_FIN_VIG_RES<${cc.today} THEN 'VENCIDA' ELSE 'VIGENTE' END AS EST_VIGENCIA,` : ''}
                        C.NOM_COP,
@@ -696,19 +918,24 @@ async function crearResolucion(req, res) {
         }
 
         const vigencia = cc.enabled() ? cc.permit(req.body) : null;
+        const esquema = await columnasEsquemaExtendidas(pool);
         const solicitud = pool.request()
             .input('id', sql.VarChar(5), id)
             .input('fecha', sql.Date, datos.FEC_EMI_RES)
             .input('cupo', sql.Int, datos.CUP_FRE_MAX)
             .input('documento', sql.VarChar(500), datos.DOC_URL_RES || null)
             .input('cooperativa', sql.VarChar(5), datos.ID_COP_PER);
+        if (esquema.RES_NUM_DOC) solicitud.input('numDoc', sql.VarChar(40), datos.NUM_DOC_RES || `ANT-${id}`);
         if (vigencia) solicitud.input('vigInicio', sql.Date, vigencia.start).input('vigFin', sql.Date, vigencia.end)
             .input('revocada', sql.Bit, vigencia.revoked);
         const resultado = await solicitud.query(`
                 INSERT INTO dbo.RESOLUCIONES_ANT (ID_RES, FEC_EMI_RES, CUP_FRE_MAX, DOC_URL_RES, ID_COP_PER
+                    ${esquema.RES_NUM_DOC ? ', NUM_DOC_RES' : ''}
                     ${vigencia ? ', FEC_INI_VIG_RES,FEC_FIN_VIG_RES,REVOCADA_RES' : ''})
                 OUTPUT INSERTED.*
-                VALUES (@id, @fecha, @cupo, @documento, @cooperativa ${vigencia ? ', @vigInicio,@vigFin,@revocada' : ''})
+                VALUES (@id, @fecha, @cupo, @documento, @cooperativa
+                    ${esquema.RES_NUM_DOC ? ', @numDoc' : ''}
+                    ${vigencia ? ', @vigInicio,@vigFin,@revocada' : ''})
             `);
 
         return res.status(201).json({
@@ -741,10 +968,12 @@ async function actualizarResolucion(req, res) {
             const asignadas = await contarFrecuenciasDeResolucion(db, id);
             if (asignadas > datos.CUP_FRE_MAX) throw cc.fail(409, 'CUPO_RESOLUCION_AGOTADO',
                 `La resolución ya tiene ${asignadas} frecuencias; el cupo no puede ser menor.`);
+            const esquema = await columnasEsquemaExtendidas(db);
             const solicitud = db.request()
                 .input('id', sql.VarChar(5), id).input('empresa', sql.VarChar(5), cooperativaSolicitada(req))
                 .input('fecha', sql.Date, datos.FEC_EMI_RES).input('cupo', sql.Int, datos.CUP_FRE_MAX)
                 .input('documento', sql.VarChar(500), datos.DOC_URL_RES || null);
+            if (esquema.RES_NUM_DOC && datos.NUM_DOC_RES !== null) solicitud.input('numDoc', sql.VarChar(40), datos.NUM_DOC_RES);
             if (vigencia) solicitud.input('vigInicio', sql.Date, vigencia.start).input('vigFin', sql.Date, vigencia.end)
                 .input('revocada', sql.Bit, vigencia.revoked);
             return solicitud.query(`
@@ -753,6 +982,7 @@ async function actualizarResolucion(req, res) {
                 SET FEC_EMI_RES = @fecha,
                     CUP_FRE_MAX = @cupo,
                     DOC_URL_RES = @documento
+                    ${esquema.RES_NUM_DOC && datos.NUM_DOC_RES !== null ? ', NUM_DOC_RES=@numDoc' : ''}
                     ${vigencia ? ', FEC_INI_VIG_RES=@vigInicio,FEC_FIN_VIG_RES=@vigFin,REVOCADA_RES=@revocada' : ''}
                 OUTPUT INSERTED.ID_RES INTO @cambios
                 WHERE ID_RES=@id AND ID_COP_PER=@empresa;
@@ -805,6 +1035,18 @@ async function eliminarResolucion(req, res) {
 /*                                FRECUENCIAS                                  */
 /* -------------------------------------------------------------------------- */
 
+function normalizarHora(valor) {
+    const limpio = texto(valor);
+    if (!limpio) return null;
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(limpio) ? limpio : '';
+}
+
+function normalizarTarifa(valor) {
+    if (valor === undefined || valor === null || valor === '') return null;
+    const num = Number(valor);
+    return Number.isFinite(num) && num > 0 && num <= 9999 ? Math.round(num * 100) / 100 : NaN;
+}
+
 function normalizarFrecuencia(body, id = null) {
     const datos = body && typeof body === 'object' ? body : {};
     return {
@@ -813,6 +1055,8 @@ function normalizarFrecuencia(body, id = null) {
         CIU_DES_FRE: codigo(datos.CIU_DES_FRE),
         FEC_HOR_INI_FRE: fecha(datos.FEC_HOR_INI_FRE),
         FEC_HOR_FIN_FRE: fecha(datos.FEC_HOR_FIN_FRE),
+        HORA_SAL_FRE: normalizarHora(datos.HORA_SAL_FRE ?? datos.hora),
+        TAR_BAS_FRE: normalizarTarifa(datos.TAR_BAS_FRE ?? datos.tarifaBase),
         EST_RES: datos.EST_RES === undefined ? '1' : String(datos.EST_RES),
         ID_RES_PER: codigo(datos.ID_RES_PER)
     };
@@ -836,6 +1080,12 @@ function validarFrecuencia(datos) {
     }
     if (datos.FEC_HOR_FIN_FRE && datos.FEC_HOR_FIN_FRE < datos.FEC_HOR_INI_FRE) {
         return 'La fecha de fin de vigencia no puede ser anterior a la fecha de inicio.';
+    }
+    if (datos.HORA_SAL_FRE === '') {
+        return 'La hora de salida debe tener el formato HH:MM (ej. 08:30).';
+    }
+    if (Number.isNaN(datos.TAR_BAS_FRE)) {
+        return 'La tarifa base debe ser un valor mayor a $0.00.';
     }
     if (!ESTADOS_FRECUENCIA.includes(datos.EST_RES)) {
         return 'El estado de la frecuencia debe ser 1 (activa) o 0 (inactiva).';
@@ -960,11 +1210,10 @@ async function listarFrecuencias(req, res) {
             .input('destino', sql.VarChar(15), destino || null)
             .input('estado', sql.Char(1), estado)
             .query(`
-                SELECT F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
-                       F.FEC_HOR_FIN_FRE, F.EST_RES, F.ID_RES_PER,
+                SELECT F.*,
                        R.CUP_FRE_MAX,
-                       ${categories.enabled() ? 'F.ID_CAT_OP,CAT.NOM_CAT,' : ''}
-                       ${cc.enabled() ? `F.ID_PUN_ORI,F.ID_PUN_DES,F.MAX_UNIDADES,F.MAX_PASAJEROS,T.TIPO_TRAYECTO,
+                       ${categories.enabled() ? 'CAT.NOM_CAT,' : ''}
+                       ${cc.enabled() ? `T.TIPO_TRAYECTO,
                            V.EST_VIGENCIA,CU.UNIDADES_USADAS,CU.PASAJEROS_USADOS,` : ''}
                        DATEDIFF(DAY, F.FEC_HOR_INI_FRE, ISNULL(F.FEC_HOR_FIN_FRE, F.FEC_HOR_INI_FRE)) + 1 AS DIAS_VIGENCIA,
                        (SELECT COUNT(*) FROM dbo.HOJAS_RUTAS H WHERE H.ID_FRE_PER = F.ID_FRE) AS TOTAL_HOJAS
@@ -1026,11 +1275,16 @@ async function guardarFrecuencia(req, res, editar) {
                 const cupo = await validarCupoResolucion(db, resolucion, id);
                 if (cupo) throw cc.fail(409, 'CUPO_RESOLUCION_AGOTADO', cupo);
             }
+            const esquema = await columnasEsquemaExtendidas(db);
             const identificador = datos.ID_FRE || await siguienteCodigo(db.request(), 'FRECUENCIAS', 'ID_FRE', 'F');
             const solicitud = db.request().input('id', sql.VarChar(5), identificador)
                 .input('origen', sql.VarChar(15), datos.CIU_ORI_FRE).input('destino', sql.VarChar(15), datos.CIU_DES_FRE)
                 .input('inicio', sql.Date, datos.FEC_HOR_INI_FRE).input('fin', sql.Date, datos.FEC_HOR_FIN_FRE)
                 .input('estado', sql.Char(1), datos.EST_RES).input('resolucion', sql.VarChar(5), datos.ID_RES_PER);
+            if (esquema.FRE_HORA_TARIFA) {
+                solicitud.input('hora', sql.VarChar(5), datos.HORA_SAL_FRE || '08:00')
+                         .input('tarifa', sql.Decimal(10, 2), datos.TAR_BAS_FRE ?? 5.00);
+            }
             if (config) solicitud.input('pOrigen', sql.Int, config.origin).input('pDestino', sql.Int, config.destination)
                 .input('unidades', sql.Int, config.units).input('pasajeros', sql.Int, config.passengers);
             return solicitud.query(`
@@ -1038,13 +1292,16 @@ async function guardarFrecuencia(req, res, editar) {
                 ${editar ? `
                     UPDATE dbo.FRECUENCIAS SET CIU_ORI_FRE=@origen,CIU_DES_FRE=@destino,
                     FEC_HOR_INI_FRE=@inicio,FEC_HOR_FIN_FRE=@fin,EST_RES=@estado,ID_RES_PER=@resolucion
+                    ${esquema.FRE_HORA_TARIFA ? ', HORA_SAL_FRE=@hora, TAR_BAS_FRE=@tarifa' : ''}
                     ${config ? ', ID_PUN_ORI=@pOrigen,ID_PUN_DES=@pDestino,MAX_UNIDADES=@unidades,MAX_PASAJEROS=@pasajeros' : ''}
                     OUTPUT INSERTED.ID_FRE INTO @cambios WHERE ID_FRE=@id;
                 ` : `
                     INSERT dbo.FRECUENCIAS (ID_FRE,CIU_ORI_FRE,CIU_DES_FRE,FEC_HOR_INI_FRE,FEC_HOR_FIN_FRE,EST_RES,ID_RES_PER
+                         ${esquema.FRE_HORA_TARIFA ? ', HORA_SAL_FRE, TAR_BAS_FRE' : ''}
                          ${config ? ', ID_PUN_ORI,ID_PUN_DES,MAX_UNIDADES,MAX_PASAJEROS' : ''})
                     OUTPUT INSERTED.ID_FRE INTO @cambios
                     VALUES (@id,@origen,@destino,@inicio,@fin,@estado,@resolucion
+                         ${esquema.FRE_HORA_TARIFA ? ', @hora, @tarifa' : ''}
                          ${config ? ', @pOrigen,@pDestino,@unidades,@pasajeros' : ''});
                 `}
                 SELECT f.* FROM dbo.FRECUENCIAS f JOIN @cambios a ON a.ID_FRE=f.ID_FRE;
@@ -1540,6 +1797,8 @@ module.exports = {
     cambiarEstadoBus,
     desactivarBus,
     listarAsientos,
+    guardarPlantillaAsientos,
+    subirImagenBus,
     cambiarTipoAsiento,
     listarTiposAsiento,
     listarResoluciones,

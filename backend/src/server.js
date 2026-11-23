@@ -48,7 +48,7 @@ app.get('/api/coop/resoluciones-opciones', require('./security/permissions').req
     const { sql, conectarBD } = require('./config/db');
     const cc = require('./services/frequencyControl');
     const pool = await conectarBD();
-    const result = await pool.request().input('company', sql.VarChar(5), req.auth.cooperativaId).query(`SELECT R.ID_RES,R.FEC_EMI_RES,R.CUP_FRE_MAX,${cc.enabled() ? 'R.FEC_INI_VIG_RES,R.FEC_FIN_VIG_RES,R.REVOCADA_RES,' : ''}(SELECT COUNT(*) FROM dbo.FRECUENCIAS F WHERE F.ID_RES_PER=R.ID_RES) AS TOTAL_FRECUENCIAS FROM dbo.RESOLUCIONES_ANT R WHERE R.ID_COP_PER=@company ORDER BY R.ID_RES`);
+    const result = await pool.request().input('company', sql.VarChar(5), req.auth.cooperativaId).query(`SELECT R.*, (SELECT COUNT(*) FROM dbo.FRECUENCIAS F WHERE F.ID_RES_PER=R.ID_RES) AS TOTAL_FRECUENCIAS FROM dbo.RESOLUCIONES_ANT R WHERE R.ID_COP_PER=@company ORDER BY R.ID_RES`);
     res.json({ success: true, controlFrecuencias: cc.enabled(), resoluciones: result.recordset });
 }));
 app.use('/api/coop/perfil', require('./security/permissions').requirePermission('personalizacion'), require('./routes/cooperativaProfileRoutes'));
