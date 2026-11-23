@@ -16,8 +16,9 @@ function scopeChecks(req) {
     }
     const checks = [];
     const [resource, id] = req.path.split('/').filter(Boolean);
-    const operacionLote = resource === 'hojas-ruta' &&
-        ((id === 'lotes' && req.method === 'POST') || (id === 'disponibilidad' && req.method === 'GET'));
+    const operacionLote = (resource === 'hojas-ruta' &&
+        ((id === 'lotes' && req.method === 'POST') || (id === 'disponibilidad' && req.method === 'GET')))
+        || (resource === 'buses' && id === 'imagen' && req.method === 'POST');
     if (id && owners[resource] && !operacionLote) checks.push([resource, id]);
     for (const [field, type] of [['ID_BUS_PER', 'buses'], ['ID_RES_PER', 'resoluciones'], ['ID_FRE_PER', 'frecuencias'], ['ID_USU_CON', 'controlador']]) {
         if (req.body?.[field]) checks.push([type, req.body[field]]);

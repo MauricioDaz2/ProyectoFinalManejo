@@ -1,8 +1,33 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const crypto = require('crypto');
+const fs = require('fs');
 const router = express.Router();
 const { cooperativaScope } = require('../middleware/cooperativaScope');
 const batches = require('../controllers/routeBatchController');
 const categories = require('../services/routeCategories');
+
+const uploadsDir = path.join(__dirname, '../../uploads');
+const allowedBusMimes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const busPhotoUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+            cb(null, uploadsDir);
+        },
+        filename: (req, file, cb) => {
+            const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+            cb(null, `bus-${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
+        }
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (!allowedBusMimes.has(file.mimetype)) return cb(new Error('Formato no permitido. Usa JPG, PNG o WebP.'));
+        cb(null, true);
+    }
+}).single('imagen');
+
 router.use(cooperativaScope);
 router.use((req, res, next) => {
     const [,resource,action] = req.path.split('/');
@@ -25,6 +50,8 @@ const {
     cambiarEstadoBus,
     desactivarBus,
     listarAsientos,
+    guardarPlantillaAsientos,
+    subirImagenBus,
     cambiarTipoAsiento,
     listarTiposAsiento,
     listarResoluciones,
@@ -51,6 +78,11 @@ router.get('/resumen', resumenCooperativa);
 router.get('/buses', listarBuses);
 router.get('/buses/:id', obtenerBus);
 router.get('/buses/:id/asientos', listarAsientos);
+router.put('/buses/:id/plantilla', guardarPlantillaAsientos);
+router.post('/buses/imagen', (req, res, next) => busPhotoUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, message: 'La fotografía del bus debe ser JPG, PNG o WebP de máximo 5 MB.' });
+    next();
+}), subirImagenBus);
 router.post('/buses', crearBus);
 router.put('/buses/:id', actualizarBus);
 router.put('/buses/:id/categorias', batches.setBus);
