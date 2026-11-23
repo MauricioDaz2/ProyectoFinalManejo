@@ -182,9 +182,11 @@
 
     const inicio = $('batchStart').value;
     const fin = $('batchEnd').value;
+    const rutaElem = $('batchFrequency');
+    const rutaTexto = rutaElem.options?.[rutaElem.selectedIndex]?.textContent || 'seleccionada';
     const confirmado = await App.confirmar({
       titulo: 'Confirmar lote',
-      mensaje: `Se crearán ${filas.length} hoja${filas.length === 1 ? '' : 's'} para la frecuencia ${$('batchFrequency').value}, de ${inicio.replace('T', ' ')} a ${fin.replace('T', ' ')}.`,
+      mensaje: `Se crearán ${filas.length} hoja${filas.length === 1 ? '' : 's'} para la ruta ${rutaTexto}, de ${inicio.replace('T', ' ')} a ${fin.replace('T', ' ')}.`,
       aceptar: 'Confirmar lote'
     });
     if (!confirmado) return;
@@ -198,8 +200,8 @@
         inicio: isoEcuador(inicio), fin: isoEcuador(fin), filas
       });
       reintentoLote = null;
-      const hojas = (datos.hojas || []).map(hoja => hoja.idHoja);
-      $('assignmentStatus').innerHTML = `Lote confirmado${datos.repetido ? ' (ya estaba registrado)' : ''}: ${App.escapar(hojas.join(', ') || 'sin hojas')}. <a href="dashboard_coop.html#salidas">Ver salidas</a>`;
+      const hojas = (datos.hojas || []).length;
+      $('assignmentStatus').innerHTML = `Lote confirmado${datos.repetido ? ' (ya estaba registrado)' : ''}: ${App.escapar(String(hojas))} salida${hojas === 1 ? '' : 's'} programada${hojas === 1 ? '' : 's'}. <a href="dashboard_coop.html#salidas">Ver salidas</a>`;
       $('batchRows').innerHTML = '';
       disponibilidadLista = false;
       disponibilidad = { buses: [], personal: [], categoria: null, cupos: null };
@@ -263,7 +265,7 @@
         salida: isoEcuador($('assignmentStart').value), llegada: isoEcuador($('assignmentEnd').value)
       };
       const data = await request('/coop/hojas-ruta', body);
-      $('assignmentStatus').textContent = data.message + ' Código: ' + data.idHoja;
+      $('assignmentStatus').textContent = data.message || 'Salida programada correctamente.';
       $('assignmentForm').reset();
     } catch (e) {
       $('assignmentStatus').textContent = e.message;

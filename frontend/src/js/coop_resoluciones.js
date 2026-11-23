@@ -26,6 +26,7 @@
   const modalResolucion = document.getElementById('modalResolucion');
   const tituloModalResolucion = document.getElementById('tituloModalResolucion');
   const codigoResolucion = document.getElementById('codigoResolucion');
+  const numeroDocumentoResolucion = document.getElementById('numeroDocumentoResolucion');
   const fechaResolucion = document.getElementById('fechaResolucion');
   const inicioResolucion = document.getElementById('inicioResolucion');
   const finResolucion = document.getElementById('finResolucion');
@@ -41,6 +42,8 @@
   const resolucionFrecuencia = document.getElementById('resolucionFrecuencia');
   const origenFrecuencia = document.getElementById('origenFrecuencia');
   const destinoFrecuencia = document.getElementById('destinoFrecuencia');
+  const horaFrecuencia = document.getElementById('horaFrecuencia');
+  const tarifaBaseFrecuencia = document.getElementById('tarifaBaseFrecuencia');
   const inicioFrecuencia = document.getElementById('inicioFrecuencia');
   const finFrecuencia = document.getElementById('finFrecuencia');
   const estadoFrecuencia = document.getElementById('estadoFrecuencia');
@@ -51,6 +54,10 @@
   const categoriaFrecuencia = document.getElementById('categoriaFrecuencia');
   const campoCategoriaFrecuencia = categoriaFrecuencia.closest('.field');
   const estadoCatalogo = document.getElementById('catalogoFrecuenciaEstado');
+  const buscarOrigenTerritorial = document.getElementById('buscarOrigenTerritorial');
+  const sugerenciasOrigenTerritorial = document.getElementById('sugerenciasOrigenTerritorial');
+  const buscarDestinoTerritorial = document.getElementById('buscarDestinoTerritorial');
+  const sugerenciasDestinoTerritorial = document.getElementById('sugerenciasDestinoTerritorial');
   const niveles = [['Provincia','ID_PRO','NOM_PRO'], ['Canton','ID_CAN','NOM_CAN'],
     ['Parroquia','ID_PAR','NOM_PAR'], ['Punto','ID_PUN','NOM_PUN']];
   const lados = Object.fromEntries(['origen','destino'].map(lado => [
@@ -73,6 +80,18 @@
   let cargaCatalogo;
   let versionModal = 0;
   const permitido = (permiso) => usuario.accesoConfigurado !== true || usuario.principal || usuario.permisos?.includes(permiso);
+
+  function nombreVisibleResolucion(resolucion) {
+    if (!resolucion) return 'Resolución ANT';
+    if (resolucion.NUM_DOC_RES) return resolucion.NUM_DOC_RES;
+    const fecha = resolucion.FEC_EMI_RES ? App.fecha(resolucion.FEC_EMI_RES) : '';
+    return fecha ? `Permiso ANT (${fecha})` : 'Permiso ANT';
+  }
+
+  function nombreResolucionPorId(idRes) {
+    const encontrada = resoluciones.find((r) => r.ID_RES === idRes);
+    return encontrada ? nombreVisibleResolucion(encontrada) : 'Permiso ANT vigente';
+  }
 
   function aviso(mensaje, tipo = 'warning') {
     avisoGlobal.innerHTML = `<div class="notice ${tipo}"><span aria-hidden="true">!</span><span>${App.escapar(mensaje)}</span></div>`;
@@ -124,8 +143,55 @@
     mostrarTrayecto();
   }));
 
+  function configurarBuscadorCombobox(lado, inputBusqueda, contenedorSugerencias) {
+    if (!inputBusqueda || !contenedorSugerencias) return;
+    inputBusqueda.addEventListener('input', () => {
+      const termino = inputBusqueda.value.trim().toLowerCase();
+      if (!termino || puntos.length === 0) {
+        contenedorSugerencias.hidden = true;
+        contenedorSugerencias.innerHTML = '';
+        return;
+      }
+      const coincidencias = puntos.filter((p) => {
+        const textoCompleto = `${p.NOM_PRO || ''} ${p.NOM_CAN || ''} ${p.NOM_PAR || ''} ${p.NOM_PUN || ''} ${p.ETIQUETA || ''}`.toLowerCase();
+        return textoCompleto.includes(termino);
+      }).slice(0, 8);
+
+      if (coincidencias.length === 0) {
+        contenedorSugerencias.hidden = false;
+        contenedorSugerencias.innerHTML = '<div class="combobox-empty">Sin coincidencias territoriales</div>';
+        return;
+      }
+      contenedorSugerencias.hidden = false;
+      contenedorSugerencias.innerHTML = coincidencias.map((p) => `
+        <button type="button" class="combobox-item" data-punto-id="${App.escapar(String(p.ID_PUN))}">
+          <strong>${App.escapar(p.NOM_PUN || p.ETIQUETA || '')}</strong>
+          <small>${App.escapar(`${p.NOM_PRO || ''} · ${p.NOM_CAN || ''} · ${p.NOM_PAR || ''}`)}</small>
+        </button>`).join('');
+    });
+
+    contenedorSugerencias.addEventListener('click', (evento) => {
+      const btn = evento.target.closest('[data-punto-id]');
+      if (!btn) return;
+      const punto = puntos.find((p) => String(p.ID_PUN) === String(btn.dataset.puntoId));
+      if (!punto) return;
+      renderCascada(lado, punto, 0);
+      mostrarTrayecto();
+      inputBusqueda.value = `${punto.NOM_PRO || ''} · ${punto.NOM_CAN || ''} · ${punto.NOM_PUN || ''}`;
+      contenedorSugerencias.hidden = true;
+      contenedorSugerencias.innerHTML = '';
+    });
+  }
+
+  configurarBuscadorCombobox('origen', buscarOrigenTerritorial, sugerenciasOrigenTerritorial);
+  configurarBuscadorCombobox('destino', buscarDestinoTerritorial, sugerenciasDestinoTerritorial);
+
   async function prepararCatalogo(frecuencia) {
     const version = ++versionModal;
+    if (buscarOrigenTerritorial) buscarOrigenTerritorial.value = '';
+    if (buscarDestinoTerritorial) buscarDestinoTerritorial.value = '';
+    if (sugerenciasOrigenTerritorial) { sugerenciasOrigenTerritorial.hidden = true; sugerenciasOrigenTerritorial.innerHTML = ''; }
+    if (sugerenciasDestinoTerritorial) { sugerenciasDestinoTerritorial.hidden = true; sugerenciasDestinoTerritorial.innerHTML = ''; }
     if (!controlFrecuencias) return;
     puntos = [];
     for (const lado of Object.keys(lados)) renderCascada(lado);
@@ -219,7 +285,7 @@
 
     return `
       <tr>
-        <td class="mono strong">${App.escapar(resolucion.ID_RES)}</td>
+        <td class="strong">${App.escapar(nombreVisibleResolucion(resolucion))}</td>
         <td>${App.fecha(resolucion.FEC_EMI_RES)}
           ${controlFrecuencias ? `<br><small>${textoVigencia(resolucion.EST_VIGENCIA)}
               ${resolucion.FEC_INI_VIG_RES ? ` · ${App.fecha(resolucion.FEC_INI_VIG_RES)} → ${resolucion.FEC_FIN_VIG_RES ? App.fecha(resolucion.FEC_FIN_VIG_RES) : 'Sin caducidad'}` : ''}</small>` : ''}</td>
@@ -259,13 +325,21 @@
     return `${inicio} → ${App.fecha(frecuencia.FEC_HOR_FIN_FRE)}`;
   }
 
+  function formatearTarifa(valor) {
+    const num = Number(valor);
+    const final = Number.isFinite(num) && num > 0 ? num : 5;
+    return typeof App.dinero === 'function' ? App.dinero(final) : `$${final.toFixed(2)}`;
+  }
+
   function filaFrecuencia(frecuencia) {
     const activa = String(frecuencia.EST_RES) === '1';
     const uso = (max, used, unidad) => max == null ? '' : `<small>${App.numero(used)} / ${App.numero(max)} ${unidad} hoy</small><br>`;
     const categoria = frecuencia.NOM_CAT || categoriasOperativas.find((elemento) => elemento.ID_CAT === frecuencia.ID_CAT_OP)?.NOM_CAT;
+    const horaSalida = frecuencia.HORA_SAL_FRE || '08:00';
+    const tarifaBase = formatearTarifa(frecuencia.TAR_BAS_FRE);
+
     return `
       <tr>
-        <td class="mono strong">${App.escapar(frecuencia.ID_FRE)}</td>
         <td>
           <div class="cell-route">
             <span>${App.escapar(frecuencia.CIU_ORI_FRE)}</span>
@@ -276,15 +350,17 @@
             : frecuencia.TIPO_TRAYECTO === 'INTERPROVINCIAL' ? 'Interprovincial' : 'Trayecto sin configurar'}</small>` : ''}
           ${categoriasDisponibles ? `<small>${categoria ? App.escapar(categoria) : 'Sin categoría operativa'}</small>` : ''}
         </td>
+        <td class="nowrap"><strong>${App.escapar(horaSalida)}</strong></td>
+        <td class="nowrap"><strong>${App.escapar(tarifaBase)}</strong></td>
         <td class="nowrap">${etiquetaVigencia(frecuencia)}</td>
         <td>${App.numero(frecuencia.DIAS_VIGENCIA)}</td>
         <td>${App.numero(frecuencia.TOTAL_HOJAS)}
           ${controlFrecuencias ? `<br>${uso(frecuencia.MAX_UNIDADES, frecuencia.UNIDADES_USADAS, 'buses')}
             ${uso(frecuencia.MAX_PASAJEROS, frecuencia.PASAJEROS_USADOS, 'pasajeros')}` : ''}</td>
-        <td class="mono">${App.escapar(frecuencia.ID_RES_PER)}</td>
+        <td>${App.escapar(nombreResolucionPorId(frecuencia.ID_RES_PER))}</td>
         <td>
           <label class="switch">
-            <input type="checkbox" data-estado-frecuencia="${App.escapar(frecuencia.ID_FRE)}" ${activa ? 'checked' : ''} aria-label="Cambiar estado de la frecuencia ${App.escapar(frecuencia.ID_FRE)}">
+            <input type="checkbox" data-estado-frecuencia="${App.escapar(frecuencia.ID_FRE)}" ${activa ? 'checked' : ''} aria-label="Cambiar estado de la ruta ${App.escapar(frecuencia.CIU_ORI_FRE)} a ${App.escapar(frecuencia.CIU_DES_FRE)}">
              <span>${activa ? (controlFrecuencias ? 'Habilitada' : 'Activa') : (controlFrecuencias ? 'Suspendida' : 'Inactiva')}</span>
            </label>
            ${controlFrecuencias ? `<br><small>${frecuencia.TIPO_TRAYECTO ? textoVigencia(frecuencia.EST_VIGENCIA) : 'Pendiente de configurar'}</small>` : ''}
@@ -316,10 +392,10 @@
     contadorFrecuencias.textContent = `${App.numero(lista.length)} de ${App.numero(frecuencias.length)} frecuencias`;
     tablaFrecuencias.innerHTML = lista.length > 0
       ? lista.map(filaFrecuencia).join('')
-      : `<tr><td colspan="8"><div class="empty-state">
+      : `<tr><td colspan="9"><div class="empty-state">
           <div class="empty-icon">⇄</div>
           <h3>No hay frecuencias para mostrar</h3>
-          <p>Crea una frecuencia asociada a una resolución ANT o ajusta los filtros aplicados.</p>
+          <p>Crea una frecuencia con su hora de salida y tarifa base o ajusta los filtros aplicados.</p>
           <button class="btn btn-primary mt-2" type="button" data-accion-frecuencia="nueva">Crear frecuencia</button>
         </div></td></tr>`;
   }
@@ -354,7 +430,7 @@
       renderFrecuencias();
     } catch (error) {
       App.aviso(error.message, 'error');
-      tablaFrecuencias.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">!</div><h3>No se pudieron cargar las frecuencias</h3><p>${App.escapar(error.message)}</p></div></td></tr>`;
+      tablaFrecuencias.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">!</div><h3>No se pudieron cargar las frecuencias</h3><p>${App.escapar(error.message)}</p></div></td></tr>`;
     }
   }
 
@@ -397,11 +473,11 @@
       const cupo = Number(resolucion.CUP_FRE_MAX) || 0;
       const usadas = Number(resolucion.TOTAL_FRECUENCIAS) || 0;
       const disponibles = Math.max(0, cupo - usadas);
-       const noConfigurable = controlFrecuencias && (resolucion.REVOCADA_RES || !resolucion.FEC_INI_VIG_RES);
-       return `<option value="${App.escapar(resolucion.ID_RES)}" ${seleccionada === resolucion.ID_RES ? 'selected' : ''}
-         ${noConfigurable && seleccionada !== resolucion.ID_RES ? 'disabled' : ''}>
-         ${App.escapar(resolucion.ID_RES)} · ${controlFrecuencias ? `${textoVigencia(resolucion.EST_VIGENCIA || (resolucion.REVOCADA_RES ? 'REVOCADA' : !resolucion.FEC_INI_VIG_RES ? 'SIN_VIGENCIA_ANT' : ''))} · ` : ''}
-         ${App.fecha(resolucion.FEC_EMI_RES)} · ${disponibles} cupos libres
+      const noConfigurable = controlFrecuencias && (resolucion.REVOCADA_RES || !resolucion.FEC_INI_VIG_RES);
+      return `<option value="${App.escapar(resolucion.ID_RES)}" ${seleccionada === resolucion.ID_RES ? 'selected' : ''}
+        ${noConfigurable && seleccionada !== resolucion.ID_RES ? 'disabled' : ''}>
+        ${App.escapar(nombreVisibleResolucion(resolucion))} · ${controlFrecuencias ? `${textoVigencia(resolucion.EST_VIGENCIA || (resolucion.REVOCADA_RES ? 'REVOCADA' : !resolucion.FEC_INI_VIG_RES ? 'SIN_VIGENCIA_ANT' : ''))} · ` : ''}
+        ${App.fecha(resolucion.FEC_EMI_RES)} · ${disponibles} cupos libres
       </option>`;
     }).join('');
   }
@@ -411,6 +487,7 @@
     formResolucion.reset();
     codigoResolucion.disabled = false;
     codigoResolucion.value = '';
+    if (numeroDocumentoResolucion) numeroDocumentoResolucion.value = '';
     fechaResolucion.value = App.hoyISO();
     cupoResolucion.value = 10;
     documentoResolucion.value = '';
@@ -425,13 +502,14 @@
     formResolucion.reset();
     codigoResolucion.disabled = true;
     codigoResolucion.value = resolucion.ID_RES || '';
+    if (numeroDocumentoResolucion) numeroDocumentoResolucion.value = resolucion.NUM_DOC_RES || '';
     fechaResolucion.value = App.fechaInput(resolucion.FEC_EMI_RES);
     inicioResolucion.value = App.fechaInput(resolucion.FEC_INI_VIG_RES);
     finResolucion.value = App.fechaInput(resolucion.FEC_FIN_VIG_RES);
     resolucionRevocada.checked = Boolean(resolucion.REVOCADA_RES);
     cupoResolucion.value = Number(resolucion.CUP_FRE_MAX) || 1;
     documentoResolucion.value = resolucion.DOC_URL_RES || '';
-    tituloModalResolucion.textContent = `Editar resolución ${resolucion.ID_RES}`;
+    tituloModalResolucion.textContent = `Editar ${nombreVisibleResolucion(resolucion)}`;
     App.abrirModal('modalResolucion');
   }
 
@@ -456,6 +534,9 @@
       DOC_URL_RES: documentoResolucion.value.trim(),
       ID_COP_PER: cooperativa
     };
+    if (numeroDocumentoResolucion && numeroDocumentoResolucion.value.trim()) {
+      cuerpo.NUM_DOC_RES = numeroDocumentoResolucion.value.trim();
+    }
     if (controlFrecuencias) {
       if (!inicioResolucion.value || (finResolucion.value && finResolucion.value < inicioResolucion.value)) {
         return App.aviso('Indica un inicio válido y un fin igual o posterior.', 'error');
@@ -493,7 +574,7 @@
     if (!resolucion) return;
     const confirmado = await App.confirmar({
       titulo: 'Eliminar resolución',
-      mensaje: `Se eliminará la resolución ${id}. Solo es posible si no tiene frecuencias asociadas. ¿Continuar?`,
+      mensaje: `Se eliminará ${nombreVisibleResolucion(resolucion)}. Solo es posible si no tiene frecuencias asociadas. ¿Continuar?`,
       aceptar: 'Eliminar',
       peligro: true
     });
@@ -521,6 +602,8 @@
     codigoFrecuencia.value = '';
     origenFrecuencia.value = '';
     destinoFrecuencia.value = '';
+    if (horaFrecuencia) horaFrecuencia.value = '08:00';
+    if (tarifaBaseFrecuencia) tarifaBaseFrecuencia.value = '5.00';
     inicioFrecuencia.value = App.hoyISO();
     finFrecuencia.value = '';
     estadoFrecuencia.value = '1';
@@ -541,13 +624,15 @@
     actualizarSelectResoluciones(frecuencia.ID_RES_PER);
     origenFrecuencia.value = frecuencia.CIU_ORI_FRE || '';
     destinoFrecuencia.value = frecuencia.CIU_DES_FRE || '';
+    if (horaFrecuencia) horaFrecuencia.value = frecuencia.HORA_SAL_FRE || '08:00';
+    if (tarifaBaseFrecuencia) tarifaBaseFrecuencia.value = Number(frecuencia.TAR_BAS_FRE || 5).toFixed(2);
     inicioFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_INI_FRE);
     finFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_FIN_FRE);
     estadoFrecuencia.value = String(frecuencia.EST_RES) === '1' ? '1' : '0';
     cupoUnidades.value = frecuencia.MAX_UNIDADES ?? '';
     cupoPasajeros.value = frecuencia.MAX_PASAJEROS ?? '';
     categoriaFrecuencia.value = frecuencia.ID_CAT_OP || '';
-    tituloModalFrecuencia.textContent = `Editar frecuencia ${frecuencia.ID_FRE}`;
+    tituloModalFrecuencia.textContent = `Editar frecuencia ${frecuencia.CIU_ORI_FRE} → ${frecuencia.CIU_DES_FRE}`;
     App.abrirModal('modalFrecuencia');
     prepararCatalogo(frecuencia);
   }
@@ -560,6 +645,8 @@
     const inicio = inicioFrecuencia.value;
     const fin = finFrecuencia.value;
     const resolucion = resolucionFrecuencia.value;
+    const horaVal = horaFrecuencia ? (horaFrecuencia.value || '08:00') : '08:00';
+    const tarifaVal = tarifaBaseFrecuencia ? (tarifaBaseFrecuencia.value ? Number(tarifaBaseFrecuencia.value) : 5.00) : 5.00;
 
     if (!controlFrecuencias && (!origen || origen.length > 15 || !destino || destino.length > 15)) {
       App.aviso('Origen y destino son obligatorios (máximo 15 caracteres).', 'error');
@@ -567,6 +654,14 @@
     }
     if (!controlFrecuencias && origen === destino) {
       App.aviso('La ciudad de origen y destino deben ser diferentes.', 'error');
+      return;
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(horaVal)) {
+      App.aviso('La hora de salida es obligatoria (formato HH:MM).', 'error');
+      return;
+    }
+    if (!Number.isFinite(tarifaVal) || tarifaVal <= 0) {
+      App.aviso('Ingresa una tarifa base mayor a $0.00.', 'error');
       return;
     }
     if (!inicio) {
@@ -587,6 +682,8 @@
       CIU_DES_FRE: destino,
       FEC_HOR_INI_FRE: inicio,
       FEC_HOR_FIN_FRE: fin || null,
+      HORA_SAL_FRE: horaVal,
+      TAR_BAS_FRE: tarifaVal,
       EST_RES: estadoFrecuencia.value,
       ID_RES_PER: resolucion,
       ID_COP_PER: cooperativa
@@ -648,7 +745,7 @@
     if (!frecuencia) return;
     const confirmado = await App.confirmar({
       titulo: 'Eliminar frecuencia',
-      mensaje: `Se eliminará la frecuencia ${id} (${frecuencia.CIU_ORI_FRE} → ${frecuencia.CIU_DES_FRE}). Solo es posible si no tiene hojas de ruta asociadas. ¿Continuar?`,
+      mensaje: `Se eliminará la frecuencia ${frecuencia.CIU_ORI_FRE} → ${frecuencia.CIU_DES_FRE} (${frecuencia.HORA_SAL_FRE || '08:00'}). Solo es posible si no tiene hojas de ruta asociadas. ¿Continuar?`,
       aceptar: 'Eliminar',
       peligro: true
     });
