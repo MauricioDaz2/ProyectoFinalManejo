@@ -18,15 +18,15 @@ async function sheets(db,user,id,lock=false) {
  if(!available&&user.rolId==='R006')return [];
  const assigned=user.rolId==='R006'?'H.ID_USU_CHO':'H.ID_USU_CON';
  return (await req(db).input('actor',sql.VarChar(10),user.id).input('company',sql.VarChar(5),user.cooperativaId).input('sheet',sql.VarChar(5),id?code(id):null).query(`
- SELECT H.*,F.CIU_ORI_FRE,F.CIU_DES_FRE,F.FEC_HOR_INI_FRE,F.FEC_HOR_FIN_FRE,F.EST_RES,R.ID_COP_PER RUTA_COP,
+ SELECT H.*,F.CIU_ORI_FRE,F.CIU_DES_FRE,F.FEC_HOR_INI_FRE,F.FEC_HOR_FIN_FRE,F.EST_RES,F.ID_COP_PER RUTA_COP,
  B.ID_BUS,B.NUM_BUS,B.PLA_BUS,B.EST_BUS,B.ID_COP_PER BUS_COP,C.EST_COP,
  U.NOM_USU CON_NOMBRE,U.APE_USU CON_APELLIDO,U.EST_USU CON_EST,U.ID_ROL_PER CON_ROL,U.ID_COP_PER CON_COP,
  ${available?'D.NOM_USU CHO_NOMBRE,D.APE_USU CHO_APELLIDO,D.EST_USU CHO_EST,D.ID_ROL_PER CHO_ROL,D.ID_COP_PER CHO_COP':'NULL CHO_NOMBRE,NULL CHO_APELLIDO,NULL CHO_EST,NULL CHO_ROL,NULL CHO_COP'}
  FROM dbo.HOJAS_RUTAS H ${lock?'WITH(UPDLOCK,HOLDLOCK)':''}
- JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER
+ JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
  JOIN dbo.BUSES B ON B.ID_BUS=COALESCE(H.ID_BUS_REE,H.ID_BUS_PER) JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER
  LEFT JOIN dbo.USUARIOS U ON U.ID_USU=H.ID_USU_CON ${available?'LEFT JOIN dbo.USUARIOS D ON D.ID_USU=H.ID_USU_CHO':''}
- WHERE ${assigned}=@actor AND B.ID_COP_PER=@company AND R.ID_COP_PER=@company AND (@sheet IS NULL OR H.ID_HOJ=@sheet)
+ WHERE ${assigned}=@actor AND B.ID_COP_PER=@company AND F.ID_COP_PER=@company AND (@sheet IS NULL OR H.ID_HOJ=@sheet)
  ORDER BY H.FEC_PRO_HOJ DESC,H.ID_HOJ DESC`)).recordset;
 }
 async function sheet(db,user,id,lock=false) {const h=(await sheets(db,user,id,lock))[0];if(!h)throw fail(404,'Viaje no disponible para tu cuenta.');return h;}
@@ -123,10 +123,10 @@ async function assign(user,body) {
   await schedule.lock(db,[idUsuCho,idUsuCon]);
    await verifyScheduler(db,user);
   const query=req(db).input('bus',sql.VarChar(5),idBus).input('frequency',sql.VarChar(5),idFre).input('driver',sql.VarChar(10),idUsuCho).input('controller',sql.VarChar(10),idUsuCon);
-  const h=(await query.query(`SELECT B.ID_BUS,B.EST_BUS,B.ID_COP_PER BUS_COP,R.ID_COP_PER RUTA_COP,C.EST_COP,F.EST_RES,F.FEC_HOR_INI_FRE,F.FEC_HOR_FIN_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE,F.ID_FRE ID_FRE_PER,
+  const h=(await query.query(`SELECT B.ID_BUS,B.EST_BUS,B.ID_COP_PER BUS_COP,F.ID_COP_PER RUTA_COP,C.EST_COP,F.EST_RES,F.FEC_HOR_INI_FRE,F.FEC_HOR_FIN_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE,F.ID_FRE ID_FRE_PER,
    D.EST_USU CHO_EST,D.ID_ROL_PER CHO_ROL,D.ID_COP_PER CHO_COP,U.EST_USU CON_EST,U.ID_ROL_PER CON_ROL,U.ID_COP_PER CON_COP
    FROM dbo.BUSES B WITH(UPDLOCK,HOLDLOCK) JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER
-   JOIN dbo.FRECUENCIAS F ON F.ID_FRE=@frequency JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER
+   JOIN dbo.FRECUENCIAS F ON F.ID_FRE=@frequency
    JOIN dbo.USUARIOS D WITH(UPDLOCK,HOLDLOCK) ON D.ID_USU=@driver JOIN dbo.USUARIOS U WITH(UPDLOCK,HOLDLOCK) ON U.ID_USU=@controller WHERE B.ID_BUS=@bus`)).recordset[0];
    if(!h||(user.rolId==='R002'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
    const day=localDay(start);
@@ -145,12 +145,11 @@ async function assignmentOptions(user) {
  const db=await conectarBD();await ready(db);
  const scoped=()=>req(db).input('company',sql.VarChar(5),user.rolId==='R001'?null:user.cooperativaId);
  const buses=(await scoped().query("SELECT B.ID_BUS,B.NUM_BUS,B.PLA_BUS FROM dbo.BUSES B JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER WHERE C.EST_COP='1' AND UPPER(B.EST_BUS) IN ('ACTIVO','1') AND (@company IS NULL OR B.ID_COP_PER=@company) ORDER BY B.NUM_BUS")).recordset;
-  const frecuencias=(await scoped().query(`SELECT F.ID_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE FROM dbo.FRECUENCIAS F JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER JOIN dbo.COOPERATIVAS C ON C.ID_COP=R.ID_COP_PER
-    WHERE C.EST_COP='1' AND F.EST_RES='1' AND (@company IS NULL OR R.ID_COP_PER=@company)
-    ${cc.enabled() ? 'AND F.ID_PUN_ORI IS NOT NULL AND R.REVOCADA_RES=0 AND R.FEC_INI_VIG_RES IS NOT NULL' : ''}
+  const frecuencias=(await scoped().query(`SELECT F.ID_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE FROM dbo.FRECUENCIAS F JOIN dbo.COOPERATIVAS C ON C.ID_COP=F.ID_COP_PER
+    WHERE C.EST_COP='1' AND F.EST_RES='1' AND (@company IS NULL OR F.ID_COP_PER=@company)
     ORDER BY F.CIU_ORI_FRE,F.CIU_DES_FRE`)).recordset;
  const personal=(await scoped().query("SELECT U.ID_USU,U.NOM_USU,U.APE_USU,U.ID_ROL_PER FROM dbo.USUARIOS U JOIN dbo.COOPERATIVAS C ON C.ID_COP=U.ID_COP_PER WHERE U.EST_USU='1' AND C.EST_COP='1' AND U.ID_ROL_PER IN ('R004','R006') AND (@company IS NULL OR U.ID_COP_PER=@company) ORDER BY U.NOM_USU,U.APE_USU")).recordset;
-  return {buses,frecuencias,personal,lotesDisponibles:categories.enabled()&&cc.enabled()};
+  return {buses,frecuencias,personal,lotesDisponibles:categories.enabled()};
 }
 async function protectOperationalSheet(id) {
  const db=await conectarBD(),available=await installed(db);

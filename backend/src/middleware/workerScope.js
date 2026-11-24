@@ -19,18 +19,18 @@ function workerScope(kind) {
             let hoja = kind === 'controlador' && resource === 'asientos' ? id : kind === 'oficinista' && resource === 'hojas' && id ? id : req.body?.ID_HOJ_PER || req.body?.idHoj;
             const ticket = kind === 'controlador' ? req.body?.idBoleto : resource === 'boletos' && id && !['buscar','validar','ventanilla'].includes(id) ? id : null;
             if (ticket) {
-                const result = await request().input('ticket', sql.VarChar(5), ticket).query('SELECT H.ID_HOJ,H.ID_USU_CON FROM dbo.BOLETOS T JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ=T.ID_HOJ_PER JOIN dbo.BUSES B ON B.ID_BUS=H.ID_BUS_PER JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER WHERE T.ID_BOL=@ticket AND B.ID_COP_PER=@company AND R.ID_COP_PER=@company');
+                const result = await request().input('ticket', sql.VarChar(5), ticket).query('SELECT H.ID_HOJ,H.ID_USU_CON FROM dbo.BOLETOS T JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ=T.ID_HOJ_PER JOIN dbo.BUSES B ON B.ID_BUS=H.ID_BUS_PER JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER WHERE T.ID_BOL=@ticket AND B.ID_COP_PER=@company AND F.ID_COP_PER=@company');
                 const found = result.recordset[0];
                 if (!found || (kind === 'controlador' && found.ID_USU_CON !== user.id)) throw failure(404, 'Boleto no disponible para tu cuenta.');
                 hoja = found.ID_HOJ;
             }
             if (hoja) {
                 const operativeBus = cc.effectiveBus();
-                const result = await request().input('sheet', sql.VarChar(5), hoja).query(`SELECT H.ID_USU_CON,${cc.enabled() ? 'B.ID_BUS AS ID_BUS_PER' : 'H.ID_BUS_PER'} FROM dbo.HOJAS_RUTAS H JOIN dbo.BUSES B ON B.ID_BUS=${operativeBus} JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER WHERE H.ID_HOJ=@sheet AND B.ID_COP_PER=@company AND R.ID_COP_PER=@company`);
+                const result = await request().input('sheet', sql.VarChar(5), hoja).query(`SELECT H.ID_USU_CON,H.ID_BUS_PER,B.ID_BUS AS BUS_OPERATIVO FROM dbo.HOJAS_RUTAS H JOIN dbo.BUSES B ON B.ID_BUS=${operativeBus} JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER WHERE H.ID_HOJ=@sheet AND B.ID_COP_PER=@company AND F.ID_COP_PER=@company`);
                 const found = result.recordset[0];
                 if (!found || (kind === 'controlador' && found.ID_USU_CON !== user.id)) throw failure(404, 'Hoja no disponible para tu cuenta.');
                 const seat = req.body?.ID_ASI_PER || req.body?.idAsi;
-                if (seat && !(await request().input('seat', sql.VarChar(5), seat).input('bus', sql.VarChar(5), found.ID_BUS_PER).query('SELECT ID_ASI FROM dbo.ASIENTOS_BUS WHERE ID_ASI=@seat AND ID_BUS_PER=@bus')).recordset.length) throw failure(404, 'El asiento no pertenece a esta hoja.');
+                if (seat && !(await request().input('seat', sql.VarChar(5), seat).input('bus', sql.VarChar(5), found.BUS_OPERATIVO || found.ID_BUS_PER).query('SELECT ID_ASI FROM dbo.ASIENTOS_BUS WHERE ID_ASI=@seat AND ID_BUS_PER=@bus')).recordset.length) throw failure(404, 'El asiento no pertenece a esta hoja.');
             }
             if (req.body) {
                 if (kind === 'controlador') req.body.idUsuCon = user.id;
