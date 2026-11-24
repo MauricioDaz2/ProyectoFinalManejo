@@ -2995,3 +2995,71 @@ table.batch-table select.is-conflict {
         grid-column: span 1;
     }
 }
+
+/* ------------------- RFC-000085 · Frecuencias destacadas ------------------ */
+
+.notice.success {
+    background: var(--panel-success-bg);
+    border-color: #bfe6d2;
+    color: var(--panel-success);
+}
+
+.cupo-destacadas {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #8a5a00;
+    background: #fff5d6;
+    border: 1px solid #f2dda6;
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+}
+
+.cupo-destacadas[hidden] {
+    display: none;
+}
+
+.btn-destacar {
+    border: 1px solid var(--admin-border);
+    background: #fff;
+    color: #b7791f;
+    border-radius: 8px;
+    width: 32px;
+    height: 30px;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.btn-destacar:hover,
+.btn-destacar:focus-visible {
+    background: #fff5d6;
+}
+
+.btn-destacar.is-on {
+    background: #fff5d6;
+    border-color: #f0c46a;
+    color: #b7791f;
+}
+
+.badge-destacada {
+    display: inline-block;
+    margin-top: 4px;
+    background: #fff5d6;
+    color: #8a5a00;
+    border: 1px solid #f2dda6;
+}
+
+.featured-limit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.featured-limit input {
+    width: 64px;
+    padding: 6px 8px;
+    border: 1px solid var(--admin-border);
+    border-radius: 6px;
+    font: inherit;
+}

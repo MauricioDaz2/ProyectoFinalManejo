@@ -55,6 +55,7 @@
 
   let frecuencias = [];
   let hojas = [];
+  let destacadas = { disponible: false, limite: 0, usadas: 0 };
   let frecuenciaEnEdicion = null;
   let categoriasOperativas = [];
   let categoriasDisponibles = false;
@@ -358,6 +359,33 @@
     filtroFrecuenciaHoja.value = frecuencias.some((f) => f.ID_FRE === previa) ? previa : '';
   }
 
+  const esDestacada = (f) => f.ES_DESTACADA === true || f.ES_DESTACADA === 1 || f.ES_DESTACADA === '1';
+
+  function renderCupoDestacadas() {
+    const cupo = document.getElementById('cupoDestacadas');
+    if (!cupo) return;
+    cupo.hidden = !destacadas.disponible;
+    cupo.textContent = `★ Destacadas: ${destacadas.usadas} de ${destacadas.limite} contratadas`;
+  }
+
+  async function alternarDestacada(id) {
+    const frecuencia = frecuencias.find((f) => f.ID_FRE === id);
+    if (!frecuencia) return;
+    const destacar = !esDestacada(frecuencia);
+    try {
+      const datos = await App.api(`/coop/frecuencias/${encodeURIComponent(id)}/destacada`, { method: 'PUT', body: { destacada: destacar } });
+      frecuencia.ES_DESTACADA = datos.destacada;
+      destacadas = { ...destacadas, limite: datos.limite, usadas: datos.usadas };
+      aviso(datos.message, 'success');
+      renderCupoDestacadas();
+      renderFrecuencias();
+    } catch (error) {
+      if (error.datos && Number.isFinite(error.datos.limite)) destacadas = { ...destacadas, limite: error.datos.limite, usadas: error.datos.usadas };
+      renderCupoDestacadas();
+      aviso(error.message, 'danger');
+    }
+  }
+
   function renderFrecuencias() {
     const origen = filtroOrigen.value.trim().toLowerCase();
     const destino = filtroDestino.value.trim().toLowerCase();
@@ -404,6 +432,7 @@
               <span class="arrow">→</span>
               <span>${App.escapar(f.CIU_DES_FRE)}</span>
             </div>
+            ${esDestacada(f) ? '<span class="badge badge-destacada">★ Destacada</span>' : ''}
           </td>
           <td class="mono">${App.escapar(f.NUM_RES_FRE || '—')}</td>
           <td class="nowrap">${App.fecha(f.FEC_HOR_INI_FRE)}<span class="muted block-sub">hasta ${fin}</span></td>
@@ -417,6 +446,7 @@
           <td>
             <div class="actions">
               ${puedeGestionar ? `
+                ${destacadas.disponible ? `<button class="btn-destacar${esDestacada(f) ? ' is-on' : ''}" type="button" data-accion-frecuencia="destacar" data-id="${App.escapar(f.ID_FRE)}" aria-pressed="${esDestacada(f)}" title="${esDestacada(f) ? 'Quitar de destacadas' : 'Marcar como destacada'}" aria-label="${esDestacada(f) ? 'Quitar de destacadas' : 'Marcar como destacada'}">${esDestacada(f) ? '★' : '☆'}</button>` : ''}
                 <button class="btn btn-secondary btn-sm" type="button" data-accion-frecuencia="editar" data-id="${App.escapar(f.ID_FRE)}">Editar</button>
                 <button class="btn btn-secondary btn-sm" type="button" data-accion-frecuencia="estado" data-id="${App.escapar(f.ID_FRE)}">${activa ? 'Suspender' : 'Activar'}</button>
                 <button class="btn btn-danger-soft btn-sm" type="button" data-accion-frecuencia="eliminar" data-id="${App.escapar(f.ID_FRE)}">Eliminar</button>
@@ -507,6 +537,8 @@
     try {
       const datos = await App.api('/coop/frecuencias');
       frecuencias = datos.frecuencias || [];
+      destacadas = datos.destacadas || { disponible: false, limite: 0, usadas: 0 };
+      renderCupoDestacadas();
       poblarFiltroFrecuenciasHojas();
       actualizarStatsFrecuencias();
       renderFrecuencias();
@@ -727,6 +759,7 @@
     if (accion === 'editar') abrirEdicionFrecuencia(id);
     if (accion === 'estado') alternarEstadoFrecuencia(id);
     if (accion === 'eliminar') eliminarFrecuencia(id);
+    if (accion === 'destacar') alternarDestacada(id);
   });
 
   tablaHojas?.addEventListener('click', (evento) => {
