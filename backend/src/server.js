@@ -44,19 +44,19 @@ app.use('/api/admin/cooperativas', adminCooperativaRoutes);
 app.use('/api/admin/usuarios', adminUsuarioRoutes);
 app.use('/api/coop/personal', require('./routes/personalRoutes'));
 app.get('/api/coop/indicadores', require('./security/permissions').requirePermission('dashboard'), require('./controllers/coopIndicatorsController'));
-app.get('/api/coop/resoluciones-opciones', require('./security/permissions').requirePermission('rutas'), require('./controllers/accountController').handle(async (req, res) => {
-    const { sql, conectarBD } = require('./config/db');
-    const cc = require('./services/frequencyControl');
-    const pool = await conectarBD();
-    const result = await pool.request().input('company', sql.VarChar(5), req.auth.cooperativaId).query(`SELECT R.*, (SELECT COUNT(*) FROM dbo.FRECUENCIAS F WHERE F.ID_RES_PER=R.ID_RES) AS TOTAL_FRECUENCIAS FROM dbo.RESOLUCIONES_ANT R WHERE R.ID_COP_PER=@company ORDER BY R.ID_RES`);
-    res.json({ success: true, controlFrecuencias: cc.enabled(), resoluciones: result.recordset });
-}));
+app.get('/api/coop/resoluciones-opciones', require('./security/permissions').requirePermission('rutas'), (req, res) => {
+    res.status(410).json({ success: false, code: 'MODULO_RESOLUCIONES_ELIMINADO', message: 'El módulo independiente de Resoluciones ANT fue eliminado en RFC-000078.' });
+});
 app.use('/api/coop/perfil', require('./security/permissions').requirePermission('personalizacion'), require('./routes/cooperativaProfileRoutes'));
 app.use('/api/coop', coopBusRoutes);
 app.use('/api/usuario/viajes', userViajesRoutes);
 app.use('/api/usuario/reservas', userReservaRoutes);
 app.use('/api/oficinista', oficinistaBoletoRoutes);
 app.use('/api/controlador', require('./routes/controladorRoutes'));
+
+app.get('/src/views/admin/hojas_ruta.html', (req, res) => {
+    res.redirect(302, '/src/views/admin/dashboard.html');
+});
 
 app.use(express.static(path.join(__dirname, '../../frontend')));
 

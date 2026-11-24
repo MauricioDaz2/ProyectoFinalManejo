@@ -25,8 +25,7 @@ const listarHojasPorControlador = async (req, res) => {
                 FROM HOJAS_RUTAS H
                 INNER JOIN FRECUENCIAS F ON H.ID_FRE_PER = F.ID_FRE
                 INNER JOIN BUSES B       ON H.ID_BUS_PER = B.ID_BUS
-                INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER
-                WHERE H.ID_USU_CON = @idCon AND B.ID_COP_PER=@company AND R.ID_COP_PER=@company AND H.EST_VIA_HOJ IN ('PROGRAMADO','PROGRAMADA','EN CURSO')
+                WHERE H.ID_USU_CON = @idCon AND B.ID_COP_PER=@company AND F.ID_COP_PER=@company AND H.EST_VIA_HOJ IN ('PROGRAMADO','PROGRAMADA','EN CURSO')
             `);
 
         res.status(200).json({ success: true, hojas: resultado.recordset });

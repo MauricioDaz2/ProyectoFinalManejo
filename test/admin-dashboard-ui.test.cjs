@@ -75,10 +75,12 @@ test('sin autorización del layout no se consultan APIs administrativas', async 
   assert.equal((await dashboard({ authorized: false })).calls.length, 0);
 });
 
-test('menú conserva las cinco opciones y el HTML respeta el orden solicitado', async () => {
+test('menú del admin excluye hojas de ruta (exclusivas de cooperativas) y el HTML respeta el orden solicitado', async () => {
   const app = await dashboard();
-  for (const link of ['cooperativas.html', 'parada_buses.html', 'hojas_ruta.html', 'usuarios.html#oficinistas', 'usuarios.html#controladores']) assert.ok(app.get('adminSidebar').innerHTML.includes(`href="${link}"`));
+  for (const link of ['cooperativas.html', 'parada_buses.html', 'usuarios.html#oficinistas', 'usuarios.html#controladores']) assert.ok(app.get('adminSidebar').innerHTML.includes(`href="${link}"`));
+  assert.equal(app.get('adminSidebar').innerHTML.includes('hojas_ruta.html'), false);
   const html = fs.readFileSync('frontend/src/views/admin/dashboard.html', 'utf8');
+  assert.equal(html.includes('hojas_ruta.html'), false);
   assert.doesNotMatch(html, /Accesos rápidos|shortcuts-card/);
   const positions = ['operationTitle', 'tripsTitle', 'salesTitle', 'occupancyTitle'].map((id) => html.indexOf(`aria-labelledby="${id}"`));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);

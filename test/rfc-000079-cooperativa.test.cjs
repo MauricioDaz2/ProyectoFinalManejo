@@ -1,23 +1,23 @@
-const test = require('node:test');
+﻿const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-test('RFC-000079: gestión de buses incluye carga local de foto, diseñador de plantillas, categoría única y oculta IDs internos', () => {
+test('RFC-000079: gestiÃ³n de buses incluye carga local de foto, diseÃ±ador de plantillas, categorÃ­a Ãºnica y oculta IDs internos', () => {
   const busesHtml = fs.readFileSync('frontend/src/views/cooperativa/gestion_buses.html', 'utf8');
   const busesJs = fs.readFileSync('frontend/src/js/coop_buses.js', 'utf8');
 
-  // 1. Ocultamiento de columna Código en tabla de buses y campo codigoBus oculto
-  assert.doesNotMatch(busesHtml, /<th>Código<\/th>/i);
+  // 1. Ocultamiento de columna CÃ³digo en tabla de buses y campo codigoBus oculto
+  assert.doesNotMatch(busesHtml, /<th>CÃ³digo<\/th>/i);
   assert.match(busesHtml, /id="codigoBus"[^>]*type="hidden"|type="hidden"[^>]*id="codigoBus"/i);
 
-  // 2. Carga local de fotografía del bus
+  // 2. Carga local de fotografÃ­a del bus
   assert.ok(busesHtml.includes('id="archivoImagenBus"'));
   assert.ok(busesHtml.includes('id="btnSeleccionarFotoBus"'));
   assert.ok(busesHtml.includes('id="previewImagenBus"'));
   assert.match(busesJs, /\/coop\/buses\/imagen/);
 
-  // 3. Diseñador de estructura y plantillas de asientos (Marco Polo, ventana, pasillo, baño, escalera, discapacidad)
+  // 3. DiseÃ±ador de estructura y plantillas de asientos (Marco Polo, ventana, pasillo, baÃ±o, escalera, discapacidad)
   for (const id of [
     'plantillaModeloBus',
     'selectModeloPlantilla',
@@ -35,45 +35,35 @@ test('RFC-000079: gestión de buses incluye carga local de foto, diseñador de p
   assert.match(busesJs, /MARCO_POLO_2P/);
   assert.match(busesJs, /\/plantilla`/);
 
-  // 4. Categoría única por bus (radio button en lugar de múltiples checkboxes)
+  // 4. CategorÃ­a Ãºnica por bus (radio button en lugar de mÃºltiples checkboxes)
   assert.match(busesJs, /type="radio"\s+name="categoriaUnicaBus"/);
 });
 
-test('RFC-000079: resoluciones y frecuencias incluyen hora de salida, tarifa base, buscador combobox y ocultan IDs internos', async () => {
+
+test('RFC-000079: frecuencias incluyen hora de salida y tarifa base, y ocultan IDs internos', async () => {
   const frecHtml = fs.readFileSync('frontend/src/views/cooperativa/resoluciones_ant.html', 'utf8');
   const frecJs = fs.readFileSync('frontend/src/js/coop_resoluciones.js', 'utf8');
 
-  // 1. Ocultamiento de columnas Código y campos de ID interno en Resoluciones y Frecuencias
-  assert.doesNotMatch(frecHtml, /<th>Código<\/th>/i);
-  assert.match(frecHtml, /type="hidden"[^>]*id="codigoResolucion"|id="codigoResolucion"[^>]*type="hidden"/i);
-  assert.match(frecHtml, /type="hidden"[^>]*id="codigoFrecuencia"|id="codigoFrecuencia"[^>]*type="hidden"/i);
+  // 1. Los cÃ³digos internos (F0001, H0001) no se muestran como columna
+  assert.doesNotMatch(frecHtml, /<th>CÃ³digo<\/th>/i);
 
-  // 2. Campos obligatorios de Hora de salida, Tarifa base y Combobox buscador
-  for (const id of [
-    'horaFrecuencia',
-    'tarifaBaseFrecuencia',
-    'buscarOrigenTerritorial',
-    'sugerenciasOrigenTerritorial',
-    'buscarDestinoTerritorial',
-    'sugerenciasDestinoTerritorial',
-    'listaCiudadesEcuador'
-  ]) {
+  // 2. Campos de hora de salida y tarifa base en el formulario
+  for (const id of ['horaFrecuencia', 'tarifaBaseFrecuencia']) {
     assert.ok(frecHtml.includes(`id="${id}"`), `Falta ${id} en resoluciones_ant.html`);
   }
+  assert.match(frecHtml, /<th>Salida y tarifa<\/th>/);
 
-  // 3. Ejecución del buscador combobox y envío de HORA_SAL_FRE y TAR_BAS_FRE
+  // 3. El envÃ­o incluye HORA_SAL_FRE y TAR_BAS_FRE
+  const ubicaciones = JSON.parse(fs.readFileSync('frontend/src/data/ecuador_ubicaciones.json', 'utf8'));
   const elements = new Map();
   const get = (id) => {
     if (!elements.has(id)) {
-      const field = {};
+      const field = { hidden: false };
       elements.set(id, {
-        value: id === 'horaFrecuencia' ? '09:30' : (id === 'tarifaBaseFrecuencia' ? '7.50' : ''),
-        hidden: false,
-        disabled: false,
-        innerHTML: '',
-        textContent: '',
-        events: {},
+        value: '', textContent: '', innerHTML: '', hidden: false, disabled: false, required: false,
+        events: {}, options: [], attrs: {},
         classList: { toggle() {}, add() {}, remove() {} },
+        setAttribute(k, v) { this.attrs[k] = v; },
         closest: () => field,
         addEventListener(name, fn) { this.events[name] = fn; },
         replaceChildren(...options) { this.options = options; },
@@ -83,24 +73,20 @@ test('RFC-000079: resoluciones y frecuencias incluyen hora de salida, tarifa bas
     return elements.get(id);
   };
 
-  const points = [
-    { ID_PRO: '18', NOM_PRO: 'Tungurahua', ID_CAN: '1801', NOM_CAN: 'Ambato', ID_PAR: '180101', NOM_PAR: 'Matriz', ID_PUN: 10, NOM_PUN: 'Terminal Ambato', ETIQUETA: 'AMBATO' },
-    { ID_PRO: '17', NOM_PRO: 'Pichincha', ID_CAN: '1701', NOM_CAN: 'Quito', ID_PAR: '170101', NOM_PAR: 'Quitumbe', ID_PUN: 20, NOM_PUN: 'Terminal Quitumbe', ETIQUETA: 'QUITO' }
-  ];
   const calls = [];
-  const usuario = { cooperativaId: 'CP001', accesoConfigurado: false };
+  const usuario = { cooperativaId: 'CP001', accesoConfigurado: true, principal: true, permisos: ['rutas', 'salidas'] };
 
   vm.runInNewContext(frecJs, {
     document: { getElementById: get, querySelectorAll: () => [] },
-    URL,
-    window: { location: { href: 'http://localhost:3000/src/views/cooperativa/resoluciones_ant.html' }, history: { replaceState() {} } },
+    window: { ECUADOR_UBICACIONES: ubicaciones, dispatchEvent() {}, addEventListener() {} },
+    Event: function (name) { this.type = name; },
     Option: function (label, value) { this.label = label; this.value = value; },
+    Intl, Date,
     App: {
       sesion: () => usuario,
       hoyISO: () => '2026-12-01',
       fecha: (v) => v,
       fechaInput: (v) => v || '',
-      dinero: (v) => `$${Number(v).toFixed(2)}`,
       escapar: String,
       numero: String,
       aviso() {},
@@ -111,52 +97,45 @@ test('RFC-000079: resoluciones y frecuencias incluyen hora de salida, tarifa bas
       debounce: (fn) => fn,
       async api(route, options = {}) {
         if (route === '/auth/me') return { usuario };
-        if (route === '/coop/resoluciones') {
-          return {
-            controlFrecuencias: true,
-            resoluciones: [{ ID_RES: 'R0001', NUM_DOC_RES: 'ANT-2026-001', FEC_EMI_RES: '2026-01-01', FEC_INI_VIG_RES: '2026-01-01', CUP_FRE_MAX: 10, TOTAL_FRECUENCIAS: 1, EST_VIGENCIA: 'VIGENTE' }]
-          };
+        if (route === '/coop/categorias-operativas') return { categorias: [{ ID_CAT: 'INTERPROVINCIAL', NOM_CAT: 'Interprovincial' }] };
+        if (options.method === 'POST' || options.method === 'PUT') {
+          calls.push({ route, method: options.method, body: options.body });
+          return { frecuencia: { ID_FRE: 'F0001' } };
         }
-        if (route === '/coop/catalogo-territorial') return { puntos: points };
-        if (options.method === 'POST') {
-          calls.push({ route, body: options.body });
-          return { success: true, frecuencia: { ID_FRE: 'F0001' } };
-        }
-        return { controlFrecuencias: true, frecuencias: [] };
+        if (route === '/coop/hojas-ruta') return { hojas: [] };
+        return {
+          frecuencias: [{
+            ID_FRE: 'F0009', CIU_ORI_FRE: 'AMBATO', CIU_DES_FRE: 'QUITO', NUM_RES_FRE: 'ANT-1',
+            FEC_HOR_INI_FRE: '2026-12-01', EST_RES: '1', HORA_SAL_FRE: '06:30', TAR_BAS_FRE: 3.5
+          }]
+        };
       }
     }
   });
 
   await new Promise(setImmediate);
-  get('btnNuevaFrecuencia').events.click();
+
+  // La tabla muestra hora y tarifa, pero no el cÃ³digo interno
+  assert.match(get('tablaFrecuencias').innerHTML, /06:30/);
+  assert.match(get('tablaFrecuencias').innerHTML, /3\.50 base/);
+  assert.doesNotMatch(get('tablaFrecuencias').innerHTML, /class="mono strong"/);
+
+  await get('btnNuevaFrecuencia').events.click();
   await new Promise(setImmediate);
-
-  // Probar buscador rápido combobox de origen
-  get('buscarOrigenTerritorial').value = 'ambato';
-  get('buscarOrigenTerritorial').events.input();
-  assert.equal(get('sugerenciasOrigenTerritorial').hidden, false);
-  assert.match(get('sugerenciasOrigenTerritorial').innerHTML, /Terminal Ambato/);
-
-  // Seleccionar sugerencia de origen y destino
-  get('sugerenciasOrigenTerritorial').events.click({
-    target: { closest: () => ({ dataset: { puntoId: '10' } }) }
-  });
-  get('sugerenciasDestinoTerritorial').events.click({
-    target: { closest: () => ({ dataset: { puntoId: '20' } }) }
-  });
-
-  assert.equal(get('origenPunto').value, '10');
-  assert.equal(get('destinoPunto').value, '20');
-
-  get('resolucionFrecuencia').value = 'R0001';
+  get('origenProvincia').value = 'Tungurahua';
+  get('origenProvincia').events.change();
+  get('origenCiudad').value = 'AMBATO';
+  get('origenCiudad').events.change();
+  get('destinoCiudad').value = 'BANOS';
+  get('destinoCiudad').events.change();
+  get('categoriaFrecuencia').value = 'INTERPROVINCIAL';
+  get('numeroResolucionFrecuencia').value = 'ANT-TUN-2026-014';
   get('horaFrecuencia').value = '14:45';
   get('tarifaBaseFrecuencia').value = '6.50';
-  get('cupoUnidadesFrecuencia').value = '4';
 
   await get('formFrecuencia').events.submit({ preventDefault() {} });
-  assert.equal(calls.length, 1);
+  assert.equal(calls[0].route, '/coop/frecuencias');
   assert.equal(calls[0].body.HORA_SAL_FRE, '14:45');
   assert.equal(calls[0].body.TAR_BAS_FRE, 6.5);
-  assert.equal(calls[0].body.ID_PUN_ORI, 10);
-  assert.equal(calls[0].body.ID_PUN_DES, 20);
+  assert.equal(calls[0].body.NUM_RES_FRE, 'ANT-TUN-2026-014');
 });

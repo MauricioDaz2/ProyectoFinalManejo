@@ -103,8 +103,8 @@
     ];
     const results = await Promise.allSettled(tasks.map((task) => task()));
     const notices = ['cooperatives', 'buses', 'routes', 'staff'].map((kind) => D.operational(kind, records[kind]));
-    if (results[4].status === 'rejected') notices.push({ title: results[4].reason.message === 'occupancy' ? 'Ocupación de asientos' : 'Programación de viajes', icon: 'calendar', href: 'hojas_ruta.html', tone: 'neutral', message: 'No disponible. No se pudo verificar la información.' });
-    $('operationalStatus').innerHTML = notices.map((notice) => `<li class="dash-alert ${notice.tone}"><span class="dash-alert-icon">${icon(notice.icon)}</span><div><h3>${escape(notice.title)}</h3><p>${escape(notice.message)}</p></div><a href="${notice.href}" aria-label="Consultar ${escape(notice.title)}">→</a></li>`).join('');
+    if (results[4].status === 'rejected') notices.push({ title: results[4].reason.message === 'occupancy' ? 'Ocupación de asientos' : 'Programación de viajes', icon: 'calendar', href: null, tone: 'neutral', message: 'No disponible. No se pudo verificar la información.' });
+    $('operationalStatus').innerHTML = notices.map((notice) => `<li class="dash-alert ${notice.tone}"><span class="dash-alert-icon">${icon(notice.icon)}</span><div><h3>${escape(notice.title)}</h3><p>${escape(notice.message)}</p></div>${notice.href ? `<a href="${notice.href}" aria-label="Consultar ${escape(notice.title)}">→</a>` : ''}</li>`).join('');
     const metrics = [['metricCooperativas', 'metricCooperativasActivas'], ['metricBuses'], ['metricPersonal', 'metricOficinistas', 'metricControladores'], ['metricRutas']];
     metrics.forEach((ids, index) => { if (results[index].status === 'rejected') ids.forEach((id) => set(id, null)); });
     if (results[4].status === 'rejected' && results[4].reason.message !== 'occupancy') {

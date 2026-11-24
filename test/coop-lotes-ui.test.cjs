@@ -34,8 +34,7 @@ function setup() {
       personal: [
         { ID_USU: 'DRV01', ID_ROL_PER: 'R006', NOM_USU: 'Chofer', APE_USU: 'Prueba' },
         { ID_USU: 'CON01', ID_ROL_PER: 'R004', NOM_USU: 'Controlador', APE_USU: 'Prueba' }
-      ],
-      cupos: { MAX_UNIDADES: 3, UNIDADES_USADAS: 1 }
+      ]
     };
     else data = { message: 'Lote confirmado.', hojas: [{ idHoja: 'L0001' }] };
     return { ok: true, json: async () => ({ success: true, ...data }) };
@@ -77,7 +76,7 @@ test('con CC-02 la programación cambia a lote y consulta disponibilidad en UTC'
   assert.equal(params.get('fin'), '2026-12-01T16:00:00.000Z');
   assert.equal(ui.get('batchCategory').textContent, 'Urbano');
   assert.match(ui.get('batchSummary').textContent, /1 buses y 2 tripulantes/);
-  assert.match(ui.get('batchSummary').textContent, /1\/3 buses/);
+  assert.doesNotMatch(ui.get('batchSummary').textContent, /Cupo del día/);
   assert.equal(ui.get('batchSubmit').disabled, false);
 });
 

@@ -7,7 +7,6 @@ const status = "h.EST_VIA_HOJ IN ('PROGRAMADO','PROGRAMADA','EN CURSO')";
 
 function requireEnabled() {
     if (!enabled()) throw cc.fail(404, 'LOTES_NO_HABILITADOS', 'La asignación en lote aún no está habilitada.');
-    if (!cc.enabled()) throw cc.fail(503, 'CC01_REQUERIDO', 'Activa el control de frecuencias antes de habilitar los lotes.');
 }
 
 async function compatible(db, frecuencia, bus) {
@@ -28,8 +27,8 @@ async function list(company) {
         SELECT bc.ID_BUS,bc.ID_CAT FROM dbo.BUS_CATEGORIAS bc JOIN dbo.BUSES b ON b.ID_BUS=bc.ID_BUS
             WHERE b.ID_COP_PER=@empresa ORDER BY bc.ID_CAT;
         SELECT f.ID_FRE,f.CIU_ORI_FRE,f.CIU_DES_FRE,f.ID_CAT_OP
-            FROM dbo.FRECUENCIAS f JOIN dbo.RESOLUCIONES_ANT r ON r.ID_RES=f.ID_RES_PER
-            WHERE r.ID_COP_PER=@empresa ORDER BY f.CIU_ORI_FRE,f.CIU_DES_FRE;
+            FROM dbo.FRECUENCIAS f
+            WHERE f.ID_COP_PER=@empresa ORDER BY f.CIU_ORI_FRE,f.CIU_DES_FRE;
     `);
     const [categorias, buses, asignadas, frecuencias] = recordsets;
     return { categorias, frecuencias, buses: buses.map(bus => ({
@@ -45,9 +44,8 @@ async function setFrequency(company, id, category) {
         const { recordset: [row] } = await db.request().input('id', sql.VarChar(5), id)
             .input('empresa', sql.VarChar(5), company).input('cat', sql.VarChar(24), category).query(`
             SELECT f.ID_FRE, c.ID_CAT FROM dbo.FRECUENCIAS f
-            JOIN dbo.RESOLUCIONES_ANT r ON r.ID_RES=f.ID_RES_PER
             LEFT JOIN dbo.CATEGORIAS_OPERATIVAS c ON c.ID_CAT=@cat
-            WHERE f.ID_FRE=@id AND r.ID_COP_PER=@empresa`);
+            WHERE f.ID_FRE=@id AND f.ID_COP_PER=@empresa`);
         if (!row) throw cc.fail(404, 'FRECUENCIA_NO_ENCONTRADA', 'Frecuencia no encontrada.');
         if (!row.ID_CAT) throw cc.fail(422, 'CATEGORIA_INVALIDA', 'La categoría no existe.');
         const { recordset } = await db.request().input('id', sql.VarChar(5), id).input('cat', sql.VarChar(24), category).query(`

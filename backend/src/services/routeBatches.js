@@ -54,12 +54,11 @@ function parse(body) {
 async function context(db, user, id) {
     const { recordset: [row] } = await db.request().input('id', sql.VarChar(5), id)
         .input('empresa', sql.VarChar(5), user.rolId === 'R001' ? null : user.cooperativaId)
-        .query(`SELECT f.ID_FRE AS ID_FRE_PER,f.CIU_ORI_FRE,f.CIU_DES_FRE,r.ID_COP_PER,c.ID_CAT,c.NOM_CAT,
-            f.MAX_UNIDADES,f.MAX_PASAJEROS
-            FROM dbo.FRECUENCIAS f JOIN dbo.RESOLUCIONES_ANT r ON r.ID_RES=f.ID_RES_PER
-            JOIN dbo.COOPERATIVAS cp ON cp.ID_COP=r.ID_COP_PER
+        .query(`SELECT f.ID_FRE AS ID_FRE_PER,f.CIU_ORI_FRE,f.CIU_DES_FRE,f.ID_COP_PER,c.ID_CAT,c.NOM_CAT
+            FROM dbo.FRECUENCIAS f
+            JOIN dbo.COOPERATIVAS cp ON cp.ID_COP=f.ID_COP_PER
             LEFT JOIN dbo.CATEGORIAS_OPERATIVAS c ON c.ID_CAT=f.ID_CAT_OP
-            WHERE f.ID_FRE=@id AND cp.EST_COP='1' AND (@empresa IS NULL OR r.ID_COP_PER=@empresa)`);
+            WHERE f.ID_FRE=@id AND cp.EST_COP='1' AND (@empresa IS NULL OR f.ID_COP_PER=@empresa)`);
     if (!row) throw cc.fail(404, 'FRECUENCIA_NO_ENCONTRADA', 'Frecuencia no disponible para tu cooperativa.');
     return row;
 }
@@ -78,11 +77,10 @@ async function availability(user, query) {
     const db = await conectarBD();
     const frecuencia = await context(db, user, id);
     const categoria = categoryOf(frecuencia);
-    await cc.scheduled(db, id, range.day, range.last);
+    await cc.checkSchedule(db, id, range.day, range.last);
     const { recordsets } = await db.request().input('empresa', sql.VarChar(5), frecuencia.ID_COP_PER)
         .input('cat', sql.VarChar(24), categoria.id).input('inicio', sql.DateTime2, range.start)
-        .input('fin', sql.DateTime2, range.end).input('fecha', sql.Date, range.day)
-        .input('frecuencia', sql.VarChar(5), id).query(`
+        .input('fin', sql.DateTime2, range.end).query(`
         SELECT b.ID_BUS,b.NUM_BUS,b.PLA_BUS FROM dbo.BUSES b
           JOIN dbo.BUS_CATEGORIAS c ON c.ID_BUS=b.ID_BUS AND c.ID_CAT=@cat
           WHERE b.ID_COP_PER=@empresa AND b.EST_BUS IN ('ACTIVO','1','OPERANDO')
@@ -93,11 +91,9 @@ async function availability(user, query) {
           WHERE u.ID_COP_PER=@empresa AND u.EST_USU='1' AND u.ID_ROL_PER IN ('R006','R004')
             AND NOT EXISTS (SELECT 1 FROM dbo.fn_CC02_HojasEnConflicto(@inicio,@fin) x WHERE u.ID_USU IN (x.ID_USU_CHO,x.ID_USU_CON))
             AND NOT EXISTS (SELECT 1 FROM dbo.fn_CC02_PersonalConReserva(@inicio,@fin) x WHERE x.ID_USU_FIN=u.ID_USU)
-          ORDER BY u.APE_USU,u.NOM_USU,u.ID_USU;
-        SELECT MAX_UNIDADES,UNIDADES_USADAS,MAX_PASAJEROS,PASAJEROS_USADOS
-          FROM dbo.fn_CC_CupoDia(@frecuencia,@fecha);`);
-    const [buses, personal, [cupos]] = recordsets;
-    return { categoria, buses, personal, cupos, fecha: range.day };
+          ORDER BY u.APE_USU,u.NOM_USU,u.ID_USU;`);
+    const [buses, personal] = recordsets;
+    return { categoria, buses, personal, fecha: range.day };
 }
 
 const lotRequest = (db, company, lote) => db.request().input('empresa', sql.VarChar(5), company)
@@ -124,7 +120,7 @@ async function create(user, body) {
         }
 
         categoryOf(f);
-        await cc.scheduled(db, data.frecuencia, data.day, data.last);
+        await cc.checkSchedule(db, data.frecuencia, data.day, data.last);
         const recorrido = JSON.stringify(await trips.stops(db, f));
         const { recordset } = await lotRequest(db, company, data.lote)
             .input('huella', sql.Binary(32), hash).input('actor', sql.VarChar(10), user.id)

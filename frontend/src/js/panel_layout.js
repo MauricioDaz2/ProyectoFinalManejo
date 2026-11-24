@@ -17,12 +17,12 @@
       titulos: {
         dashboard: 'Panel de la Cooperativa',
         buses: 'Gestión de Flota de Buses',
-        resoluciones: 'Resoluciones ANT y Frecuencias'
+        resoluciones: 'Rutas y Frecuencias'
       },
       navegacion: [
         { pagina: 'dashboard', href: 'dashboard_coop.html', icono: '▦', texto: 'Dashboard' },
         { pagina: 'buses', href: 'gestion_buses.html', icono: '▤', texto: 'Flota de Buses' },
-        { pagina: 'resoluciones', href: 'resoluciones_ant.html', icono: '▧', texto: 'Resoluciones y Frecuencias' }
+        { pagina: 'resoluciones', href: 'resoluciones_ant.html', icono: '▧', texto: 'Rutas y Frecuencias' }
       ]
     },
     oficinista: {
@@ -45,7 +45,7 @@
   const topbar = document.getElementById('adminTopbar');
   const backdrop = document.getElementById('menuBackdrop');
 
-  if (sidebar) {
+  if (sidebar && !sidebar.querySelector('.coop-nav')) {
     sidebar.innerHTML = `
       <div class="admin-brand">
         <span class="brand-symbol" aria-hidden="true">T</span>

@@ -2,9 +2,8 @@ const { sql, conectarBD } = require('../config/db');
 const clean = (value) => String(value ?? '').trim().toUpperCase();
 const owners = {
     buses: 'SELECT ID_COP_PER AS OWNER FROM dbo.BUSES WHERE ID_BUS = @id',
-    resoluciones: 'SELECT ID_COP_PER AS OWNER FROM dbo.RESOLUCIONES_ANT WHERE ID_RES = @id',
-    frecuencias: 'SELECT R.ID_COP_PER AS OWNER FROM dbo.FRECUENCIAS F JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER WHERE F.ID_FRE = @id',
-    'hojas-ruta': 'SELECT R.ID_COP_PER AS OWNER, B.ID_COP_PER AS BUS_OWNER FROM dbo.HOJAS_RUTAS H JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER JOIN dbo.BUSES B ON B.ID_BUS = H.ID_BUS_PER WHERE H.ID_HOJ = @id',
+    frecuencias: 'SELECT F.ID_COP_PER AS OWNER FROM dbo.FRECUENCIAS F WHERE F.ID_FRE = @id',
+    'hojas-ruta': 'SELECT F.ID_COP_PER AS OWNER, B.ID_COP_PER AS BUS_OWNER FROM dbo.HOJAS_RUTAS H JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER JOIN dbo.BUSES B ON B.ID_BUS = H.ID_BUS_PER WHERE H.ID_HOJ = @id',
     asientos: 'SELECT B.ID_COP_PER AS OWNER FROM dbo.ASIENTOS_BUS A JOIN dbo.BUSES B ON B.ID_BUS = A.ID_BUS_PER WHERE A.ID_ASI = @id',
     controlador: "SELECT ID_COP_PER AS OWNER FROM dbo.USUARIOS WHERE ID_USU = @id AND ID_ROL_PER = 'R004' AND EST_USU = '1'"
 };
@@ -20,7 +19,7 @@ function scopeChecks(req) {
         ((id === 'lotes' && req.method === 'POST') || (id === 'disponibilidad' && req.method === 'GET')))
         || (resource === 'buses' && id === 'imagen' && req.method === 'POST');
     if (id && owners[resource] && !operacionLote) checks.push([resource, id]);
-    for (const [field, type] of [['ID_BUS_PER', 'buses'], ['ID_RES_PER', 'resoluciones'], ['ID_FRE_PER', 'frecuencias'], ['ID_USU_CON', 'controlador']]) {
+    for (const [field, type] of [['ID_BUS_PER', 'buses'], ['ID_FRE_PER', 'frecuencias'], ['ID_USU_CON', 'controlador']]) {
         if (req.body?.[field]) checks.push([type, req.body[field]]);
     }
     return { company, checks };

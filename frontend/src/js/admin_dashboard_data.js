@@ -54,7 +54,7 @@
     const config = {
       cooperatives: { title: 'Cooperativas', icon: 'building', href: 'cooperativas.html' },
       buses: { title: 'Buses', icon: 'bus', href: 'parada_buses.html' },
-      routes: { title: 'Rutas', icon: 'route', href: 'hojas_ruta.html' },
+      routes: { title: 'Rutas', icon: 'route', href: null },
       staff: { title: 'Personal operativo', icon: 'people', href: 'usuarios.html#oficinistas' }
     };
     const result = { ...config[kind], tone: 'neutral', message: 'No disponible. No se pudo consultar esta información.' };
