@@ -40,12 +40,14 @@
   const modalBoleto = document.getElementById('modalBoleto');
   const ticketContenido = document.getElementById('ticketContenido');
   const btnImprimir = document.getElementById('btnImprimirBoleto');
+  const btnDescargarPdf = document.getElementById('btnDescargarPdfBoleto');
 
   let hojas = [];
   let hojaSeleccionada = null;
   let asientos = [];
   let asientoSeleccionado = null;
   let pasajero = null;
+  let ultimoBoletoEmitido = null;
 
   function aviso(mensaje, tipo = 'danger') {
     avisoPanel.innerHTML = `<div class="notice ${tipo}"><span aria-hidden="true">!</span><span>${App.escapar(mensaje)}</span></div>`;
@@ -441,6 +443,8 @@
   }
 
   function renderTicket(boleto) {
+    ultimoBoletoEmitido = boleto || null;
+    if (btnDescargarPdf) btnDescargarPdf.disabled = !boleto?.ID_BOL;
     const asiento = boleto.ASIENTO?.ETIQUETA || boleto.ETIQUETA_ASIENTO || boleto.ID_ASI_PER || '—';
     const pasajeroNombre = boleto.PASAJERO || 'Pasajero sin registro';
     const cedula = boleto.CEDULA_PASAJERO || '—';
@@ -611,7 +615,42 @@
     limpiarSeleccionAsiento();
     recargarTodo();
   });
+  async function descargarPdfEmitido() {
+    const codigo = ultimoBoletoEmitido?.ID_BOL;
+    if (!codigo) {
+      App.aviso('No hay un boleto emitido seleccionado para descargar.', 'warning');
+      return;
+    }
+    App.textoBoton(btnDescargarPdf, 'Generando PDF…');
+    try {
+      const urlApi = `${App.API_URL}/oficinista/boletos/${encodeURIComponent(codigo)}/pdf`;
+      const respuesta = await fetch(urlApi, {
+        method: 'GET',
+        headers: { Accept: 'application/pdf' }
+      });
+      if (!respuesta.ok) {
+        const err = await respuesta.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo descargar el PDF del boleto.');
+      }
+      const blob = await respuesta.blob();
+      const objetoUrl = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = objetoUrl;
+      enlace.download = `boleto-${codigo}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objetoUrl), 1500);
+      App.aviso(`Boleto ${codigo} descargado en PDF.`, 'success');
+    } catch (error) {
+      App.aviso(error.message, 'error');
+    } finally {
+      App.restaurarBoton(btnDescargarPdf);
+    }
+  }
+
   btnImprimir.addEventListener('click', () => window.print());
+  btnDescargarPdf?.addEventListener('click', descargarPdfEmitido);
 
   fechaInput.value = App.hoyISO();
   marcadorInicial();
