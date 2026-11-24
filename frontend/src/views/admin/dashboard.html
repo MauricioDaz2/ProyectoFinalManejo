@@ -29,7 +29,7 @@
           <a class="dash-metric" href="cooperativas.html"><span class="dash-icon red" data-icon="people"></span><div><h2>Cooperativas</h2><strong class="metric-value" id="metricCooperativas">Consultando…</strong><p>Registradas en el sistema</p><small>Activas: <span id="metricCooperativasActivas">Consultando…</span></small></div></a>
           <a class="dash-metric" href="parada_buses.html"><span class="dash-icon blue" data-icon="bus"></span><div><h2>Buses</h2><strong class="metric-value" id="metricBuses">Consultando…</strong><p>Unidades registradas</p><small>Consulta la flota y parada de buses</small></div></a>
           <a class="dash-metric" href="usuarios.html#oficinistas"><span class="dash-icon purple" data-icon="people"></span><div><h2>Personal Operativo</h2><strong class="metric-value" id="metricPersonal">Consultando…</strong><p><span id="metricOficinistas">Consultando…</span> oficinistas · <span id="metricControladores">Consultando…</span> controladores</p><small>Personal registrado</small></div></a>
-          <a class="dash-metric" href="hojas_ruta.html"><span class="dash-icon gold" data-icon="route"></span><div><h2>Rutas</h2><strong class="metric-value" id="metricRutas">Consultando…</strong><p>Pares de origen y destino</p><small>En frecuencias registradas</small></div></a>
+          <div class="dash-metric"><span class="dash-icon gold" data-icon="route"></span><div><h2>Rutas</h2><strong class="metric-value" id="metricRutas">Consultando…</strong><p>Pares de origen y destino</p><small>Gestionadas por cada cooperativa</small></div></div>
         </section>
         <div class="dash-grid">
           <section class="dash-card operation-card" aria-labelledby="operationTitle">
@@ -38,7 +38,7 @@
             <p class="dash-note">Consulta del <span id="queryDate">—</span>. Actualiza los datos para revisar cambios.</p>
           </section>
           <section class="dash-card trips-card" aria-labelledby="tripsTitle">
-            <div class="dash-heading"><span data-icon="calendar"></span><div><h2 id="tripsTitle">Próximas salidas</h2><p>Programación desde hoy</p></div><a href="hojas_ruta.html" class="dash-text-link">Ver todas →</a></div>
+            <div class="dash-heading"><span data-icon="calendar"></span><div><h2 id="tripsTitle">Próximas salidas</h2><p>Programación desde hoy</p></div><span class="dash-chip">Solo consulta</span></div>
             <div id="tripsTable" class="dash-table-wrap" tabindex="0" role="region" aria-label="Próximas salidas, tabla desplazable" hidden>
               <table class="dash-table"><caption class="dash-sr-only">Hasta cinco próximas salidas programadas</caption><thead><tr><th scope="col">Cooperativa</th><th scope="col">Origen y destino</th><th scope="col">Fecha de salida</th><th scope="col">Bus asignado</th><th scope="col">Estado</th></tr></thead><tbody id="tripsBody"></tbody></table>
             </div>

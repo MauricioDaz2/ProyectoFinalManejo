@@ -34,23 +34,20 @@ const obtenerAsientos = async (req, res) => {
                    A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER, T.NOM_TIP, T.PRE_TIP,
                    CASE
                        WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO') THEN 'OCUPADO'
-                        WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('RESERVADO', 'PENDIENTE') THEN 'RESERVADO'
-                        ${cc.enabled() ? "WHEN O.ID_BOL IS NOT NULL THEN 'OCUPADO'" : ''}
+                       WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('RESERVADO', 'PENDIENTE') THEN 'RESERVADO'
                        ELSE 'LIBRE'
                    END AS ESTADO_ASIENTO,
-                    O.ID_BOL
-                    ${cc.enabled() ? ',CU.MAX_PASAJEROS,CU.PASAJEROS_USADOS' : ''}
+                   O.ID_BOL
             FROM HOJAS_RUTAS H
-             INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
+            INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
             INNER JOIN ASIENTOS_BUS A ON A.ID_BUS_PER = B.ID_BUS
-             INNER JOIN TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
-             ${cc.enabled() ? 'OUTER APPLY dbo.fn_CC_CupoDia(H.ID_FRE_PER,H.FEC_PRO_HOJ) CU' : ''}
+            INNER JOIN TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
             OUTER APPLY (
                 SELECT TOP 1 BO.ID_BOL, BO.EST_BOL
                 FROM BOLETOS BO
                 WHERE BO.ID_HOJ_PER = H.ID_HOJ 
                   AND BO.ID_ASI_PER = A.ID_ASI
-                  AND ${cc.enabled() ? cc.activeTicket : "UPPER(LTRIM(RTRIM(ISNULL(BO.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO', 'RESERVADO', 'PENDIENTE')"}
+                  AND UPPER(LTRIM(RTRIM(ISNULL(BO.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO', 'RESERVADO', 'PENDIENTE')
                 ORDER BY 
                     CASE 
                         WHEN UPPER(LTRIM(RTRIM(BO.EST_BOL))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO') THEN 0 
@@ -60,13 +57,9 @@ const obtenerAsientos = async (req, res) => {
                     BO.FEC_COM_BOL DESC
             ) O
              WHERE H.ID_HOJ = @idHoja
-               ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet}
-                   AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADO','PROGRAMADA')
-                   AND UPPER(LTRIM(RTRIM(B.EST_BUS))) IN ('ACTIVO','1','OPERANDO')` : ''}
               AND EXISTS (
                   SELECT 1 FROM FRECUENCIAS F
-                  JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                  JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
+                  JOIN COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
                   WHERE F.ID_FRE = H.ID_FRE_PER AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
                     AND B.ID_COP_PER = C.ID_COP AND C.EST_COP = '1'
               )
@@ -78,8 +71,6 @@ const obtenerAsientos = async (req, res) => {
         }
 
         const primerAsiento = resultado.recordset[0];
-        const cupo = primerAsiento.MAX_PASAJEROS == null ? null
-            : Math.max(0, primerAsiento.MAX_PASAJEROS - Number(primerAsiento.PASAJEROS_USADOS));
         return res.status(200).json({
             success: true,
             viaje: {
@@ -90,7 +81,7 @@ const obtenerAsientos = async (req, res) => {
                 numeroBus: primerAsiento.NUM_BUS,
                 pisos: primerAsiento.NUM_PIS,
                 imgBus: primerAsiento.IMG_URL_BUS,
-                cupoPasajerosDisponible: cupo
+                cupoPasajerosDisponible: null
             },
             asientos: resultado.recordset
         });
@@ -250,10 +241,9 @@ const reservarAsiento = async (req, res) => {
         await require('../services/workerSchedule').reserve(transaccion,cedulaTitular,idHoja,req.auth.rolId);
         const company = await transaccion.request().input('sheet', sql.VarChar(5), idHoja).query(`
             SELECT C.EST_COP FROM dbo.COOPERATIVAS C WITH (UPDLOCK,HOLDLOCK)
-            JOIN dbo.RESOLUCIONES_ANT R ON R.ID_COP_PER=C.ID_COP
-            JOIN dbo.FRECUENCIAS F ON F.ID_RES_PER=R.ID_RES
+            JOIN dbo.FRECUENCIAS F ON F.ID_COP_PER=C.ID_COP
             JOIN dbo.HOJAS_RUTAS H ON H.ID_FRE_PER=F.ID_FRE
-             JOIN dbo.BUSES B ON B.ID_BUS=${cc.effectiveBus()} AND B.ID_COP_PER=C.ID_COP
+            JOIN dbo.BUSES B ON B.ID_BUS=${cc.effectiveBus()} AND B.ID_COP_PER=C.ID_COP
             WHERE H.ID_HOJ=@sheet AND C.EST_COP='1' AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADO','PROGRAMADA')
         `);
         if (!company.recordset.length) {

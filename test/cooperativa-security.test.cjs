@@ -99,15 +99,17 @@ test('HTTP: autenticación, roles y aislamiento de cooperativas sin escribir en 
     assert.equal((await request('/coop/buses', { cookie, method: 'POST', body: { ID_COP_PER: 'C002' } })).status, 403);
   });
   await t.test('bloquea lectura y escritura de recursos y referencias ajenas', async () => {
-    for (const path of ['/buses/OTHER', '/buses/OTHER/asientos', '/resoluciones/OTHER', '/frecuencias/OTHER', '/hojas-ruta/OTHER', '/asientos/OTHER/tipo']) {
+    for (const path of ['/buses/OTHER', '/buses/OTHER/asientos', '/frecuencias/OTHER', '/hojas-ruta/OTHER', '/asientos/OTHER/tipo']) {
       assert.equal((await request(`/coop${path}`, { cookie, method: path.includes('asientos/OTHER') ? 'PATCH' : 'GET' })).status, 404, path);
     }
-    for (const [path, field] of [['/frecuencias', 'ID_RES_PER'], ['/hojas-ruta', 'ID_BUS_PER'], ['/hojas-ruta', 'ID_FRE_PER'], ['/hojas-ruta', 'ID_USU_CON']]) {
+    for (const [path, field] of [['/hojas-ruta', 'ID_BUS_PER'], ['/hojas-ruta', 'ID_FRE_PER'], ['/hojas-ruta', 'ID_USU_CON']]) {
       assert.equal((await request(`/coop${path}`, { cookie, method: 'POST', body: { [field]: 'OTHER' } })).status, 404, field);
     }
-    for (const path of ['/buses/OTHER', '/resoluciones/OTHER', '/frecuencias/OTHER', '/hojas-ruta/OTHER']) {
+    for (const path of ['/buses/OTHER', '/frecuencias/OTHER', '/hojas-ruta/OTHER']) {
       for (const method of ['PUT', 'DELETE']) assert.equal((await request(`/coop${path}`, { cookie, method, body: {} })).status, 404);
     }
+    for (const method of ['GET', 'POST']) assert.equal((await request('/coop/resoluciones', { cookie, method, body: method === 'POST' ? {} : undefined })).status, 410);
+    for (const method of ['PUT', 'DELETE']) assert.equal((await request('/coop/resoluciones/OTHER', { cookie, method, body: {} })).status, 410);
     assert.equal((await request('/coop/buses/OTHER/estado', { cookie, method: 'PATCH', body: { EST_BUS: 'INACTIVO' } })).status, 404);
     for (const path of ['/admin/cooperativas', '/oficinista/resumen', '/controlador/panel']) assert.equal((await request(path, { cookie })).status, 403);
     assert.equal((await request('/usuario/reservas', { cookie, method: 'POST', body: {} })).status, 403);

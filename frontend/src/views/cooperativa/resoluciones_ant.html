@@ -4,16 +4,21 @@
   <script src="../../js/transport_session.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resoluciones ANT y Frecuencias | Transporte UTA</title>
+  <title>Rutas y Frecuencias | Transporte UTA</title>
   <link rel="stylesheet" href="../../assets/admin_layout.css">
   <link rel="stylesheet" href="../../assets/panel_pages.css">
   <script src="../../js/api.js" defer></script>
   <script src="../../js/panel_layout.js" defer></script>
+  <script src="../../js/date_picker.js" defer></script>
   <script src="../../js/coop_resoluciones.js" defer></script>
   <script src="../../js/coop_asignacion.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
-<link rel="stylesheet" href="../../assets/coop_dashboard.css"><link rel="stylesheet" href="../../assets/coop_navigation.css"><script src="../../js/coop_navigation.js" defer></script><script src="../../js/coop_access.js" defer></script></head>
+  <link rel="stylesheet" href="../../assets/coop_dashboard.css">
+  <link rel="stylesheet" href="../../assets/coop_navigation.css">
+  <script src="../../js/coop_navigation.js" defer></script>
+  <script src="../../js/coop_access.js" defer></script>
+</head>
 <body class="coop-dashboard" data-app="cooperativa" data-page="resoluciones">
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
@@ -26,107 +31,132 @@
         <div class="page-head">
           <div>
             <p class="eyebrow">Cooperativa / Operación</p>
-            <h1>Resoluciones ANT y frecuencias</h1>
-            <p>Administra el cupo autorizado por la ANT y las rutas que tu cooperativa puede operar. Cada frecuencia debe estar respaldada por una resolución vigente.</p>
+            <h1>Rutas y frecuencias</h1>
+            <p>Administra las rutas autorizadas de tu cooperativa, registra su número de resolución ANT y programa tus salidas.</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" type="button" id="btnRecargar">Actualizar</button>
-            <button class="btn btn-primary" type="button" id="btnNuevaResolucion">+ Nueva resolución</button>
-            <button class="btn btn-primary hidden" type="button" id="btnNuevaFrecuencia">+ Nueva frecuencia</button>
+            <button class="btn btn-primary" type="button" id="btnNuevaFrecuencia">+ Nueva frecuencia</button>
           </div>
         </div>
 
         <div id="avisoGlobal"></div>
-        <details id="coopAssignment" class="panel" hidden>
-          <summary>Programar salidas con chofer y controlador</summary>
-          <p id="assignmentHelp">Selecciona personal activo de tu cooperativa. Se comprobarán horarios laborales y reservas personales.</p>
-          <p id="assignmentStatus" role="status"></p>
-          <div id="singleAssignment">
-            <form id="assignmentForm">
-              <div class="form-grid">
-                <div class="field"><label for="assignmentBus">Bus</label><select id="assignmentBus" required></select></div>
-                <div class="field"><label for="assignmentRoute">Frecuencia</label><select id="assignmentRoute" required></select></div>
-                <div class="field"><label for="assignmentDriver">Chofer</label><select id="assignmentDriver" required></select></div>
-                <div class="field"><label for="assignmentController">Controlador</label><select id="assignmentController" required></select></div>
-                <div class="field"><label for="assignmentStart">Salida (Ecuador continental)</label><input id="assignmentStart" type="datetime-local" required></div>
-                <div class="field"><label for="assignmentEnd">Llegada prevista (Ecuador continental)</label><input id="assignmentEnd" type="datetime-local" required></div>
+
+        <details id="coopAssignment" class="panel assignment-panel" hidden>
+          <summary class="assignment-summary">
+            <span class="assignment-summary-icon" aria-hidden="true">📅</span>
+            <span class="assignment-summary-copy">
+              <strong>Programar salidas con chofer y controlador</strong>
+              <span>Elige una frecuencia, horario y asigna bus, chofer y controlador sin cruces.</span>
+            </span>
+            <span class="assignment-summary-chevron" aria-hidden="true">▾</span>
+          </summary>
+
+          <div class="assignment-body">
+            <p id="assignmentHelp" class="assignment-help">Selecciona personal activo de tu cooperativa. Se comprobarán horarios laborales y reservas personales.</p>
+            <div id="assignmentStatus" class="assignment-status" role="status"></div>
+
+            <div id="singleAssignment">
+              <form id="assignmentForm">
+                <div class="form-grid">
+                  <div class="field"><label for="assignmentBus">Bus</label><select id="assignmentBus" required></select></div>
+                  <div class="field"><label for="assignmentRoute">Frecuencia</label><select id="assignmentRoute" required></select></div>
+                  <div class="field"><label for="assignmentDriver">Chofer</label><select id="assignmentDriver" required></select></div>
+                  <div class="field"><label for="assignmentController">Controlador</label><select id="assignmentController" required></select></div>
+                  <div class="field"><label for="assignmentStart">Salida (Ecuador continental)</label><input id="assignmentStart" type="datetime-local" data-calendar-picker required></div>
+                  <div class="field"><label for="assignmentEnd">Llegada prevista (Ecuador continental)</label><input id="assignmentEnd" type="datetime-local" data-calendar-picker required></div>
+                </div>
+                <div class="assignment-actions mt-2">
+                  <button class="btn btn-primary" id="assignmentSubmit" type="submit">Guardar salida</button>
+                </div>
+              </form>
+            </div>
+
+            <form id="batchForm" hidden>
+              <div class="assignment-step">
+                <div class="assignment-step-head">
+                  <span class="step-badge">Paso 1</span>
+                  <h3>Frecuencia y horario</h3>
+                </div>
+                <div class="form-grid batch-meta-grid">
+                  <div class="field span-2">
+                    <label for="batchFrequency">Frecuencia <span class="req">*</span></label>
+                    <select id="batchFrequency" required></select>
+                  </div>
+                  <div class="field">
+                    <label for="batchStart">Salida (Ecuador continental) <span class="req">*</span></label>
+                    <input id="batchStart" type="datetime-local" data-calendar-picker required>
+                  </div>
+                  <div class="field">
+                    <label for="batchEnd">Llegada prevista (Ecuador continental) <span class="req">*</span></label>
+                    <input id="batchEnd" type="datetime-local" data-calendar-picker required>
+                  </div>
+                  <div class="field batch-category-field">
+                    <label for="batchCategory">Categoría operativa</label>
+                    <output id="batchCategory" class="category-pill">—</output>
+                  </div>
+                </div>
+                <div class="assignment-step-bar">
+                  <span class="muted" id="batchSummary">Consulta la disponibilidad para cargar buses y tripulación.</span>
+                  <button class="btn btn-secondary" type="button" id="batchCheck">Consultar disponibilidad</button>
+                </div>
               </div>
-              <button class="btn btn-primary" id="assignmentSubmit" type="submit">Guardar salida</button>
+
+              <div class="assignment-step">
+                <div class="assignment-step-head">
+                  <span class="step-badge">Paso 2</span>
+                  <h3>Asignación de unidades y tripulación</h3>
+                  <div class="spacer"></div>
+                  <button class="btn btn-secondary btn-sm" type="button" id="batchAdd">+ Agregar fila</button>
+                </div>
+                <div class="table-wrap batch-table-wrap">
+                  <table class="data-table batch-table" aria-label="Filas del lote de hojas de ruta">
+                    <thead>
+                      <tr>
+                        <th style="width:42px">#</th>
+                        <th>Bus</th>
+                        <th>Chofer</th>
+                        <th>Controlador</th>
+                        <th>Observación</th>
+                        <th style="width:92px"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="batchRows"></tbody>
+                  </table>
+                </div>
+                <p id="batchConflicts" class="batch-conflicts" role="status"></p>
+                <div class="assignment-actions">
+                  <button class="btn btn-primary" id="batchSubmit" type="submit">Confirmar lote</button>
+                </div>
+              </div>
             </form>
           </div>
-          <form id="batchForm" hidden>
-            <div class="form-grid">
-              <div class="field"><label for="batchFrequency">Frecuencia</label><select id="batchFrequency" required></select></div>
-              <div class="field"><label for="batchStart">Salida (Ecuador continental)</label><input id="batchStart" type="datetime-local" required></div>
-              <div class="field"><label for="batchEnd">Llegada prevista (Ecuador continental)</label><input id="batchEnd" type="datetime-local" required></div>
-              <div class="field"><label for="batchCategory">Categoría operativa</label><output id="batchCategory">—</output></div>
-            </div>
-            <div class="panel-toolbar mt-2">
-              <span class="muted" id="batchSummary">Consulta la disponibilidad para cargar buses y tripulación.</span>
-              <div class="spacer"></div>
-              <button class="btn btn-secondary" type="button" id="batchCheck">Consultar disponibilidad</button>
-              <button class="btn btn-secondary" type="button" id="batchAdd">+ Agregar fila</button>
-            </div>
-            <div class="table-wrap">
-              <table class="data-table" aria-label="Filas del lote de hojas de ruta">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Bus</th>
-                    <th>Chofer</th>
-                    <th>Controlador</th>
-                    <th>Observación</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="batchRows"></tbody>
-              </table>
-            </div>
-            <p id="batchConflicts" role="status"></p>
-            <button class="btn btn-primary" id="batchSubmit" type="submit">Confirmar lote</button>
-          </form>
         </details>
 
-        <div class="tabs" role="tablist" aria-label="Secciones de operación">
-          <button class="tab active" type="button" role="tab" aria-selected="true" aria-controls="panelResoluciones" id="tabResoluciones" data-tab="resoluciones">Resoluciones ANT</button>
-          <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="panelFrecuencias" id="tabFrecuencias" data-tab="frecuencias">Frecuencias</button>
-        </div>
-
-        <section id="panelResoluciones" class="tab-panel" role="tabpanel" aria-labelledby="tabResoluciones">
-          <section class="stat-grid" id="statsResoluciones" aria-label="Resumen de resoluciones">
-            <article class="stat-card"><div class="stat-icon">▧</div><div class="stat-copy"><div class="stat-label">Resoluciones</div><div class="stat-value">—</div></div></article>
-            <article class="stat-card"><div class="stat-icon">Σ</div><div class="stat-copy"><div class="stat-label">Cupo autorizado</div><div class="stat-value">—</div></div></article>
-            <article class="stat-card"><div class="stat-icon">⇄</div><div class="stat-copy"><div class="stat-label">Frecuencias asignadas</div><div class="stat-value">—</div></div></article>
-            <article class="stat-card"><div class="stat-icon">✓</div><div class="stat-copy"><div class="stat-label">Cupo disponible</div><div class="stat-value">—</div></div></article>
-          </section>
-
-          <section class="panel mt-3">
-            <div class="panel-toolbar">
-              <h2 class="mb-0" style="font-size:16px;">Resoluciones registradas</h2>
-              <div class="spacer"></div>
-              <span class="muted" id="contadorResoluciones">—</span>
+        <section class="stat-grid stat-grid-4 mt-3" id="statsFrecuencias" aria-label="Resumen de operación">
+          <article class="stat-card"><div class="stat-icon">⇄</div><div class="stat-copy"><div class="stat-label">Frecuencias</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">✓</div><div class="stat-copy"><div class="stat-label">Vigentes / activas</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card"><div class="stat-icon">⏸</div><div class="stat-copy"><div class="stat-label">Suspendidas</div><div class="stat-value">—</div></div></article>
+          <article class="stat-card stat-card-action" id="cardHojasProgramadas" role="button" tabindex="0" title="Ver listado de hojas programadas">
+            <div class="stat-icon">▤</div>
+            <div class="stat-copy">
+              <div class="stat-label">Hojas programadas</div>
+              <div class="stat-value">—</div>
+              <div class="stat-hint">Ver listado →</div>
             </div>
-            <div class="table-wrap">
-              <table class="data-table" aria-label="Resoluciones ANT">
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Emisión y vigencia</th>
-                    <th>Cupo máximo</th>
-                    <th>Frecuencias</th>
-                    <th>Documento</th>
-                    <th class="text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaResoluciones">
-                  <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando resoluciones…</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
+          </article>
         </section>
 
-        <section id="panelFrecuencias" class="tab-panel" role="tabpanel" aria-labelledby="tabFrecuencias" hidden>
+        <div class="tabs mt-3" role="tablist" aria-label="Vistas de operación">
+          <button class="tab active" type="button" role="tab" id="tabFrecuencias" data-vista="frecuencias" aria-selected="true" aria-controls="panelFrecuencias">
+            Frecuencias
+          </button>
+          <button class="tab" type="button" role="tab" id="tabHojas" data-vista="hojas" aria-selected="false" aria-controls="panelHojas">
+            Hojas programadas <span class="tab-count" id="badgeTotalHojas">0</span>
+          </button>
+        </div>
+
+        <section id="panelFrecuencias" class="tab-panel" role="tabpanel" aria-labelledby="tabFrecuencias">
           <section class="panel">
             <div class="panel-toolbar">
               <div class="search-box">
@@ -147,15 +177,15 @@
               <span class="muted" id="contadorFrecuencias">—</span>
             </div>
             <div class="table-wrap">
-              <table class="data-table" aria-label="Frecuencias de la cooperativa">
+              <table class="data-table freq-table" aria-label="Frecuencias de la cooperativa">
                 <thead>
                   <tr>
                     <th>Código</th>
                     <th>Ruta</th>
+                    <th>Resolución ANT</th>
                     <th>Vigencia</th>
-                    <th>Días</th>
+                    <th>Categoría</th>
                     <th>Hojas</th>
-                    <th>Resolución</th>
                     <th>Estado</th>
                     <th class="text-right">Acciones</th>
                   </tr>
@@ -167,144 +197,143 @@
             </div>
           </section>
         </section>
-      </main>
-    </div>
-  </div>
 
-  <!-- Modal de resolución -->
-  <div class="modal" id="modalResolucion" hidden>
-    <div class="modal-backdrop" data-cerrar-modal></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalResolucion">
-      <header class="modal-header">
-        <div>
-          <h3 id="tituloModalResolucion">Nueva resolución ANT</h3>
-          <p>Registra el cupo de frecuencias autorizado para la cooperativa.</p>
-        </div>
-        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
-      </header>
-      <form id="formResolucion">
-        <div class="modal-body">
-          <div class="form-grid">
-            <div class="field">
-              <label for="codigoResolucion">Código</label>
-              <input type="text" id="codigoResolucion" maxlength="5" placeholder="Automático (R0001)" autocomplete="off">
-              <span class="help">Déjalo vacío para generar el consecutivo.</span>
+        <section id="panelHojas" class="tab-panel" role="tabpanel" aria-labelledby="tabHojas" hidden>
+          <section class="panel">
+            <div class="panel-toolbar">
+              <label class="sr-only" for="filtroFrecuenciaHoja">Filtrar por frecuencia</label>
+              <select class="filter-select" id="filtroFrecuenciaHoja">
+                <option value="">Todas las frecuencias</option>
+              </select>
+              <label class="sr-only" for="filtroEstadoHoja">Filtrar por estado de viaje</label>
+              <select class="filter-select" id="filtroEstadoHoja">
+                <option value="">Todos los estados</option>
+                <option value="PROGRAMADA">Programadas</option>
+                <option value="EN CURSO">En curso</option>
+                <option value="FINALIZADA">Finalizadas</option>
+                <option value="CANCELADA">Canceladas</option>
+              </select>
+              <div class="spacer"></div>
+              <span class="muted" id="contadorHojas">—</span>
+              <button class="btn btn-primary btn-sm" type="button" id="btnAbrirProgramacion">+ Programar salida</button>
             </div>
-            <div class="field">
-              <label for="fechaResolucion">Fecha de emisión <span class="req">*</span></label>
-              <input type="date" id="fechaResolucion" required>
+            <div class="table-wrap">
+              <table class="data-table freq-table" aria-label="Hojas de ruta programadas">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Ruta</th>
+                    <th>Fecha y horario</th>
+                    <th>Bus</th>
+                    <th>Tripulación</th>
+                    <th>Ocupación</th>
+                    <th>Estado</th>
+                    <th class="text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaHojas">
+                  <tr class="loading-row"><td colspan="8"><span class="spinner"></span>Cargando hojas programadas…</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div class="field">
-              <label for="cupoResolucion">Cupo máximo de frecuencias <span class="req">*</span></label>
-              <input type="number" id="cupoResolucion" min="1" max="999" required value="10">
-              <span class="help">Entre 1 y 999 frecuencias.</span>
-            </div>
-            <div class="field">
-              <label for="documentoResolucion">URL del documento</label>
-              <input type="url" id="documentoResolucion" maxlength="500" placeholder="https://…">
-            </div>
-          </div>
-          <fieldset class="form-grid" id="vigenciaResolucion" hidden disabled>
-            <legend>Vigencia legal</legend>
-            <div class="field">
-              <label for="inicioResolucion">Inicio de vigencia</label>
-              <input type="date" id="inicioResolucion" required>
-            </div>
-            <div class="field">
-              <label for="finResolucion">Último día de vigencia</label>
-              <input type="date" id="finResolucion" aria-describedby="ayudaVigenciaResolucion">
-              <span class="help" id="ayudaVigenciaResolucion">Déjalo vacío solo si el permiso no caduca.</span>
-            </div>
-            <div class="field">
-              <label for="resolucionRevocada"><input type="checkbox" id="resolucionRevocada"> Permiso revocado</label>
-            </div>
-          </fieldset>
-        </div>
-        <footer class="modal-footer">
-          <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
-          <button class="btn btn-primary" type="submit" id="btnGuardarResolucion">Guardar resolución</button>
-        </footer>
-      </form>
+          </section>
+        </section>
+      </main>
     </div>
   </div>
 
   <!-- Modal de frecuencia -->
   <div class="modal" id="modalFrecuencia" hidden>
     <div class="modal-backdrop" data-cerrar-modal></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalFrecuencia">
+    <div class="modal-card modal-frecuencia" role="dialog" aria-modal="true" aria-labelledby="tituloModalFrecuencia">
       <header class="modal-header">
         <div>
           <h3 id="tituloModalFrecuencia">Nueva frecuencia</h3>
-          <p>Define la ruta, la vigencia y la resolución que la respalda.</p>
+          <p>Elige origen y destino en Ecuador, ingresa el número de resolución ANT y define su vigencia.</p>
         </div>
         <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
       </header>
       <form id="formFrecuencia">
         <div class="modal-body">
-          <div class="form-grid">
-            <div class="field">
-              <label for="codigoFrecuencia">Código</label>
-              <input type="text" id="codigoFrecuencia" maxlength="5" placeholder="Automático (F0001)" autocomplete="off">
+          <div class="modal-section" id="ubicacionFrecuencia">
+            <div class="modal-section-head">
+              <div>
+                <h4>Trayecto (Ecuador)</h4>
+                <p>Selecciona la provincia para filtrar cantones, o elige la ciudad directamente.</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" type="button" id="btnIntercambiarRuta" title="Intercambiar origen y destino">⇄ Intercambiar</button>
             </div>
-            <div class="field">
-              <label for="resolucionFrecuencia">Resolución ANT <span class="req">*</span></label>
-              <select id="resolucionFrecuencia" required></select>
+
+            <div class="route-picker-grid">
+              <div class="route-side-card" id="selectorOrigen">
+                <div class="route-side-title"><span class="route-dot origin" aria-hidden="true"></span>Origen <span class="req">*</span></div>
+                <div class="field">
+                  <label for="origenProvincia">Provincia</label>
+                  <select id="origenProvincia"></select>
+                </div>
+                <div class="field">
+                  <label for="origenCiudad">Ciudad / cantón <span class="req">*</span></label>
+                  <select id="origenCiudad" required></select>
+                </div>
+              </div>
+
+              <div class="route-side-card" id="selectorDestino">
+                <div class="route-side-title"><span class="route-dot destination" aria-hidden="true"></span>Destino <span class="req">*</span></div>
+                <div class="field">
+                  <label for="destinoProvincia">Provincia</label>
+                  <select id="destinoProvincia"></select>
+                </div>
+                <div class="field">
+                  <label for="destinoCiudad">Ciudad / cantón <span class="req">*</span></label>
+                  <select id="destinoCiudad" required></select>
+                </div>
+              </div>
             </div>
-            <div class="field">
-              <label for="origenFrecuencia">Ciudad de origen <span class="req">*</span></label>
-              <input type="text" id="origenFrecuencia" maxlength="15" required placeholder="Ej. AMBATO" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="destinoFrecuencia">Ciudad de destino <span class="req">*</span></label>
-              <input type="text" id="destinoFrecuencia" maxlength="15" required placeholder="Ej. QUITO" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="inicioFrecuencia">Inicio de vigencia <span class="req">*</span></label>
-              <input type="date" id="inicioFrecuencia" required>
-            </div>
-            <div class="field">
-              <label for="finFrecuencia">Fin de vigencia</label>
-              <input type="date" id="finFrecuencia">
-              <span class="help">Opcional. Si se deja vacío, la frecuencia no tiene fecha de cierre.</span>
-            </div>
-            <div class="field">
-              <label for="estadoFrecuencia">Estado</label>
-              <select id="estadoFrecuencia">
-                <option value="1">Habilitada</option>
-                <option value="0">Suspendida</option>
-              </select>
+
+            <div id="estadoRutaFrecuencia" class="route-preview-bar" role="status">
+              Selecciona provincia y ciudad de origen y destino.
             </div>
           </div>
-          <fieldset id="configFrecuencia" hidden disabled>
-            <legend>Trayecto autorizado y cupos diarios</legend>
-            <p id="catalogoFrecuenciaEstado" role="status"></p>
+
+          <div class="modal-section mt-2">
+            <div class="modal-section-head">
+              <div>
+                <h4>Resolución ANT y vigencia</h4>
+                <p>Datos administrativos y rango de operación de la frecuencia.</p>
+              </div>
+            </div>
+
             <div class="form-grid">
-              <fieldset class="form-grid" id="catalogoOrigen">
-                <legend>Origen</legend>
-                <div class="field"><label for="origenProvincia">Provincia de origen</label><select id="origenProvincia" required></select></div>
-                <div class="field"><label for="origenCanton">Cantón de origen</label><select id="origenCanton" required></select></div>
-                <div class="field"><label for="origenParroquia">Parroquia de origen</label><select id="origenParroquia" required></select></div>
-                <div class="field"><label for="origenPunto">Punto de origen</label><select id="origenPunto" required></select></div>
-              </fieldset>
-              <fieldset class="form-grid" id="catalogoDestino">
-                <legend>Destino</legend>
-                <div class="field"><label for="destinoProvincia">Provincia de destino</label><select id="destinoProvincia" required></select></div>
-                <div class="field"><label for="destinoCanton">Cantón de destino</label><select id="destinoCanton" required></select></div>
-                <div class="field"><label for="destinoParroquia">Parroquia de destino</label><select id="destinoParroquia" required></select></div>
-                <div class="field"><label for="destinoPunto">Punto de destino</label><select id="destinoPunto" required></select></div>
-              </fieldset>
-              <div class="field"><label for="cupoUnidadesFrecuencia">Buses distintos por día</label><input id="cupoUnidadesFrecuencia" type="number" min="1" max="2147483647" step="1" aria-describedby="ayudaCuposFrecuencia"></div>
-              <div class="field"><label for="cupoPasajerosFrecuencia">Pasajeros por día</label><input id="cupoPasajerosFrecuencia" type="number" min="1" max="2147483647" step="1" aria-describedby="ayudaCuposFrecuencia"></div>
               <div class="field">
+                <label for="numeroResolucionFrecuencia">Número de resolución ANT <span class="req">*</span></label>
+                <input type="text" id="numeroResolucionFrecuencia" maxlength="50" required placeholder="Ej. ANT-2026-001" autocomplete="off">
+                <span class="help">Número del documento ANT que autoriza esta frecuencia.</span>
+              </div>
+              <div class="field" id="campoCategoriaFrecuencia" hidden>
                 <label for="categoriaFrecuencia">Categoría operativa <span class="req">*</span></label>
                 <select id="categoriaFrecuencia" aria-describedby="ayudaCategoriaFrecuencia">
                   <option value="">Selecciona…</option>
                 </select>
                 <span class="help" id="ayudaCategoriaFrecuencia">El bus asignado debe pertenecer a esta categoría.</span>
               </div>
+              <div class="field">
+                <label for="inicioFrecuencia">Inicio de vigencia <span class="req">*</span></label>
+                <input type="date" id="inicioFrecuencia" data-calendar-picker required>
+              </div>
+              <div class="field">
+                <label for="finFrecuencia">Fin de vigencia</label>
+                <input type="date" id="finFrecuencia" data-calendar-picker>
+                <span class="help">Opcional. Déjalo vacío si es indefinida.</span>
+              </div>
+              <div class="field">
+                <label for="estadoFrecuencia">Estado</label>
+                <select id="estadoFrecuencia">
+                  <option value="1">Habilitada</option>
+                  <option value="0">Suspendida</option>
+                </select>
+              </div>
             </div>
-            <p class="help" id="ayudaCuposFrecuencia">Indica al menos un límite. Se aplica a toda la frecuencia, no solo a un bus.</p>
-          </fieldset>
+          </div>
         </div>
         <footer class="modal-footer">
           <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>

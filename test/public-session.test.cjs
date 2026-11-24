@@ -34,6 +34,6 @@ test('las cinco pantallas R002 cargan exactamente el mismo menú y mantienen sus
     assert.match(html,/<aside[^>]*><\/aside>/);
   }
   const script=fs.readFileSync('frontend/src/js/coop_navigation.js','utf8');
-  for(const href of ['dashboard_coop.html','dashboard_coop.html#mi-cooperativa','gestion_buses.html','resoluciones_ant.html#frecuencias','resoluciones_ant.html','dashboard_coop.html#salidas','personal.html','personalizar.html','../public/index.html'])assert.ok(script.includes(href));
+  for(const href of ['dashboard_coop.html','dashboard_coop.html#mi-cooperativa','gestion_buses.html','resoluciones_ant.html','dashboard_coop.html#salidas','personal.html','personalizar.html','../public/index.html'])assert.ok(script.includes(href));
   assert.match(script,/data-coop-permission/);assert.match(script,/Transporte<br>Cooperativas/);
 });

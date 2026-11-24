@@ -20,8 +20,7 @@
     ['dashboard_coop.html','home','Inicio'],
     ['dashboard_coop.html#mi-cooperativa','building','Mi cooperativa'],
     ['gestion_buses.html','bus','Buses','buses'],
-    ['resoluciones_ant.html#frecuencias','route','Rutas y frecuencias','rutas'],
-    ['resoluciones_ant.html','document','Resoluciones ANT','resoluciones'],
+    ['resoluciones_ant.html','route','Rutas y frecuencias','rutas'],
     ['dashboard_coop.html#salidas','calendar','Próximas salidas','salidas'],
     ['personal.html','person','Personal y accesos','trabajadores'],
     ['personalizar.html','palette','Personalización','personalizacion']

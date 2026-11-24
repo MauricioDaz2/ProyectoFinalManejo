@@ -34,10 +34,6 @@
         <a class="nav-link sub-link" href="usuarios.html#oficinistas" data-nav="oficinistas">Oficinistas</a>
         <a class="nav-link sub-link" href="usuarios.html#controladores" data-nav="controladores">Controladores</a>
       </nav>
-      <p class="nav-heading">Operaciones</p>
-      <nav class="admin-nav" aria-label="Operaciones del transporte">
-        <a class="nav-link" href="hojas_ruta.html" data-nav="hojas"><span class="nav-mark" aria-hidden="true">⇄</span>Hojas de Ruta</a>
-      </nav>
       <div class="sidebar-footer">Proyecto de Manejo y Configuración de Software</div>
     `;
   }
