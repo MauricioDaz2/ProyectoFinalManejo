@@ -1,0 +1,344 @@
+[
+  {
+    "provincia": "Azuay",
+    "ciudades": [
+      { "nombre": "Cuenca", "valor": "CUENCA" },
+      { "nombre": "Camilo Ponce Enríquez", "valor": "PONCE ENRIQUEZ" },
+      { "nombre": "Chordeleg", "valor": "CHORDELEG" },
+      { "nombre": "El Pan", "valor": "EL PAN" },
+      { "nombre": "Girón", "valor": "GIRON" },
+      { "nombre": "Guachapala", "valor": "GUACHAPALA" },
+      { "nombre": "Gualaceo", "valor": "GUALACEO" },
+      { "nombre": "Nabón", "valor": "NABON" },
+      { "nombre": "Oña", "valor": "ONA" },
+      { "nombre": "Paute", "valor": "PAUTE" },
+      { "nombre": "Pucará", "valor": "PUCARA" },
+      { "nombre": "San Fernando", "valor": "SAN FERNANDO" },
+      { "nombre": "Santa Isabel", "valor": "SANTA ISABEL" },
+      { "nombre": "Sevilla de Oro", "valor": "SEVILLA DE ORO" },
+      { "nombre": "Sígsig", "valor": "SIGSIG" }
+    ]
+  },
+  {
+    "provincia": "Bolívar",
+    "ciudades": [
+      { "nombre": "Guaranda", "valor": "GUARANDA" },
+      { "nombre": "Caluma", "valor": "CALUMA" },
+      { "nombre": "Chillanes", "valor": "CHILLANES" },
+      { "nombre": "Chimbo", "valor": "CHIMBO" },
+      { "nombre": "Echeandía", "valor": "ECHEANDIA" },
+      { "nombre": "Las Naves", "valor": "LAS NAVES" },
+      { "nombre": "San Miguel", "valor": "SAN MIGUEL" }
+    ]
+  },
+  {
+    "provincia": "Cañar",
+    "ciudades": [
+      { "nombre": "Azogues", "valor": "AZOGUES" },
+      { "nombre": "Biblián", "valor": "BIBLIAN" },
+      { "nombre": "Cañar", "valor": "CANAR" },
+      { "nombre": "Déleg", "valor": "DELEG" },
+      { "nombre": "El Tambo", "valor": "EL TAMBO" },
+      { "nombre": "La Troncal", "valor": "LA TRONCAL" },
+      { "nombre": "Suscal", "valor": "SUSCAL" }
+    ]
+  },
+  {
+    "provincia": "Carchi",
+    "ciudades": [
+      { "nombre": "Tulcán", "valor": "TULCAN" },
+      { "nombre": "Bolívar", "valor": "BOLIVAR CARCHI" },
+      { "nombre": "Espejo (El Ángel)", "valor": "EL ANGEL" },
+      { "nombre": "Mira", "valor": "MIRA" },
+      { "nombre": "Montúfar (San Gabriel)", "valor": "SAN GABRIEL" },
+      { "nombre": "San Pedro de Huaca", "valor": "HUACA" }
+    ]
+  },
+  {
+    "provincia": "Chimborazo",
+    "ciudades": [
+      { "nombre": "Riobamba", "valor": "RIOBAMBA" },
+      { "nombre": "Alausí", "valor": "ALAUSI" },
+      { "nombre": "Chambo", "valor": "CHAMBO" },
+      { "nombre": "Chunchi", "valor": "CHUNCHI" },
+      { "nombre": "Colta", "valor": "COLTA" },
+      { "nombre": "Cumandá", "valor": "CUMANDA" },
+      { "nombre": "Guamote", "valor": "GUAMOTE" },
+      { "nombre": "Guano", "valor": "GUANO" },
+      { "nombre": "Pallatanga", "valor": "PALLATANGA" },
+      { "nombre": "Penipe", "valor": "PENIPE" }
+    ]
+  },
+  {
+    "provincia": "Cotopaxi",
+    "ciudades": [
+      { "nombre": "Latacunga", "valor": "LATACUNGA" },
+      { "nombre": "La Maná", "valor": "LA MANA" },
+      { "nombre": "Pangua", "valor": "PANGUA" },
+      { "nombre": "Pujilí", "valor": "PUJILI" },
+      { "nombre": "Salcedo", "valor": "SALCEDO" },
+      { "nombre": "Saquisilí", "valor": "SAQUISILI" },
+      { "nombre": "Sigchos", "valor": "SIGCHOS" }
+    ]
+  },
+  {
+    "provincia": "El Oro",
+    "ciudades": [
+      { "nombre": "Machala", "valor": "MACHALA" },
+      { "nombre": "Arenillas", "valor": "ARENILLAS" },
+      { "nombre": "Atahualpa", "valor": "ATAHUALPA" },
+      { "nombre": "Balsas", "valor": "BALSAS" },
+      { "nombre": "Chilla", "valor": "CHILLA" },
+      { "nombre": "El Guabo", "valor": "EL GUABO" },
+      { "nombre": "Huaquillas", "valor": "HUAQUILLAS" },
+      { "nombre": "Las Lajas", "valor": "LAS LAJAS" },
+      { "nombre": "Marcabelí", "valor": "MARCABELI" },
+      { "nombre": "Pasaje", "valor": "PASAJE" },
+      { "nombre": "Piñas", "valor": "PINAS" },
+      { "nombre": "Portovelo", "valor": "PORTOVELO" },
+      { "nombre": "Santa Rosa", "valor": "SANTA ROSA" },
+      { "nombre": "Zaruma", "valor": "ZARUMA" }
+    ]
+  },
+  {
+    "provincia": "Esmeraldas",
+    "ciudades": [
+      { "nombre": "Esmeraldas", "valor": "ESMERALDAS" },
+      { "nombre": "Atacames", "valor": "ATACAMES" },
+      { "nombre": "Eloy Alfaro", "valor": "ELOY ALFARO" },
+      { "nombre": "Muisne", "valor": "MUISNE" },
+      { "nombre": "Quinindé", "valor": "QUININDE" },
+      { "nombre": "Ríoverde", "valor": "RIOVERDE" },
+      { "nombre": "San Lorenzo", "valor": "SAN LORENZO" }
+    ]
+  },
+  {
+    "provincia": "Galápagos",
+    "ciudades": [
+      { "nombre": "San Cristóbal (Puerto Baquerizo)", "valor": "SAN CRISTOBAL" },
+      { "nombre": "Isabela (Puerto Villamil)", "valor": "ISABELA" },
+      { "nombre": "Santa Cruz (Puerto Ayora)", "valor": "SANTA CRUZ" }
+    ]
+  },
+  {
+    "provincia": "Guayas",
+    "ciudades": [
+      { "nombre": "Guayaquil", "valor": "GUAYAQUIL" },
+      { "nombre": "Alfredo Baquerizo Moreno (Juján)", "valor": "JUJAN" },
+      { "nombre": "Balao", "valor": "BALAO" },
+      { "nombre": "Balzar", "valor": "BALZAR" },
+      { "nombre": "Colimes", "valor": "COLIMES" },
+      { "nombre": "Coronel Marcelino Maridueña", "valor": "M MARIDUENA" },
+      { "nombre": "Daule", "valor": "DAULE" },
+      { "nombre": "Durán", "valor": "DURAN" },
+      { "nombre": "El Empalme", "valor": "EL EMPALME" },
+      { "nombre": "El Triunfo", "valor": "EL TRIUNFO" },
+      { "nombre": "General Antonio Elizalde (Bucay)", "valor": "BUCAY" },
+      { "nombre": "Isidro Ayora", "valor": "ISIDRO AYORA" },
+      { "nombre": "Lomas de Sargentillo", "valor": "L SARGENTILLO" },
+      { "nombre": "Milagro", "valor": "MILAGRO" },
+      { "nombre": "Naranjal", "valor": "NARANJAL" },
+      { "nombre": "Naranjito", "valor": "NARANJITO" },
+      { "nombre": "Nobol", "valor": "NOBOL" },
+      { "nombre": "Palestina", "valor": "PALESTINA" },
+      { "nombre": "Pedro Carbo", "valor": "PEDRO CARBO" },
+      { "nombre": "Playas (General Villamil)", "valor": "PLAYAS" },
+      { "nombre": "Salitre", "valor": "SALITRE" },
+      { "nombre": "Samborondón", "valor": "SAMBORONDON" },
+      { "nombre": "Santa Lucía", "valor": "SANTA LUCIA" },
+      { "nombre": "Simón Bolívar", "valor": "SIMON BOLIVAR" },
+      { "nombre": "Yaguachi", "valor": "YAGUACHI" }
+    ]
+  },
+  {
+    "provincia": "Imbabura",
+    "ciudades": [
+      { "nombre": "Ibarra", "valor": "IBARRA" },
+      { "nombre": "Antonio Ante (Atuntaqui)", "valor": "ATUNTAQUI" },
+      { "nombre": "Cotacachi", "valor": "COTACACHI" },
+      { "nombre": "Otavalo", "valor": "OTAVALO" },
+      { "nombre": "Pimampiro", "valor": "PIMAMPIRO" },
+      { "nombre": "San Miguel de Urcuquí", "valor": "URCUQUI" }
+    ]
+  },
+  {
+    "provincia": "Loja",
+    "ciudades": [
+      { "nombre": "Loja", "valor": "LOJA" },
+      { "nombre": "Calvas (Cariamanga)", "valor": "CARIAMANGA" },
+      { "nombre": "Catamayo", "valor": "CATAMAYO" },
+      { "nombre": "Celica", "valor": "CELICA" },
+      { "nombre": "Chaguarpamba", "valor": "CHAGUARPAMBA" },
+      { "nombre": "Espíndola", "valor": "ESPINDOLA" },
+      { "nombre": "Gonzanamá", "valor": "GONZANAMA" },
+      { "nombre": "Macará", "valor": "MACARA" },
+      { "nombre": "Olmedo", "valor": "OLMEDO LOJA" },
+      { "nombre": "Paltas (Catacocha)", "valor": "CATACOCHA" },
+      { "nombre": "Pindal", "valor": "PINDAL" },
+      { "nombre": "Puyango (Alamor)", "valor": "ALAMOR" },
+      { "nombre": "Quilanga", "valor": "QUILANGA" },
+      { "nombre": "Saraguro", "valor": "SARAGURO" },
+      { "nombre": "Sozoranga", "valor": "SOZORANGA" },
+      { "nombre": "Zapotillo", "valor": "ZAPOTILLO" }
+    ]
+  },
+  {
+    "provincia": "Los Ríos",
+    "ciudades": [
+      { "nombre": "Babahoyo", "valor": "BABAHOYO" },
+      { "nombre": "Baba", "valor": "BABA" },
+      { "nombre": "Buena Fe", "valor": "BUENA FE" },
+      { "nombre": "Mocache", "valor": "MOCACHE" },
+      { "nombre": "Montalvo", "valor": "MONTALVO" },
+      { "nombre": "Palenque", "valor": "PALENQUE" },
+      { "nombre": "Puebloviejo", "valor": "PUEBLOVIEJO" },
+      { "nombre": "Quevedo", "valor": "QUEVEDO" },
+      { "nombre": "Quinsaloma", "valor": "QUINSALOMA" },
+      { "nombre": "Urdaneta", "valor": "URDANETA" },
+      { "nombre": "Valencia", "valor": "VALENCIA" },
+      { "nombre": "Ventanas", "valor": "VENTANAS" },
+      { "nombre": "Vinces", "valor": "VINCES" }
+    ]
+  },
+  {
+    "provincia": "Manabí",
+    "ciudades": [
+      { "nombre": "Portoviejo", "valor": "PORTOVIEJO" },
+      { "nombre": "24 de Mayo", "valor": "24 DE MAYO" },
+      { "nombre": "Bolívar (Calceta)", "valor": "CALCETA" },
+      { "nombre": "Chone", "valor": "CHONE" },
+      { "nombre": "El Carmen", "valor": "EL CARMEN" },
+      { "nombre": "Flavio Alfaro", "valor": "FLAVIO ALFARO" },
+      { "nombre": "Jama", "valor": "JAMA" },
+      { "nombre": "Jaramijó", "valor": "JARAMIJO" },
+      { "nombre": "Jipijapa", "valor": "JIPIJAPA" },
+      { "nombre": "Junín", "valor": "JUNIN" },
+      { "nombre": "Manta", "valor": "MANTA" },
+      { "nombre": "Montecristi", "valor": "MONTECRISTI" },
+      { "nombre": "Olmedo", "valor": "OLMEDO MANABI" },
+      { "nombre": "Paján", "valor": "PAJAN" },
+      { "nombre": "Pedernales", "valor": "PEDERNALES" },
+      { "nombre": "Pichincha", "valor": "PICHINCHA MNB" },
+      { "nombre": "Puerto López", "valor": "PUERTO LOPEZ" },
+      { "nombre": "Rocafuerte", "valor": "ROCAFUERTE" },
+      { "nombre": "San Vicente", "valor": "SAN VICENTE" },
+      { "nombre": "Santa Ana", "valor": "SANTA ANA" },
+      { "nombre": "Sucre (Bahía de Caráquez)", "valor": "BAHIA CARAQUEZ" },
+      { "nombre": "Tosagua", "valor": "TOSAGUA" }
+    ]
+  },
+  {
+    "provincia": "Morona Santiago",
+    "ciudades": [
+      { "nombre": "Morona (Macas)", "valor": "MACAS" },
+      { "nombre": "Gualaquiza", "valor": "GUALAQUIZA" },
+      { "nombre": "Huamboya", "valor": "HUAMBOYA" },
+      { "nombre": "Limón Indanza", "valor": "LIMON INDANZA" },
+      { "nombre": "Logroño", "valor": "LOGRONO" },
+      { "nombre": "Pablo Sexto", "valor": "PABLO SEXTO" },
+      { "nombre": "Palora", "valor": "PALORA" },
+      { "nombre": "San Juan Bosco", "valor": "SAN JUAN BOSCO" },
+      { "nombre": "Santiago de Méndez", "valor": "MENDEZ" },
+      { "nombre": "Sevilla Don Bosco", "valor": "SEVILLA BOSCO" },
+      { "nombre": "Sucúa", "valor": "SUCUA" },
+      { "nombre": "Taisha", "valor": "TAISHA" },
+      { "nombre": "Tiwintza", "valor": "TIWINTZA" }
+    ]
+  },
+  {
+    "provincia": "Napo",
+    "ciudades": [
+      { "nombre": "Tena", "valor": "TENA" },
+      { "nombre": "Archidona", "valor": "ARCHIDONA" },
+      { "nombre": "Carlos Julio Arosemena Tola", "valor": "AROSEMENA TOLA" },
+      { "nombre": "El Chaco", "valor": "EL CHACO" },
+      { "nombre": "Quijos (Baeza)", "valor": "BAEZA" }
+    ]
+  },
+  {
+    "provincia": "Orellana",
+    "ciudades": [
+      { "nombre": "Francisco de Orellana (El Coca)", "valor": "EL COCA" },
+      { "nombre": "Aguarico", "valor": "AGUARICO" },
+      { "nombre": "La Joya de los Sachas", "valor": "JOYA SACHAS" },
+      { "nombre": "Loreto", "valor": "LORETO" }
+    ]
+  },
+  {
+    "provincia": "Pastaza",
+    "ciudades": [
+      { "nombre": "Pastaza (Puyo)", "valor": "PUYO" },
+      { "nombre": "Arajuno", "valor": "ARAJUNO" },
+      { "nombre": "Mera", "valor": "MERA" },
+      { "nombre": "Santa Clara", "valor": "SANTA CLARA" }
+    ]
+  },
+  {
+    "provincia": "Pichincha",
+    "ciudades": [
+      { "nombre": "Quito", "valor": "QUITO" },
+      { "nombre": "Cayambe", "valor": "CAYAMBE" },
+      { "nombre": "Mejía (Machachi)", "valor": "MACHACHI" },
+      { "nombre": "Pedro Moncayo (Tabacundo)", "valor": "TABACUNDO" },
+      { "nombre": "Pedro Vicente Maldonado", "valor": "PV MALDONADO" },
+      { "nombre": "Puerto Quito", "valor": "PUERTO QUITO" },
+      { "nombre": "Rumiñahui (Sangolquí)", "valor": "SANGOLQUI" },
+      { "nombre": "San Miguel de los Bancos", "valor": "LOS BANCOS" }
+    ]
+  },
+  {
+    "provincia": "Santa Elena",
+    "ciudades": [
+      { "nombre": "Santa Elena", "valor": "SANTA ELENA" },
+      { "nombre": "La Libertad", "valor": "LA LIBERTAD" },
+      { "nombre": "Salinas", "valor": "SALINAS" }
+    ]
+  },
+  {
+    "provincia": "Santo Domingo de los Tsáchilas",
+    "ciudades": [
+      { "nombre": "Santo Domingo", "valor": "SANTO DOMINGO" },
+      { "nombre": "La Concordia", "valor": "LA CONCORDIA" }
+    ]
+  },
+  {
+    "provincia": "Sucumbíos",
+    "ciudades": [
+      { "nombre": "Lago Agrio (Nueva Loja)", "valor": "NUEVA LOJA" },
+      { "nombre": "Cascales", "valor": "CASCALES" },
+      { "nombre": "Cuyabeno", "valor": "CUYABENO" },
+      { "nombre": "Gonzalo Pizarro", "valor": "G PIZARRO" },
+      { "nombre": "Putumayo", "valor": "PUTUMAYO" },
+      { "nombre": "Shushufindi", "valor": "SHUSHUFINDI" },
+      { "nombre": "Sucumbíos", "valor": "SUCUMBIOS" }
+    ]
+  },
+  {
+    "provincia": "Tungurahua",
+    "ciudades": [
+      { "nombre": "Ambato", "valor": "AMBATO" },
+      { "nombre": "Baños de Agua Santa", "valor": "BANOS" },
+      { "nombre": "Cevallos", "valor": "CEVALLOS" },
+      { "nombre": "Mocha", "valor": "MOCHA" },
+      { "nombre": "Patate", "valor": "PATATE" },
+      { "nombre": "Pelileo", "valor": "PELILEO" },
+      { "nombre": "Píllaro", "valor": "PILLARO" },
+      { "nombre": "Quero", "valor": "QUERO" },
+      { "nombre": "Tisaleo", "valor": "TISALEO" }
+    ]
+  },
+  {
+    "provincia": "Zamora Chinchipe",
+    "ciudades": [
+      { "nombre": "Zamora", "valor": "ZAMORA" },
+      { "nombre": "Centinela del Cóndor", "valor": "ZUMBI" },
+      { "nombre": "Chinchipe (Zumba)", "valor": "ZUMBA" },
+      { "nombre": "El Pangui", "valor": "EL PANGUI" },
+      { "nombre": "Nangaritza", "valor": "NANGARITZA" },
+      { "nombre": "Palanda", "valor": "PALANDA" },
+      { "nombre": "Paquisha", "valor": "PAQUISHA" },
+      { "nombre": "Yacuambi", "valor": "YACUAMBI" },
+      { "nombre": "Yantzaza", "valor": "YANTZAZA" }
+    ]
+  }
+]
