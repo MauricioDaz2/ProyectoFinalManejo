@@ -2995,3 +2995,147 @@ table.batch-table select.is-conflict {
         grid-column: span 1;
     }
 }
+
+/* ------------------- RFC-000083 · Planificador rotativo ------------------- */
+
+.rotacion-panel .rotacion-titulo {
+    margin: 0 0 4px;
+    font-size: 16px;
+}
+
+.rotacion-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 12px 0 16px;
+}
+
+table.rotacion-table {
+    border-collapse: collapse;
+    min-width: 520px;
+    width: 100%;
+    font-size: 14px;
+}
+
+table.rotacion-table th,
+table.rotacion-table td {
+    border: 1px solid #9aa5b5;
+    padding: 10px 14px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+table.rotacion-table thead th {
+    font-weight: 800;
+    background: var(--panel-tint, #eef3f8);
+}
+
+table.rotacion-table tbody th {
+    text-align: left;
+    font-weight: 700;
+    background: #f8f9fb;
+}
+
+table.rotacion-table tbody th strong {
+    display: block;
+}
+
+.rotacion-hora {
+    display: block;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--admin-muted);
+}
+
+table.rotacion-table td {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+table.rotacion-table td.rotacion-vacia {
+    color: var(--admin-muted);
+    font-weight: 400;
+}
+
+.rotacion-unidades h4 {
+    margin: 0 0 6px;
+    font-size: 14px;
+}
+
+.rotacion-unidades ul {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+}
+
+.rotacion-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rotacion-aviso {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: var(--panel-radius-sm, 8px);
+    font-weight: 600;
+}
+
+.rotacion-aviso.is-ok {
+    background: var(--panel-success-bg, #e4f5ed);
+    color: var(--panel-success, #0f7b53);
+}
+
+.rotacion-aviso.is-error {
+    background: #fde8e8;
+    color: #b42318;
+}
+
+.rotacion-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--panel-radius-sm, 8px);
+}
+
+.rotacion-form[hidden] {
+    display: none;
+}
+
+.rotacion-form label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.rotacion-form input,
+.rotacion-form select {
+    padding: 8px 10px;
+    border: 1px solid var(--admin-border);
+    border-radius: 6px;
+    font: inherit;
+}
+
+.rotacion-campo input[id^="rotacionBus"] {
+    width: 90px;
+}
+
+.rotacion-form-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+@media (max-width: 640px) {
+    .rotacion-acciones .btn {
+        flex: 1 1 calc(50% - 8px);
+    }
+}
