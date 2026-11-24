@@ -3139,3 +3139,20 @@ table.rotacion-table td.rotacion-vacia {
         flex: 1 1 calc(50% - 8px);
     }
 }
+
+.rotacion-panel {
+    padding-bottom: 18px;
+}
+
+.rotacion-panel > .rotacion-wrap,
+.rotacion-panel > .rotacion-unidades,
+.rotacion-panel > .rotacion-acciones {
+    padding-left: 18px;
+    padding-right: 18px;
+}
+
+.rotacion-panel > .rotacion-aviso,
+.rotacion-panel > .rotacion-form {
+    margin-left: 18px;
+    margin-right: 18px;
+}
