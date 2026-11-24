@@ -1,0 +1,332 @@
+/* RFC-000087 · Diseño moderno unificado del módulo de Pasajero
+ * (catalogo_viajes.html, seleccion_asientos.html, mis_boletos.html).
+ * Reutiliza la paleta y la tipografía de la portada pública (public_home.css).
+ */
+:root {
+    --usuario-primary: #b5091b;
+    --usuario-primary-dark: #850414;
+    --usuario-background: #f6f7f9;
+    --usuario-text: #10233f;
+    --usuario-muted: #647080;
+    --usuario-border: #e5e7ec;
+    --usuario-soft: #faf6f7;
+    --usuario-shadow: 0 6px 18px rgba(16, 35, 63, .07);
+}
+
+body {
+    font-family: Inter, 'Segoe UI', Arial, sans-serif;
+    font-size: 14px;
+    background: var(--usuario-background);
+    color: var(--usuario-text);
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.usuario-header {
+    box-shadow: 0 1px 0 var(--usuario-border);
+}
+
+.usuario-main {
+    padding-top: 36px;
+}
+
+.usuario-eyebrow {
+    color: var(--usuario-primary);
+    letter-spacing: .14em;
+    font-size: 11px;
+}
+
+.usuario-title {
+    font-weight: 800;
+    letter-spacing: -.8px;
+    border-left: 4px solid var(--usuario-primary);
+    padding-left: 14px;
+}
+
+.usuario-subtitle {
+    padding-left: 18px;
+}
+
+.usuario-card {
+    border-radius: 16px;
+    border-color: var(--usuario-border);
+    box-shadow: var(--usuario-shadow);
+}
+
+.usuario-card h2 {
+    margin-top: 0;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -.3px;
+}
+
+.usuario-field label {
+    color: var(--usuario-text);
+    font-size: 12px;
+}
+
+.usuario-field input,
+.usuario-field select {
+    border-color: #cdd1d8;
+    border-radius: 8px;
+    min-height: 42px;
+}
+
+.usuario-button {
+    border-radius: 9px;
+    background: var(--usuario-primary);
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background .15s, box-shadow .15s;
+}
+
+.usuario-button:hover:not(:disabled) {
+    background: var(--usuario-primary-dark);
+    box-shadow: 0 4px 12px rgba(137, 8, 23, .14);
+}
+
+.usuario-empty {
+    background: #f8f9fb;
+    border-color: #d7dce4;
+}
+
+/* ------------------------------ Tarjetas de viaje ------------------------------ */
+
+.viaje-card {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    border-radius: 14px;
+    padding: 18px 20px;
+    border: 1px solid var(--usuario-border);
+    box-shadow: 0 2px 4px rgba(16, 35, 63, .04);
+    transition: box-shadow .2s, transform .2s;
+}
+
+.viaje-card:hover {
+    box-shadow: 0 10px 22px rgba(16, 35, 63, .09);
+    transform: translateY(-1px);
+}
+
+.viaje-coop {
+    display: inline-block;
+    margin-bottom: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--usuario-soft);
+    color: var(--usuario-primary);
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.viaje-route {
+    color: var(--usuario-text);
+    font-size: 19px;
+    font-weight: 800;
+}
+
+.viaje-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 26px;
+    margin: 12px 0 0;
+}
+
+.viaje-facts dt {
+    color: var(--usuario-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.viaje-facts dd {
+    margin: 3px 0 0;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.viaje-hora,
+.viaje-precio {
+    color: var(--usuario-primary);
+    font-size: 17px;
+}
+
+.viaje-action {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.viaje-more {
+    min-height: 38px;
+    border: 1px solid #d2d9e5;
+    border-radius: 9px;
+    background: #fff;
+    color: var(--usuario-text);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.viaje-more:hover {
+    background: #f1f5fc;
+}
+
+.viaje-detail-panel {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(180px, 280px) 1fr;
+    gap: 20px;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px dashed var(--usuario-border);
+}
+
+.viaje-detail-panel[hidden] {
+    display: none;
+}
+
+.viaje-photo {
+    aspect-ratio: 16 / 10;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #eef1f5;
+    display: grid;
+    place-items: center;
+}
+
+.viaje-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.viaje-photo-empty {
+    color: var(--usuario-muted);
+    font-size: 13px;
+}
+
+.viaje-bus-facts {
+    margin: 0;
+}
+
+/* ------------------------------- Mis boletos ------------------------------- */
+
+.ticket-list {
+    display: grid;
+    gap: 14px;
+}
+
+.ticket-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px;
+    padding: 20px;
+    border: 1px solid var(--usuario-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: var(--usuario-shadow);
+}
+
+.ticket-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.ticket-number {
+    color: var(--usuario-primary);
+    font-weight: 800;
+}
+
+.ticket-state {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.ticket-state.is-ok { background: #e4f5ed; color: #0f7b53; }
+.ticket-state.is-pending { background: #fdf2d9; color: #8a5a00; }
+.ticket-state.is-off { background: #fde8e8; color: #9d1c28; }
+
+.ticket-route {
+    margin-top: 8px;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.ticket-cancel {
+    margin-top: 14px;
+    background: #fff;
+    color: #b42318;
+    border: 1px solid #f3b4ad;
+}
+
+.ticket-cancel:hover:not(:disabled) {
+    background: #fde8e8;
+    color: #8e1c12;
+    box-shadow: none;
+}
+
+.ticket-qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    max-width: 150px;
+}
+
+.ticket-qr img {
+    border: 1px solid var(--usuario-border);
+    border-radius: 10px;
+    padding: 4px;
+    background: #fff;
+}
+
+.ticket-qr code {
+    font-size: 10.5px;
+    color: var(--usuario-muted);
+    word-break: break-all;
+    text-align: center;
+}
+
+/* --------------------------- Selección de asientos -------------------------- */
+
+.reservation-panel,
+.reservation-summary {
+    border-radius: 16px;
+}
+
+.seat-legend {
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #f8f9fb;
+}
+
+@media (max-width: 720px) {
+    .viaje-card,
+    .ticket-card {
+        grid-template-columns: 1fr;
+    }
+
+    .viaje-detail-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .ticket-qr {
+        flex-direction: row;
+        max-width: none;
+    }
+}
