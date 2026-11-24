@@ -64,6 +64,7 @@ const {
     crearFrecuencia,
     actualizarFrecuencia,
     cambiarEstadoFrecuencia,
+    destacarFrecuencia,
     eliminarFrecuencia,
     listarHojasRuta,
     crearHojaRuta,
@@ -105,6 +106,7 @@ router.post('/frecuencias', crearFrecuencia);
 router.put('/frecuencias/:id', actualizarFrecuencia);
 router.put('/frecuencias/:id/categoria', batches.setFrequency);
 router.patch('/frecuencias/:id/estado', cambiarEstadoFrecuencia);
+router.put('/frecuencias/:id/destacada', destacarFrecuencia);
 router.delete('/frecuencias/:id', eliminarFrecuencia);
 
 router.get('/hojas-ruta', listarHojasRuta);
