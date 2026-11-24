@@ -54,10 +54,13 @@ const listarHojasRuta = async (req, res) => {
     }
 };
 
-// --- Crear Hoja de Ruta ---
-const crearHojaRuta = async (req,res) => {
-    try {const result=await require('../services/tripOperations').assign(req.auth,req.body);res.status(201).json({success:true,...result});}
-    catch(e){return cc.respond(res,e)||res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo programar el viaje.'});}
+// --- Crear Hoja de Ruta (exclusivo de cooperativas R002) ---
+const crearHojaRuta = async (req, res) => {
+    res.status(403).json({
+        success: false,
+        code: 'HOJAS_RUTA_EXCLUSIVAS_COOPERATIVA',
+        message: 'La programación de hojas de ruta es exclusiva de cada cooperativa.'
+    });
 };
 
 const listarFrecuencias = async (req, res) => {
@@ -71,26 +74,27 @@ const listarFrecuencias = async (req, res) => {
     }
 };
 
-// --- Listar Resoluciones ---
+// --- Listar Resoluciones (deprecado RFC-000078) ---
 const listarResoluciones = async (req, res) => {
-    try {
-        const pool = await conectarBD();
-        const resultado = await pool.request().query('SELECT * FROM dbo.RESOLUCIONES_ANT');
-        res.status(200).json({ success: true, resoluciones: resultado.recordset });
-    } catch (error) {
-        console.error('Error al listar resoluciones:', error);
-        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
-    }
+    res.status(410).json({ success: false, code: 'MODULO_RESOLUCIONES_ELIMINADO', message: 'El módulo independiente de Resoluciones ANT fue eliminado en RFC-000078.' });
 };
 
-// --- Crear Frecuencia ---
+// --- Crear Frecuencia (exclusivo de cooperativas R002) ---
 const crearFrecuencia = async (req, res) => {
-    res.status(405).json({ success: false, message: 'Registra las frecuencias desde el módulo Resoluciones ANT de la cooperativa.' });
+    res.status(403).json({
+        success: false,
+        code: 'HOJAS_RUTA_EXCLUSIVAS_COOPERATIVA',
+        message: 'La gestión de frecuencias es exclusiva de cada cooperativa.'
+    });
 };
 
-// --- Asignar Frecuencia ---
+// --- Asignar Frecuencia (exclusivo de cooperativas R002) ---
 const asignarFrecuencia = async (req, res) => {
-    res.status(405).json({ success: false, message: 'Programa la frecuencia desde la pantalla de asignación operativa.' });
+    res.status(403).json({
+        success: false,
+        code: 'HOJAS_RUTA_EXCLUSIVAS_COOPERATIVA',
+        message: 'La programación de hojas de ruta es exclusiva de cada cooperativa.'
+    });
 };
 
 // --- Listar Choferes (Rol R006) ---
