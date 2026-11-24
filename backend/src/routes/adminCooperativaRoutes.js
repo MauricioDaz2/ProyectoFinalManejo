@@ -6,7 +6,9 @@ const {
     actualizarCooperativa,
     cambiarEstadoCooperativa,
     eliminarCooperativa,
-    personal
+    personal,
+    obtenerDestacadas,
+    actualizarDestacadas
 } = require('../controllers/adminCooperativaController');
 
 const router = express.Router();
@@ -20,6 +22,8 @@ router.get('/:id/imagenes/:imageId',require('../controllers/cooperativaProfileCo
 router.post('/', crearCooperativa);
 router.put('/:id', actualizarCooperativa);
 router.patch('/:id/estado', cambiarEstadoCooperativa);
+router.get('/:id/destacadas', obtenerDestacadas);
+router.put('/:id/destacadas', actualizarDestacadas);
 router.delete('/:id', eliminarCooperativa);
 
 router.post('/:id/personal',personal('create'));
