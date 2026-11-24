@@ -1,18 +1,20 @@
 const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
+const { liberarReservasVencidas } = require('./userReservaController');
 const crypto = require('crypto');
 
 /**
  * Módulo de Oficinista
- * - Venta de boletos en ventanilla
+ * - Venta de boletos en ventanilla (con tarifa automática por frecuencia y plantilla de asientos)
  * - Registro y búsqueda de pasajeros por cédula (USUARIOS.COR_USU)
+ * - Bandeja de aprobación / rechazo de reservas por transferencia
  * - Validación de reservas/boletos por QR o cédula
  * - Cambio de estado de boletos
  */
 
 const CODIGO_RE = /^[A-Z0-9_-]{1,10}$/;
 const CODIGO_CORTO_RE = /^[A-Z0-9_-]{1,5}$/;
-const ESTADOS_BOLETO = ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO', 'USADO', 'CANCELADO', 'ANULADO'];
+const ESTADOS_BOLETO = ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO', 'USADO', 'CANCELADO', 'ANULADO', 'VENCIDO'];
 const ESTADOS_ACTIVOS = ['PENDIENTE', 'RESERVADO', 'EMITIDO', 'PAGADO', 'USADO'];
 const ESTADOS_VIAJE = ['PROGRAMADO', 'PROGRAMADA', 'EN CURSO'];
 const METODOS_PAGO = ['EFECTIVO', 'TRANSFERENCIA', 'DEPOSITO'];
@@ -24,12 +26,19 @@ const TRANSICIONES = {
     PAGADO: ['USADO', 'ANULADO'],
     USADO: [],
     CANCELADO: [],
-    ANULADO: []
+    ANULADO: [],
+    VENCIDO: []
 };
 
 const texto = (valor) => (typeof valor === 'string' ? valor.trim() : '');
 const codigo = (valor) => texto(valor).toUpperCase();
 const soloDigitos = (valor) => texto(valor).replace(/\D/g, '');
+
+function normalizarPlantilla(raw) {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw); } catch { return null; }
+}
 
 function fecha(valor) {
     if (valor === undefined || valor === null || valor === '') return null;
@@ -47,6 +56,26 @@ function generarCodigoQR() {
     const token = crypto.randomBytes(16).toString('hex').toUpperCase();
     const fechaActual = hoyISO().replace(/-/g, '');
     return `QR-${fechaActual}-${token}`;
+}
+
+async function columnasExtendidasOficinista(gestor) {
+    try {
+        const res = await new sql.Request(gestor).query(`
+            SELECT
+                CASE WHEN COL_LENGTH('dbo.BOLETOS', 'FEC_EXP_RES_UTC') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_TEMP,
+                CASE WHEN COL_LENGTH('dbo.BOLETOS', 'BAN_ORI_BOL') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_BANCO,
+                CASE WHEN COL_LENGTH('dbo.FRECUENCIAS', 'TAR_BAS_FRE') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_TARIFA_FRE,
+                CASE WHEN COL_LENGTH('dbo.BUSES', 'PLANTILLA_JSON') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_PLANTILLA_BUS,
+                CASE WHEN COL_LENGTH('dbo.ASIENTOS_BUS', 'FIL_ASI') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_ASI_ESPACIAL
+        `);
+        return res.recordset?.[0] || {
+            TIENE_TEMP: 0, TIENE_BANCO: 0, TIENE_TARIFA_FRE: 0, TIENE_PLANTILLA_BUS: 0, TIENE_ASI_ESPACIAL: 0
+        };
+    } catch {
+        return {
+            TIENE_TEMP: 0, TIENE_BANCO: 0, TIENE_TARIFA_FRE: 0, TIENE_PLANTILLA_BUS: 0, TIENE_ASI_ESPACIAL: 0
+        };
+    }
 }
 
 /**
@@ -109,40 +138,54 @@ function cooperativaValida(valor) {
 /*                                 CONSULTAS                                  */
 /* -------------------------------------------------------------------------- */
 
-const SELECT_BOLETO = `
-    SELECT BOL.ID_BOL, BOL.ORI_TRA_BOL, BOL.DES_TRA_BOL, BOL.TIP_DES_BOL,
-           BOL.PRE_FIN_BOL, BOL.MET_PAG_BOL, BOL.COM_PAG_URL, BOL.EST_BOL,
-           BOL.COD_QR_BOL, BOL.FEC_COM_BOL, BOL.FEC_USO_BOL,
-           BOL.ID_HOJ_PER, BOL.ID_ASI_PER, BOL.ID_USU_FIN, BOL.ID_USU_OFI, BOL.ID_USU_CON,
-           H.FEC_PRO_HOJ, H.EST_VIA_HOJ, H.OBS_HOJ,
-           BUS.ID_BUS, BUS.NUM_BUS, BUS.PLA_BUS, BUS.NUM_PIS,
-           F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
-           F.ID_COP_PER, C.NOM_COP,
-           ASI.PIS_ASI,
-           (SELECT COUNT(*)
-              FROM dbo.ASIENTOS_BUS ASI2
-             WHERE ASI2.ID_BUS_PER = ASI.ID_BUS_PER
-               AND ASI2.PIS_ASI = ASI.PIS_ASI
-               AND TRY_CAST(ASI2.ID_ASI AS INT) <= TRY_CAST(ASI.ID_ASI AS INT)) AS NUMERO_ASIENTO,
-           T.NOM_TIP,
-           PASAJERO.NOM_USU, PASAJERO.APE_USU, PASAJERO.COR_USU, PASAJERO.TEL_USU,
-           OFICINISTA.NOM_USU AS NOM_OFICINISTA, OFICINISTA.APE_USU AS APE_OFICINISTA,
-           CONTROL.NOM_USU AS NOM_CONTROLADOR, CONTROL.APE_USU AS APE_CONTROLADOR
-    FROM dbo.BOLETOS BOL
-    INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = BOL.ID_HOJ_PER
-    INNER JOIN dbo.BUSES BUS ON BUS.ID_BUS = H.ID_BUS_PER
-    INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-    INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
-    INNER JOIN dbo.ASIENTOS_BUS ASI ON ASI.ID_ASI = BOL.ID_ASI_PER
-    INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = ASI.ID_TIP_PER
-    LEFT JOIN dbo.USUARIOS PASAJERO ON PASAJERO.ID_USU = BOL.ID_USU_FIN
-    LEFT JOIN dbo.USUARIOS OFICINISTA ON OFICINISTA.ID_USU = BOL.ID_USU_OFI
-    LEFT JOIN dbo.USUARIOS CONTROL ON CONTROL.ID_USU = BOL.ID_USU_CON
-`;
+function construirSelectBoleto(esquema = {}) {
+    return `
+        SELECT BOL.ID_BOL, BOL.ORI_TRA_BOL, BOL.DES_TRA_BOL, BOL.TIP_DES_BOL,
+               BOL.PRE_FIN_BOL, BOL.MET_PAG_BOL, BOL.COM_PAG_URL, BOL.EST_BOL,
+               BOL.COD_QR_BOL, BOL.FEC_COM_BOL, BOL.FEC_USO_BOL,
+               BOL.ID_HOJ_PER, BOL.ID_ASI_PER, BOL.ID_USU_FIN, BOL.ID_USU_OFI, BOL.ID_USU_CON,
+               ${esquema.TIENE_BANCO ? 'BOL.BAN_ORI_BOL,' : ''}
+               ${esquema.TIENE_TEMP ? `
+                   BOL.FEC_EXP_RES_UTC, BOL.EST_REV_PAG, BOL.FEC_REV_PAG_UTC,
+                   CASE
+                       WHEN BOL.FEC_EXP_RES_UTC IS NOT NULL AND BOL.FEC_EXP_RES_UTC > SYSUTCDATETIME()
+                       THEN DATEDIFF(SECOND, SYSUTCDATETIME(), BOL.FEC_EXP_RES_UTC)
+                       ELSE 0
+                   END AS SEGUNDOS_RESTANTES,
+               ` : ''}
+               H.FEC_PRO_HOJ, H.EST_VIA_HOJ, H.OBS_HOJ,
+               BUS.ID_BUS, BUS.NUM_BUS, BUS.PLA_BUS, BUS.NUM_PIS,
+               F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
+               ${esquema.TIENE_TARIFA_FRE ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : ''}
+               F.ID_COP_PER, C.NOM_COP,
+               ASI.PIS_ASI,
+               (SELECT COUNT(*)
+                  FROM dbo.ASIENTOS_BUS ASI2
+                 WHERE ASI2.ID_BUS_PER = ASI.ID_BUS_PER
+                   AND ASI2.PIS_ASI = ASI.PIS_ASI
+                   AND TRY_CAST(ASI2.ID_ASI AS INT) <= TRY_CAST(ASI.ID_ASI AS INT)) AS NUMERO_ASIENTO,
+               T.NOM_TIP,
+               PASAJERO.NOM_USU, PASAJERO.APE_USU, PASAJERO.COR_USU, PASAJERO.TEL_USU,
+               OFICINISTA.NOM_USU AS NOM_OFICINISTA, OFICINISTA.APE_USU AS APE_OFICINISTA,
+               CONTROL.NOM_USU AS NOM_CONTROLADOR, CONTROL.APE_USU AS APE_CONTROLADOR
+        FROM dbo.BOLETOS BOL
+        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = BOL.ID_HOJ_PER
+        INNER JOIN dbo.BUSES BUS ON BUS.ID_BUS = H.ID_BUS_PER
+        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
+        INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
+        INNER JOIN dbo.ASIENTOS_BUS ASI ON ASI.ID_ASI = BOL.ID_ASI_PER
+        INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = ASI.ID_TIP_PER
+        LEFT JOIN dbo.USUARIOS PASAJERO ON PASAJERO.ID_USU = BOL.ID_USU_FIN
+        LEFT JOIN dbo.USUARIOS OFICINISTA ON OFICINISTA.ID_USU = BOL.ID_USU_OFI
+        LEFT JOIN dbo.USUARIOS CONTROL ON CONTROL.ID_USU = BOL.ID_USU_CON
+    `;
+}
 
 function formatearBoleto(fila) {
     const piso = Number(fila.PIS_ASI) || 1;
     const numero = Number(fila.NUMERO_ASIENTO) || 0;
+    const horaSalida = fila.HORA_SAL_FRE ? String(fila.HORA_SAL_FRE).slice(0, 5) : '08:00';
+    const tarifaBase = Number(fila.TAR_BAS_FRE) > 0 ? Number(fila.TAR_BAS_FRE) : 5.00;
 
     return {
         ID_BOL: fila.ID_BOL,
@@ -151,13 +194,21 @@ function formatearBoleto(fila) {
         TIP_DES_BOL: fila.TIP_DES_BOL,
         PRE_FIN_BOL: Number(fila.PRE_FIN_BOL) || 0,
         MET_PAG_BOL: fila.MET_PAG_BOL,
+        COM_PAG_URL: fila.COM_PAG_URL || null,
+        BAN_ORI_BOL: fila.BAN_ORI_BOL || null,
         EST_BOL: fila.EST_BOL,
+        EST_REV_PAG: fila.EST_REV_PAG || null,
+        FEC_EXP_RES_UTC: fila.FEC_EXP_RES_UTC || null,
+        FEC_REV_PAG_UTC: fila.FEC_REV_PAG_UTC || null,
+        SEGUNDOS_RESTANTES: Number(fila.SEGUNDOS_RESTANTES) || 0,
         COD_QR_BOL: fila.COD_QR_BOL,
         FEC_COM_BOL: fila.FEC_COM_BOL,
         FEC_USO_BOL: fila.FEC_USO_BOL,
         ID_HOJ_PER: fila.ID_HOJ_PER,
         ID_ASI_PER: fila.ID_ASI_PER,
         ETIQUETA_ASIENTO: `${piso}${String(numero).padStart(2, '0')}`,
+        HORA_SAL_FRE: horaSalida,
+        TAR_BAS_FRE: tarifaBase,
         ID_USU_FIN: fila.ID_USU_FIN,
         PASAJERO: fila.NOM_USU ? `${fila.NOM_USU} ${fila.APE_USU}`.trim() : null,
         CEDULA_PASAJERO: fila.COR_USU || null,
@@ -179,7 +230,9 @@ function formatearBoleto(fila) {
                 ID_FRE: fila.ID_FRE,
                 CIU_ORI_FRE: fila.CIU_ORI_FRE,
                 CIU_DES_FRE: fila.CIU_DES_FRE,
-                FEC_HOR_INI_FRE: fila.FEC_HOR_INI_FRE
+                FEC_HOR_INI_FRE: fila.FEC_HOR_INI_FRE,
+                HORA_SAL_FRE: horaSalida,
+                TAR_BAS_FRE: tarifaBase
             },
             COOPERATIVA: {
                 ID_COP: fila.ID_COP_PER,
@@ -198,11 +251,12 @@ function formatearBoleto(fila) {
 }
 
 async function consultarBoletoPorId(pool, idBoleto, cooperativa = null) {
+    const esquema = await columnasExtendidasOficinista(pool);
     const resultado = await pool.request()
         .input('id', sql.VarChar(5), idBoleto)
         .input('cooperativa', sql.VarChar(5), cooperativa || null)
         .query(`
-            ${SELECT_BOLETO}
+            ${construirSelectBoleto(esquema)}
             WHERE BOL.ID_BOL = @id
               AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
         `);
@@ -243,6 +297,9 @@ async function listarHojasParaVentanilla(req, res) {
 
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
+        const esquema = await columnasExtendidasOficinista(pool);
+
         const resultado = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa || null)
             .input('fecha', sql.Date, fechaFiltro)
@@ -250,6 +307,7 @@ async function listarHojasParaVentanilla(req, res) {
                 SELECT H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ,
                        B.ID_BUS, B.NUM_BUS, B.PLA_BUS, B.NUM_PIS,
                        F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
+                       ${esquema.TIENE_TARIFA_FRE ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : ''}
                        C.ID_COP, C.NOM_COP,
                        (SELECT COUNT(*) FROM dbo.ASIENTOS_BUS A WHERE A.ID_BUS_PER = B.ID_BUS) AS TOTAL_ASIENTOS,
                        (SELECT COUNT(*) FROM dbo.BOLETOS BO
@@ -275,8 +333,12 @@ async function listarHojasParaVentanilla(req, res) {
             const total = Number(hoja.TOTAL_ASIENTOS) || 0;
             const ocupados = Number(hoja.ASIENTOS_OCUPADOS) || 0;
             const disponibles = total - ocupados;
+            const tarifaBase = Number(hoja.TAR_BAS_FRE) > 0 ? Number(hoja.TAR_BAS_FRE) : 5.00;
+            const horaSalida = hoja.HORA_SAL_FRE ? String(hoja.HORA_SAL_FRE).slice(0, 5) : '08:00';
             return {
                 ...hoja,
+                HORA_SAL_FRE: horaSalida,
+                TAR_BAS_FRE: tarifaBase,
                 ASIENTOS_OCUPADOS: ocupados,
                 TOTAL_ASIENTOS: total,
                 ASIENTOS_DISPONIBLES: disponibles > 0 ? disponibles : 0
@@ -302,12 +364,17 @@ async function obtenerMapaAsientosHoja(req, res) {
 
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool, idHoja);
+        const esquema = await columnasExtendidasOficinista(pool);
+
         const hoja = await pool.request()
             .input('hoja', sql.VarChar(5), idHoja)
             .query(`
                 SELECT H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ,
                        B.ID_BUS, B.NUM_BUS, B.PLA_BUS, B.NUM_PIS,
+                       ${esquema.TIENE_PLANTILLA_BUS ? 'B.MOD_PLA_BUS, B.PLANTILLA_JSON,' : ''}
                        F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE,
+                       ${esquema.TIENE_TARIFA_FRE ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : ''}
                        C.ID_COP, C.NOM_COP
                 FROM dbo.HOJAS_RUTAS H
                 INNER JOIN dbo.BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
@@ -320,16 +387,21 @@ async function obtenerMapaAsientosHoja(req, res) {
             return res.status(404).json({ success: false, message: 'Hoja de ruta no encontrada.' });
         }
 
+        const datosHoja = hoja.recordset[0];
+        const tarifaBase = Number(datosHoja.TAR_BAS_FRE) > 0 ? Number(datosHoja.TAR_BAS_FRE) : 0;
+        const horaSalida = datosHoja.HORA_SAL_FRE ? String(datosHoja.HORA_SAL_FRE).slice(0, 5) : '08:00';
+
         const resultado = await pool.request()
             .input('hoja', sql.VarChar(5), idHoja)
             .query(`
                 SELECT A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER,
+                       ${esquema.TIENE_ASI_ESPACIAL ? 'A.FIL_ASI, A.COL_ASI, A.UBI_ASI,' : ''}
                        T.NOM_TIP, T.PRE_TIP,
                        BOL.ID_BOL, BOL.EST_BOL, BOL.COD_QR_BOL,
                        USU.NOM_USU, USU.APE_USU, USU.COR_USU, USU.TEL_USU
                 FROM dbo.ASIENTOS_BUS A
                 INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
-                 INNER JOIN dbo.HOJAS_RUTAS H ON ${cc.effectiveBus()} = A.ID_BUS_PER
+                INNER JOIN dbo.HOJAS_RUTAS H ON ${cc.effectiveBus()} = A.ID_BUS_PER
                 LEFT JOIN dbo.BOLETOS BOL ON BOL.ID_ASI_PER = A.ID_ASI
                      AND BOL.ID_HOJ_PER = H.ID_HOJ
                       AND ${cc.enabled() ? cc.activeTicket.replaceAll('EST_BOL', 'BOL.EST_BOL') : "BOL.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')"}
@@ -345,15 +417,25 @@ async function obtenerMapaAsientosHoja(req, res) {
             else contadorPiso1 += 1;
             const numero = asiento.PIS_ASI === 2 ? contadorPiso2 : contadorPiso1;
             const ocupado = Boolean(asiento.ID_BOL);
+            const recargoTipo = Number(asiento.PRE_TIP) || 0;
+            const precioAutomatico = tarifaBase > 0
+                ? tarifaBase + recargoTipo
+                : (recargoTipo > 0 ? recargoTipo : 5.00);
 
             return {
                 ID_ASI: asiento.ID_ASI,
                 PIS_ASI: asiento.PIS_ASI,
                 ETIQUETA: `${asiento.PIS_ASI}${String(numero).padStart(2, '0')}`,
                 NUMERO: numero,
+                FIL_ASI: asiento.FIL_ASI ?? null,
+                COL_ASI: asiento.COL_ASI ?? null,
+                UBI_ASI: asiento.UBI_ASI ?? null,
                 ID_TIP_PER: asiento.ID_TIP_PER,
                 NOM_TIP: asiento.NOM_TIP,
-                PRE_TIP: Number(asiento.PRE_TIP) || 0,
+                RECARGO_TIP: recargoTipo,
+                TARIFA_BASE: tarifaBase > 0 ? tarifaBase : 5.00,
+                PRE_TIP: precioAutomatico,
+                PRECIO_AUTOMATICO: precioAutomatico,
                 ID_BOL: asiento.ID_BOL,
                 EST_BOL: asiento.EST_BOL,
                 COD_QR_BOL: asiento.COD_QR_BOL,
@@ -373,7 +455,12 @@ async function obtenerMapaAsientosHoja(req, res) {
 
         return res.status(200).json({
             success: true,
-            hoja: hoja.recordset[0],
+            hoja: {
+                ...datosHoja,
+                HORA_SAL_FRE: horaSalida,
+                TAR_BAS_FRE: tarifaBase > 0 ? tarifaBase : 5.00
+            },
+            plantilla: normalizarPlantilla(datosHoja.PLANTILLA_JSON),
             pisos,
             asientos,
             resumen: {
@@ -543,14 +630,11 @@ async function crearBoletoVentanilla(req, res) {
         return res.status(400).json({ success: false, message: 'Método de pago inválido (EFECTIVO, TRANSFERENCIA o DEPOSITO).' });
     }
 
-    const precio = Number(PRE_FIN_BOL);
-    if (!Number.isFinite(precio) || precio <= 0) {
-        return res.status(400).json({ success: false, message: 'Precio del boleto inválido.' });
-    }
-
     let transaccion;
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool, idHoja);
+        const esquema = await columnasExtendidasOficinista(pool);
 
         const hoja = await pool.request()
             .input('hoja', sql.VarChar(5), idHoja)
@@ -558,10 +642,11 @@ async function crearBoletoVentanilla(req, res) {
             .query(`
                 SELECT H.ID_HOJ, H.EST_VIA_HOJ, H.ID_BUS_PER,
                        F.CIU_ORI_FRE, F.CIU_DES_FRE,
+                       ${esquema.TIENE_TARIFA_FRE ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : ''}
                        A.ID_ASI, A.PIS_ASI, T.NOM_TIP, T.PRE_TIP
                 FROM dbo.HOJAS_RUTAS H
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                 INNER JOIN dbo.ASIENTOS_BUS A ON A.ID_BUS_PER = ${cc.effectiveBus()}
+                INNER JOIN dbo.ASIENTOS_BUS A ON A.ID_BUS_PER = ${cc.effectiveBus()}
                 INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
                 WHERE H.ID_HOJ = @hoja AND A.ID_ASI = @asiento
             `);
@@ -576,6 +661,22 @@ async function crearBoletoVentanilla(req, res) {
         const datosHoja = hoja.recordset[0];
         if (!ESTADOS_VIAJE.includes(datosHoja.EST_VIA_HOJ)) {
             return res.status(400).json({ success: false, message: 'La hoja de ruta no se encuentra disponible para venta.' });
+        }
+
+        const tarifaBase = Number(datosHoja.TAR_BAS_FRE) > 0 ? Number(datosHoja.TAR_BAS_FRE) : 0;
+        const recargoTipo = Number(datosHoja.PRE_TIP) || 0;
+        const precioBaseCalculado = tarifaBase > 0 ? tarifaBase + recargoTipo : (recargoTipo > 0 ? recargoTipo : 5.00);
+        const tipoDescuentoTexto = texto(TIP_DES_BOL) || datosHoja.NOM_TIP || 'NORMAL';
+        const aplicaMitad = /NINO|MENOR|TERCERA|MAYOR|DISCAPACIDAD|50/i.test(tipoDescuentoTexto);
+        const precioAutomatico = Math.round((aplicaMitad ? precioBaseCalculado * 0.5 : precioBaseCalculado) * 100) / 100;
+
+        const precioEnviado = Number(PRE_FIN_BOL);
+        const precio = Number.isFinite(precioEnviado) && precioEnviado > 0
+            ? Math.round(precioEnviado * 100) / 100
+            : precioAutomatico;
+
+        if (!Number.isFinite(precio) || precio <= 0) {
+            return res.status(400).json({ success: false, message: 'Precio del boleto inválido.' });
         }
 
         let idPasajero = idUsuarioFin || null;
@@ -602,11 +703,11 @@ async function crearBoletoVentanilla(req, res) {
         }
 
         transaccion = new sql.Transaction(pool);
-         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+        await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
-         await cc.lock(transaccion);
-         await cc.sale(transaccion,idHoja);
-         await require('../services/workerSchedule').reserve(transaccion,idPasajero,idHoja);
+        await cc.lock(transaccion);
+        await cc.sale(transaccion, idHoja);
+        await require('../services/workerSchedule').reserve(transaccion, idPasajero, idHoja);
 
         const ocupados = await new sql.Request(transaccion)
             .input('asiento', sql.VarChar(5), idAsiento)
@@ -632,8 +733,8 @@ async function crearBoletoVentanilla(req, res) {
             .input('idBol', sql.VarChar(5), idBoleto)
             .input('ori', sql.VarChar(20), codigo(ORI_TRA_BOL) || datosHoja.CIU_ORI_FRE)
             .input('des', sql.VarChar(20), codigo(DES_TRA_BOL) || datosHoja.CIU_DES_FRE)
-            .input('tip', sql.VarChar(30), texto(TIP_DES_BOL) || datosHoja.NOM_TIP || 'NORMAL')
-            .input('precio', sql.Decimal(18, 0), precio)
+            .input('tip', sql.VarChar(30), tipoDescuentoTexto)
+            .input('precio', sql.Decimal(18, 2), precio)
             .input('metodo', sql.VarChar(15), metodo)
             .input('qr', sql.VarChar(500), codigoQR)
             .input('estado', sql.VarChar(15), 'EMITIDO')
@@ -676,6 +777,144 @@ async function crearBoletoVentanilla(req, res) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*              BANDEJA DE APROBACIÓN DE RESERVAS POR TRANSFERENCIA           */
+/* -------------------------------------------------------------------------- */
+
+async function listarPendientesTransferencia(req, res) {
+    const cooperativa = cooperativaValida(req.scopeCompany);
+    if (cooperativa === '') {
+        return res.status(400).json({ success: false, message: 'Código de cooperativa inválido.' });
+    }
+
+    try {
+        const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
+        const esquema = await columnasExtendidasOficinista(pool);
+
+        const resultado = await pool.request()
+            .input('cooperativa', sql.VarChar(5), cooperativa || null)
+            .query(`
+                ${construirSelectBoleto(esquema)}
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(BOL.MET_PAG_BOL, '')))) = 'TRANSFERENCIA'
+                  AND UPPER(LTRIM(RTRIM(ISNULL(BOL.EST_BOL, '')))) IN ('RESERVADO', 'PENDIENTE')
+                  AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
+                ORDER BY
+                    CASE WHEN BOL.COM_PAG_URL IS NOT NULL AND LTRIM(RTRIM(BOL.COM_PAG_URL)) <> '' THEN 0 ELSE 1 END,
+                    BOL.FEC_COM_BOL DESC,
+                    BOL.ID_BOL DESC
+            `);
+
+        const boletos = resultado.recordset.map(formatearBoleto);
+        return res.status(200).json({
+            success: true,
+            total: boletos.length,
+            boletos
+        });
+    } catch (error) {
+        return manejarError(res, 'listado de transferencias pendientes', error);
+    }
+}
+
+async function revisarTransferenciaBoleto(req, res) {
+    const id = codigo(req.params.id);
+    if (!CODIGO_CORTO_RE.test(id)) {
+        return res.status(400).json({ success: false, message: 'Código de boleto inválido.' });
+    }
+
+    const accionCruda = codigo(req.body?.accion ?? req.body?.ACCION ?? req.body?.EST_BOL ?? req.body?.estado);
+    let nuevoEstado = '';
+    let estadoRevision = '';
+    if (['APROBAR', 'APROBADO', 'PAGADO'].includes(accionCruda)) {
+        nuevoEstado = 'PAGADO';
+        estadoRevision = 'APROBADO';
+    } else if (['RECHAZAR', 'RECHAZADO', 'CANCELADO', 'ANULADO'].includes(accionCruda)) {
+        nuevoEstado = 'CANCELADO';
+        estadoRevision = 'RECHAZADO';
+    } else {
+        return res.status(400).json({
+            success: false,
+            message: 'Indica una acción válida para la transferencia (APROBAR o RECHAZAR).'
+        });
+    }
+
+    const idOficinista = codigo(req.body?.ID_USU_OFI ?? req.auth?.id);
+
+    let transaccion;
+    try {
+        const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
+        const esquema = await columnasExtendidasOficinista(pool);
+
+        transaccion = new sql.Transaction(pool);
+        await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+
+        const actual = await new sql.Request(transaccion)
+            .input('id', sql.VarChar(5), id)
+            .query(`
+                SELECT ID_BOL, EST_BOL, MET_PAG_BOL, COM_PAG_URL
+                FROM dbo.BOLETOS WITH (UPDLOCK, HOLDLOCK)
+                WHERE ID_BOL = @id
+            `);
+
+        if (actual.recordset.length === 0) {
+            await transaccion.rollback();
+            return res.status(404).json({ success: false, message: 'Reserva no encontrada.' });
+        }
+
+        const fila = actual.recordset[0];
+        const estActual = codigo(fila.EST_BOL);
+        if (!['RESERVADO', 'PENDIENTE'].includes(estActual)) {
+            await transaccion.rollback();
+            return res.status(409).json({
+                success: false,
+                message: `La reserva ya fue procesada previamente (estado actual: ${estActual}).`
+            });
+        }
+
+        const reqUpdate = new sql.Request(transaccion)
+            .input('id', sql.VarChar(5), id)
+            .input('estado', sql.VarChar(15), nuevoEstado)
+            .input('oficinista', sql.VarChar(10), idOficinista || null);
+
+        if (esquema.TIENE_TEMP) {
+            reqUpdate.input('estRev', sql.VarChar(25), estadoRevision);
+            await reqUpdate.query(`
+                UPDATE dbo.BOLETOS
+                SET EST_BOL = @estado,
+                    ID_USU_OFI = COALESCE(@oficinista, ID_USU_OFI),
+                    EST_REV_PAG = @estRev,
+                    FEC_REV_PAG_UTC = SYSUTCDATETIME(),
+                    FEC_EXP_RES_UTC = NULL
+                WHERE ID_BOL = @id
+            `);
+        } else {
+            await reqUpdate.query(`
+                UPDATE dbo.BOLETOS
+                SET EST_BOL = @estado,
+                    ID_USU_OFI = COALESCE(@oficinista, ID_USU_OFI)
+                WHERE ID_BOL = @id
+            `);
+        }
+
+        await transaccion.commit();
+        const detalle = await consultarBoletoPorId(pool, id, req.scopeCompany);
+
+        return res.status(200).json({
+            success: true,
+            message: nuevoEstado === 'PAGADO'
+                ? 'Pago por transferencia aprobado correctamente. El boleto está habilitado para viajar.'
+                : 'Transferencia rechazada. La reserva fue cancelada y el asiento quedó libre.',
+            boleto: detalle
+        });
+    } catch (error) {
+        if (transaccion) {
+            try { await transaccion.rollback(); } catch {}
+        }
+        return manejarError(res, 'revisión de transferencia', error);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 /*                          BÚSQUEDA Y VALIDACIÓN                             */
 /* -------------------------------------------------------------------------- */
 
@@ -686,7 +925,7 @@ async function buscarBoletos(req, res) {
     if (!busqueda || busqueda.length > 100) {
         return res.status(400).json({
             success: false,
-            message: 'Ingresa un código QR, código de boleto o cédula para buscar.'
+            message: 'Ingresa un código QR o cédula del pasajero para buscar.'
         });
     }
     if (cooperativa === '') {
@@ -698,12 +937,15 @@ async function buscarBoletos(req, res) {
 
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
+        const esquema = await columnasExtendidasOficinista(pool);
+
         const resultado = await pool.request()
             .input('valor', sql.VarChar(500), valor)
             .input('documento', sql.VarChar(50), documento || valor)
             .input('cooperativa', sql.VarChar(5), cooperativa || null)
             .query(`
-                ${SELECT_BOLETO}
+                ${construirSelectBoleto(esquema)}
                 WHERE (
                         BOL.ID_BOL = @valor
                      OR BOL.COD_QR_BOL = @valor
@@ -737,6 +979,7 @@ async function obtenerBoleto(req, res) {
 
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
         const boleto = await consultarBoletoPorId(pool, id, req.scopeCompany);
         if (!boleto) {
             return res.status(404).json({ success: false, message: 'Boleto no encontrado.' });
@@ -766,6 +1009,9 @@ async function cambiarEstadoBoleto(req, res) {
     let transaccion;
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
+        const esquema = await columnasExtendidasOficinista(pool);
+
         transaccion = new sql.Transaction(pool);
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
@@ -802,18 +1048,38 @@ async function cambiarEstadoBoleto(req, res) {
             });
         }
 
-        await new sql.Request(transaccion)
+        const estRev = nuevoEstado === 'PAGADO'
+            ? 'APROBADO'
+            : (['CANCELADO', 'ANULADO'].includes(nuevoEstado) ? 'RECHAZADO' : null);
+
+        const reqUpdate = new sql.Request(transaccion)
             .input('id', sql.VarChar(5), id)
             .input('estado', sql.VarChar(15), nuevoEstado)
             .input('fechaUso', sql.Date, nuevoEstado === 'USADO' ? hoyISO() : null)
-            .input('usuario', sql.VarChar(10), idControlador || null)
-            .query(`
+            .input('usuario', sql.VarChar(10), idControlador || null);
+
+        if (esquema.TIENE_TEMP && estRev) {
+            reqUpdate.input('estRev', sql.VarChar(25), estRev);
+            await reqUpdate.query(`
+                UPDATE dbo.BOLETOS
+                SET EST_BOL = @estado,
+                    FEC_USO_BOL = CASE WHEN @estado = 'USADO' THEN @fechaUso ELSE FEC_USO_BOL END,
+                    ID_USU_CON = CASE WHEN @estado = 'USADO' THEN @usuario ELSE ID_USU_CON END,
+                    ID_USU_OFI = COALESCE(@usuario, ID_USU_OFI),
+                    EST_REV_PAG = @estRev,
+                    FEC_REV_PAG_UTC = SYSUTCDATETIME(),
+                    FEC_EXP_RES_UTC = NULL
+                WHERE ID_BOL = @id
+            `);
+        } else {
+            await reqUpdate.query(`
                 UPDATE dbo.BOLETOS
                 SET EST_BOL = @estado,
                     FEC_USO_BOL = CASE WHEN @estado = 'USADO' THEN @fechaUso ELSE FEC_USO_BOL END,
                     ID_USU_CON = CASE WHEN @estado = 'USADO' THEN @usuario ELSE ID_USU_CON END
                 WHERE ID_BOL = @id
             `);
+        }
 
         await transaccion.commit();
         const detalle = await consultarBoletoPorId(pool, id);
@@ -849,6 +1115,8 @@ async function validarBoleto(req, res) {
     let transaccion;
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
+
         transaccion = new sql.Transaction(pool);
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
@@ -857,7 +1125,7 @@ async function validarBoleto(req, res) {
             .input('documento', sql.VarChar(50), documento || valor)
             .input('cooperativa', sql.VarChar(5), cooperativa || null)
             .query(`
-                SELECT TOP (5) BOL.ID_BOL, BOL.EST_BOL, BOL.COD_QR_BOL
+                SELECT TOP (5) BOL.ID_BOL, BOL.EST_BOL, BOL.MET_PAG_BOL, BOL.COD_QR_BOL
                 FROM dbo.BOLETOS BOL WITH (UPDLOCK, HOLDLOCK)
                 INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = BOL.ID_HOJ_PER
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
@@ -888,7 +1156,7 @@ async function validarBoleto(req, res) {
             await transaccion.rollback();
             return res.status(409).json({
                 success: false,
-                message: 'La cédula tiene varios boletos vigentes. Escanea el código QR o indica el código del boleto.',
+                message: 'La cédula tiene varios boletos vigentes. Escanea el código QR del boleto que deseas validar.',
                 codigo: 'MULTIPLES_BOLETOS',
                 boletos: utilizables.map((boleto) => ({
                     ID_BOL: boleto.ID_BOL,
@@ -915,8 +1183,23 @@ async function validarBoleto(req, res) {
             await transaccion.rollback();
             return res.status(409).json({
                 success: false,
-                message: 'El boleto se encuentra anulado o cancelado.',
+                message: 'El boleto se encuentra vencido, anulado o cancelado.',
                 codigo: 'BOLETO_INACTIVO'
+            });
+        }
+
+        // Separar aprobación de pago por transferencia del control de abordaje
+        if (
+            codigo(objetivo.MET_PAG_BOL) === 'TRANSFERENCIA'
+            && ['PENDIENTE', 'RESERVADO'].includes(codigo(objetivo.EST_BOL))
+        ) {
+            await transaccion.commit();
+            const detallePendiente = await consultarBoletoPorId(pool, objetivo.ID_BOL);
+            return res.status(409).json({
+                success: false,
+                codigo: 'TRANSFERENCIA_PENDIENTE_APROBACION',
+                message: 'Esta reserva por transferencia está pendiente de aprobación de pago. Revisa el comprobante y aprueba el pago antes de registrar el abordaje.',
+                boleto: detallePendiente
             });
         }
 
@@ -962,6 +1245,8 @@ async function resumenOficinista(req, res) {
 
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool);
+
         const resultado = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa || null)
             .input('fecha', sql.Date, fechaFiltro)
@@ -990,7 +1275,7 @@ async function resumenOficinista(req, res) {
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL IN ('ANULADO','CANCELADO')
+                       WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL IN ('ANULADO','CANCELADO','VENCIDO')
                          AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS ANULADOS_HOY,
                     (SELECT ISNULL(SUM(B.PRE_FIN_BOL), 0) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
@@ -1017,7 +1302,7 @@ async function resumenOficinista(req, res) {
                 VALIDADOS_HOY: Number(resumen.VALIDADOS_HOY) || 0,
                 ANULADOS_HOY: Number(resumen.ANULADOS_HOY) || 0,
                 INGRESOS_HOY: ingresos,
-                PROMEDIO_BOLETO: vendidos > 0 ? Math.round(ingresos / vendidos) : 0,
+                PROMEDIO_BOLETO: vendidos > 0 ? Math.round((ingresos / vendidos) * 100) / 100 : 0,
                 HOJAS_HOY: Number(resumen.HOJAS_HOY) || 0
             }
         });
@@ -1032,6 +1317,8 @@ module.exports = {
     registrarPasajero,
     buscarPasajeros,
     crearBoletoVentanilla,
+    listarPendientesTransferencia,
+    revisarTransferenciaBoleto,
     buscarBoletos,
     obtenerBoleto,
     cambiarEstadoBoleto,
