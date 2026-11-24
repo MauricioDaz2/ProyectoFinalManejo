@@ -2,6 +2,19 @@ const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
 
 const texto = (valor) => (typeof valor === 'string' ? valor.trim() : '');
+// RFC-000087: columnas opcionales según las migraciones aplicadas (010 y 015).
+async function columnasViaje(pool) {
+    try {
+        const { recordset: [row] } = await pool.request().query(`
+            SELECT CASE WHEN COL_LENGTH('dbo.FRECUENCIAS','HORA_SAL_FRE') IS NOT NULL THEN 1 ELSE 0 END AS HORA_TARIFA,
+                   CASE WHEN COL_LENGTH('dbo.HOJAS_RUTAS','SALIDA_PLAN_UTC') IS NOT NULL THEN 1 ELSE 0 END AS SALIDA_PLAN
+        `);
+        return { horaTarifa: Boolean(row?.HORA_TARIFA), salidaPlan: Boolean(row?.SALIDA_PLAN) };
+    } catch {
+        return { horaTarifa: false, salidaPlan: false };
+    }
+}
+
 const fechaISO = (valor) => {
     const normalizada = texto(valor);
     return cc.date(normalizada);
@@ -64,6 +77,7 @@ const buscarViajes = async (req, res) => {
 
     try {
         const pool = await conectarBD();
+        const columnas = await columnasViaje(pool);
         const resultado = await pool.request()
             .input('origen', sql.VarChar(15), origen)
             .input('destino', sql.VarChar(15), destino)
@@ -78,6 +92,9 @@ const buscarViajes = async (req, res) => {
                        F.CIU_DES_FRE,
                        F.FEC_HOR_INI_FRE,
                        F.FEC_HOR_FIN_FRE,
+                       ${columnas.horaTarifa ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : 'NULL AS HORA_SAL_FRE, NULL AS TAR_BAS_FRE,'}
+                       ${columnas.salidaPlan ? 'H.SALIDA_PLAN_UTC,' : 'NULL AS SALIDA_PLAN_UTC,'}
+                       B.IMG_URL_BUS,
                        B.ID_BUS,
                        B.NUM_BUS,
                        B.PLA_BUS,
@@ -99,7 +116,7 @@ const buscarViajes = async (req, res) => {
                   AND ISNULL(F.EST_RES, '1') <> '0'
                   AND F.FEC_HOR_INI_FRE <= H.FEC_PRO_HOJ
                   AND (F.FEC_HOR_FIN_FRE IS NULL OR F.FEC_HOR_FIN_FRE >= H.FEC_PRO_HOJ)
-                ORDER BY F.FEC_HOR_INI_FRE, H.ID_HOJ
+                ORDER BY ${columnas.salidaPlan ? 'H.SALIDA_PLAN_UTC,' : ''} ${columnas.horaTarifa ? 'F.HORA_SAL_FRE,' : ''} F.FEC_HOR_INI_FRE, H.ID_HOJ
             `);
 
         return res.status(200).json({
