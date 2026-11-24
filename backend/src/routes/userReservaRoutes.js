@@ -6,7 +6,8 @@ const {
     obtenerAsientos, 
     reservarAsiento, 
     obtenerMisBoletos, 
-    cancelarReservaUsuario 
+    cancelarReservaUsuario,
+    descargarBoletoPdf
 } = require('../controllers/userReservaController');
 
 const router = express.Router();
@@ -27,8 +28,9 @@ const upload = multer({
     }
 });
 
-// Nuevas rutas para el historial y cancelación de boletos
+// Nuevas rutas para el historial, descarga PDF y cancelación de boletos
 router.get('/mis-boletos/:cedula', obtenerMisBoletos);
+router.get('/:idBoleto/pdf', descargarBoletoPdf);
 router.put('/:idBoleto/cancelar', cancelarReservaUsuario);
 
 // Rutas de asientos y reservas
