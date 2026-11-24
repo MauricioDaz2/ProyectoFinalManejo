@@ -29,6 +29,8 @@
   const inicioFrecuencia = document.getElementById('inicioFrecuencia');
   const finFrecuencia = document.getElementById('finFrecuencia');
   const estadoFrecuencia = document.getElementById('estadoFrecuencia');
+  const horaFrecuencia = document.getElementById('horaFrecuencia');
+  const tarifaBaseFrecuencia = document.getElementById('tarifaBaseFrecuencia');
   const btnGuardarFrecuencia = document.getElementById('btnGuardarFrecuencia');
   const categoriaFrecuencia = document.getElementById('categoriaFrecuencia');
   const campoCategoriaFrecuencia = document.getElementById('campoCategoriaFrecuencia') || categoriaFrecuencia.closest('.field');
@@ -351,7 +353,7 @@
     const previa = filtroFrecuenciaHoja.value;
     filtroFrecuenciaHoja.replaceChildren(
       new Option('Todas las frecuencias', ''),
-      ...frecuencias.map((f) => new Option(`${f.ID_FRE} · ${f.CIU_ORI_FRE} → ${f.CIU_DES_FRE}`, f.ID_FRE))
+      ...frecuencias.map((f) => new Option(`${f.CIU_ORI_FRE} → ${f.CIU_DES_FRE}${f.HORA_SAL_FRE ? ` · ${String(f.HORA_SAL_FRE).slice(0, 5)}` : ""}`, f.ID_FRE))
     );
     filtroFrecuenciaHoja.value = frecuencias.some((f) => f.ID_FRE === previa) ? previa : '';
   }
@@ -395,7 +397,7 @@
 
       return `
         <tr data-id="${App.escapar(f.ID_FRE)}">
-          <td class="mono strong">${App.escapar(f.ID_FRE)}</td>
+          <td class="nowrap"><strong>${App.escapar(String(f.HORA_SAL_FRE || "08:00").slice(0, 5))}</strong><span class="muted block-sub">$${Number(f.TAR_BAS_FRE ?? 5).toFixed(2)} base</span></td>
           <td>
             <div class="cell-route">
               <span>${App.escapar(f.CIU_ORI_FRE)}</span>
@@ -469,11 +471,11 @@
 
       return `
         <tr data-hoja="${App.escapar(h.ID_HOJ)}">
-          <td class="mono strong">${App.escapar(h.ID_HOJ)}</td>
+
           <td>
             <div class="cell-main">
               <strong>${App.escapar(h.CIU_ORI_FRE)} → ${App.escapar(h.CIU_DES_FRE)}</strong>
-              <span class="mono">${App.escapar(h.ID_FRE_PER)}${h.OBS_HOJ ? ` · ${App.escapar(h.OBS_HOJ)}` : ''}</span>
+              ${h.OBS_HOJ ? `<span class="muted">${App.escapar(h.OBS_HOJ)}</span>` : ''}
             </div>
           </td>
           <td class="nowrap">${formatearHorarioHoja(h)}</td>
@@ -576,6 +578,8 @@
     inicioFrecuencia.value = App.hoyISO();
     finFrecuencia.value = '';
     estadoFrecuencia.value = '1';
+    if (horaFrecuencia) horaFrecuencia.value = '08:00';
+    if (tarifaBaseFrecuencia) tarifaBaseFrecuencia.value = '5.00';
     numeroResolucionFrecuencia.value = '';
     actualizarSelectCategorias('');
     App.abrirModal('modalFrecuencia');
@@ -592,6 +596,8 @@
     inicioFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_INI_FRE);
     finFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_FIN_FRE);
     estadoFrecuencia.value = frecuencia.EST_RES || '1';
+    if (horaFrecuencia) horaFrecuencia.value = String(frecuencia.HORA_SAL_FRE || '08:00').slice(0, 5);
+    if (tarifaBaseFrecuencia) tarifaBaseFrecuencia.value = Number(frecuencia.TAR_BAS_FRE ?? 5).toFixed(2);
     actualizarSelectCategorias(frecuencia.ID_CAT_OP || '');
     App.abrirModal('modalFrecuencia');
     await prepararSelectorUbicaciones(frecuencia);
@@ -626,7 +632,9 @@
       FEC_HOR_INI_FRE: inicioFrecuencia.value,
       FEC_HOR_FIN_FRE: finFrecuencia.value || null,
       EST_RES: estadoFrecuencia.value,
-      NUM_RES_FRE: numRes
+      NUM_RES_FRE: numRes,
+      HORA_SAL_FRE: horaFrecuencia?.value || '08:00',
+      TAR_BAS_FRE: Number(tarifaBaseFrecuencia?.value || 5)
     };
 
     App.textoBoton(btnGuardarFrecuencia, 'Guardando…');

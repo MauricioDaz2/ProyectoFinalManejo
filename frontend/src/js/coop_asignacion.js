@@ -231,9 +231,11 @@
 
     const inicio = $('batchStart').value;
     const fin = $('batchEnd').value;
+    const rutaElem = $('batchFrequency');
+    const rutaTexto = rutaElem.options?.[rutaElem.selectedIndex]?.textContent || 'seleccionada';
     const confirmado = await App.confirmar({
       titulo: 'Confirmar lote',
-      mensaje: `Se crearán ${filas.length} hoja${filas.length === 1 ? '' : 's'} para la frecuencia ${$('batchFrequency').value}, de ${inicio.replace('T', ' ')} a ${fin.replace('T', ' ')}.`,
+      mensaje: `Se crearán ${filas.length} hoja${filas.length === 1 ? '' : 's'} para la ruta ${rutaTexto}, de ${inicio.replace('T', ' ')} a ${fin.replace('T', ' ')}.`,
       aceptar: 'Confirmar lote'
     });
     if (!confirmado) return;
@@ -323,7 +325,7 @@
         salida: isoEcuador($('assignmentStart').value), llegada: isoEcuador($('assignmentEnd').value)
       };
       const data = await request('/coop/hojas-ruta', body);
-      estadoMensaje(data.message + ' Código: ' + data.idHoja, 'success');
+      estadoMensaje((data.message || 'Salida programada correctamente.') + (data.idHoja ? ' Código: ' + data.idHoja : ''), 'success');
       $('assignmentForm').reset();
       notificarHojasActualizadas();
     } catch (e) {
