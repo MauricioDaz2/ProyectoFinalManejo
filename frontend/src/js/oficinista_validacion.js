@@ -182,16 +182,48 @@
 
   /* -------------------------------- Búsqueda -------------------------------- */
 
+  async function descargarPdfBoleto(id, boton = null) {
+    const codigo = String(id || '').trim().toUpperCase();
+    if (!codigo) return;
+    if (boton) App.textoBoton(boton, 'PDF…');
+    try {
+      const respuesta = await fetch(`${App.API_URL}/oficinista/boletos/${encodeURIComponent(codigo)}/pdf`, {
+        method: 'GET',
+        headers: { Accept: 'application/pdf' }
+      });
+      if (!respuesta.ok) {
+        const err = await respuesta.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo descargar el PDF del boleto.');
+      }
+      const blob = await respuesta.blob();
+      const objetoUrl = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = objetoUrl;
+      enlace.download = `boleto-${codigo}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objetoUrl), 1500);
+      App.aviso(`Boleto ${codigo} descargado en PDF.`, 'success');
+    } catch (error) {
+      App.aviso(error.message, 'error');
+    } finally {
+      if (boton) App.restaurarBoton(boton);
+    }
+  }
+
   function accionesBoleto(boleto) {
     const estado = String(boleto.EST_BOL || '');
+    const botonPdf = `<button class="btn btn-secondary btn-sm" type="button" data-descargar-pdf="${App.escapar(boleto.ID_BOL)}">PDF</button>`;
     if (['RESERVADO', 'EMITIDO', 'PAGADO'].includes(estado)) {
       const validar = `<button class="btn btn-success btn-sm" type="button" data-validar-codigo="${App.escapar(boleto.COD_QR_BOL || boleto.ID_BOL)}">Validar</button>`;
       const pagar = estado !== 'PAGADO'
         ? `<button class="btn btn-secondary btn-sm" type="button" data-pagar="${App.escapar(boleto.ID_BOL)}">Marcar pagado</button>`
         : '';
       const anular = `<button class="btn btn-danger-soft btn-sm" type="button" data-anular="${App.escapar(boleto.ID_BOL)}">Anular</button>`;
-      return `${validar}${pagar}${anular}`;
+      return `${validar}${pagar}${botonPdf}${anular}`;
     }
+    if (estado === 'USADO') return botonPdf;
     return '<span class="muted">Sin acciones</span>';
   }
 
@@ -390,6 +422,11 @@
     const anular = evento.target.closest('[data-anular]');
     if (anular) {
       cambiarEstado(anular.dataset.anular, 'ANULADO');
+      return;
+    }
+    const pdf = evento.target.closest('[data-descargar-pdf]');
+    if (pdf) {
+      descargarPdfBoleto(pdf.dataset.descargarPdf, pdf);
     }
   });
 
