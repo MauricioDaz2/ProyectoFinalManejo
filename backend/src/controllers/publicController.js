@@ -34,13 +34,13 @@ async function salidas(req, res) {
             FROM HOJAS_RUTAS H
             INNER JOIN FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
             INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
-            INNER JOIN RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-            INNER JOIN COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
+            INNER JOIN COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
             WHERE H.FEC_PRO_HOJ >= @hoy AND C.EST_COP = '1'
                 AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
                 AND B.ID_COP_PER = C.ID_COP
                 AND ISNULL(F.EST_RES, '1') <> '0'
-                ${cc.enabled() ? `AND ${cc.allowedSheet}` : ''}
+                AND F.FEC_HOR_INI_FRE <= H.FEC_PRO_HOJ
+                AND (F.FEC_HOR_FIN_FRE IS NULL OR F.FEC_HOR_FIN_FRE >= H.FEC_PRO_HOJ)
                 AND UPPER(LTRIM(RTRIM(B.EST_BUS))) NOT IN ('INACTIVO', 'MANTENIMIENTO', 'TALLER')
                 AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADA', 'PROGRAMADO')
             ORDER BY H.FEC_PRO_HOJ, H.ID_HOJ

@@ -117,7 +117,7 @@ const SELECT_BOLETO = `
            H.FEC_PRO_HOJ, H.EST_VIA_HOJ, H.OBS_HOJ,
            BUS.ID_BUS, BUS.NUM_BUS, BUS.PLA_BUS, BUS.NUM_PIS,
            F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
-           R.ID_COP_PER, C.NOM_COP,
+           F.ID_COP_PER, C.NOM_COP,
            ASI.PIS_ASI,
            (SELECT COUNT(*)
               FROM dbo.ASIENTOS_BUS ASI2
@@ -132,8 +132,7 @@ const SELECT_BOLETO = `
     INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = BOL.ID_HOJ_PER
     INNER JOIN dbo.BUSES BUS ON BUS.ID_BUS = H.ID_BUS_PER
     INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-    INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-    INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
+    INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
     INNER JOIN dbo.ASIENTOS_BUS ASI ON ASI.ID_ASI = BOL.ID_ASI_PER
     INNER JOIN dbo.TIPOS_ASIENTOS T ON T.ID_TIP = ASI.ID_TIP_PER
     LEFT JOIN dbo.USUARIOS PASAJERO ON PASAJERO.ID_USU = BOL.ID_USU_FIN
@@ -205,7 +204,7 @@ async function consultarBoletoPorId(pool, idBoleto, cooperativa = null) {
         .query(`
             ${SELECT_BOLETO}
             WHERE BOL.ID_BOL = @id
-              AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)
+              AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
         `);
 
     return resultado.recordset[0] ? formatearBoleto(resultado.recordset[0]) : null;
@@ -255,28 +254,27 @@ async function listarHojasParaVentanilla(req, res) {
                        (SELECT COUNT(*) FROM dbo.ASIENTOS_BUS A WHERE A.ID_BUS_PER = B.ID_BUS) AS TOTAL_ASIENTOS,
                        (SELECT COUNT(*) FROM dbo.BOLETOS BO
                          WHERE BO.ID_HOJ_PER = H.ID_HOJ
-                            AND ${cc.enabled() ? cc.activeTicket : "BO.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO')"})
+                            AND BO.EST_BOL IN ('PENDIENTE','RESERVADO','EMITIDO','PAGADO','USADO'))
                           AS ASIENTOS_OCUPADOS
-                        ${cc.enabled() ? ',CU.MAX_PASAJEROS,CU.PASAJEROS_USADOS' : ''}
                  FROM dbo.HOJAS_RUTAS H
                  INNER JOIN dbo.BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
-                INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                 INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
-                 ${cc.enabled() ? 'OUTER APPLY dbo.fn_CC_CupoDia(H.ID_FRE_PER,H.FEC_PRO_HOJ) CU' : ''}
+                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
+                 INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
                  WHERE H.FEC_PRO_HOJ = @fecha
                   AND UPPER(H.EST_VIA_HOJ) IN ('PROGRAMADA','PROGRAMADO','EN CURSO')
-                   AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
-                   ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet} AND C.EST_COP='1'
-                     AND B.ID_COP_PER=C.ID_COP AND UPPER(LTRIM(RTRIM(B.EST_BUS))) IN ('ACTIVO','1','OPERANDO')` : ''}
+                  AND (@cooperativa IS NULL OR C.ID_COP = @cooperativa)
+                  AND C.EST_COP = '1'
+                  AND B.ID_COP_PER = C.ID_COP
+                  AND ISNULL(F.EST_RES, '1') <> '0'
+                  AND F.FEC_HOR_INI_FRE <= H.FEC_PRO_HOJ
+                  AND (F.FEC_HOR_FIN_FRE IS NULL OR F.FEC_HOR_FIN_FRE >= H.FEC_PRO_HOJ)
                 ORDER BY C.NOM_COP, F.CIU_ORI_FRE, F.CIU_DES_FRE
             `);
 
         const hojas = resultado.recordset.map((hoja) => {
             const total = Number(hoja.TOTAL_ASIENTOS) || 0;
             const ocupados = Number(hoja.ASIENTOS_OCUPADOS) || 0;
-             const cupo = hoja.MAX_PASAJEROS == null ? Infinity : Number(hoja.MAX_PASAJEROS) - Number(hoja.PASAJEROS_USADOS);
-             const disponibles = Math.min(total - ocupados, cupo);
+            const disponibles = total - ocupados;
             return {
                 ...hoja,
                 ASIENTOS_OCUPADOS: ocupados,
@@ -312,13 +310,10 @@ async function obtenerMapaAsientosHoja(req, res) {
                        F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE,
                        C.ID_COP, C.NOM_COP
                 FROM dbo.HOJAS_RUTAS H
-                 INNER JOIN dbo.BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
+                INNER JOIN dbo.BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
-                 WHERE H.ID_HOJ = @hoja
-                 ${cc.enabled() ? `AND H.FEC_PRO_HOJ>=${cc.today} AND ${cc.allowedSheet}
-                     AND UPPER(LTRIM(RTRIM(H.EST_VIA_HOJ))) IN ('PROGRAMADO','PROGRAMADA','EN CURSO')` : ''}
+                INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
+                WHERE H.ID_HOJ = @hoja
             `);
 
         if (hoja.recordset.length === 0) {
@@ -715,7 +710,7 @@ async function buscarBoletos(req, res) {
                      OR PASAJERO.COR_USU = @documento
                      OR PASAJERO.ID_USU = @documento
                 )
-                  AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)
+                  AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
                 ORDER BY
                     CASE WHEN BOL.COD_QR_BOL = @valor OR BOL.ID_BOL = @valor THEN 0 ELSE 1 END,
                     BOL.FEC_COM_BOL DESC, BOL.ID_BOL DESC
@@ -866,7 +861,6 @@ async function validarBoleto(req, res) {
                 FROM dbo.BOLETOS BOL WITH (UPDLOCK, HOLDLOCK)
                 INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = BOL.ID_HOJ_PER
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                 LEFT JOIN dbo.USUARIOS PASAJERO ON PASAJERO.ID_USU = BOL.ID_USU_FIN
                 WHERE (
                         BOL.ID_BOL = @valor
@@ -874,7 +868,7 @@ async function validarBoleto(req, res) {
                      OR PASAJERO.COR_USU = @documento
                      OR PASAJERO.ID_USU = @documento
                 )
-                  AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)
+                  AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
                 ORDER BY BOL.FEC_COM_BOL DESC, BOL.ID_BOL DESC
             `);
 
@@ -976,44 +970,37 @@ async function resumenOficinista(req, res) {
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                        WHERE B.FEC_COM_BOL = @fecha
-                         AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS BOLETOS_HOY,
+                         AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS BOLETOS_HOY,
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                        WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL IN ('EMITIDO','PAGADO','USADO')
-                         AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS VENDIDOS_HOY,
+                         AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS VENDIDOS_HOY,
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                        WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL IN ('PENDIENTE', 'RESERVADO')
-                         AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS RESERVADOS_HOY,
+                         AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS RESERVADOS_HOY,
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                        WHERE B.FEC_USO_BOL = @fecha AND B.EST_BOL = 'USADO'
-                         AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS VALIDADOS_HOY,
+                         AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS VALIDADOS_HOY,
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                        WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL IN ('ANULADO','CANCELADO')
-                         AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS ANULADOS_HOY,
+                         AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS ANULADOS_HOY,
                     (SELECT ISNULL(SUM(B.PRE_FIN_BOL), 0) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                        WHERE B.FEC_COM_BOL = @fecha AND B.EST_BOL IN ('EMITIDO','PAGADO','USADO')
-                         AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS INGRESOS_HOY,
+                         AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS INGRESOS_HOY,
                     (SELECT COUNT(*) FROM dbo.HOJAS_RUTAS H
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                       WHERE H.FEC_PRO_HOJ = @fecha AND H.EST_VIA_HOJ IN ('PROGRAMADA','EN CURSO')
-                         AND (@cooperativa IS NULL OR R.ID_COP_PER = @cooperativa)) AS HOJAS_HOY
+                       WHERE H.FEC_PRO_HOJ = @fecha AND H.EST_VIA_HOJ IN ('PROGRAMADA','PROGRAMADO','EN CURSO')
+                         AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)) AS HOJAS_HOY
             `);
 
         const resumen = resultado.recordset[0];

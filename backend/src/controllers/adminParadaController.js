@@ -60,8 +60,8 @@ const asignarBusReemplazo = async (req, res) => {
     try {
         const idBusOriginal = await cc.operation(await conectarBD(), async db => {
             const { recordset: [hoja] } = await db.request().input('idHoja', sql.VarChar(5), idHoja).query(`
-                SELECT H.*,R.ID_COP_PER FROM dbo.HOJAS_RUTAS H JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
-                JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES=F.ID_RES_PER WHERE H.ID_HOJ=@idHoja`);
+                SELECT H.*,F.ID_COP_PER FROM dbo.HOJAS_RUTAS H JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
+                WHERE H.ID_HOJ=@idHoja`);
             if (!hoja) throw cc.fail(404, 'HOJA_NO_ENCONTRADA', 'Hoja de ruta no encontrada.');
             const actual = hoja.ID_BUS_REE || hoja.ID_BUS_PER;
             if (idBusRee.toUpperCase() === actual || idBusRee.toUpperCase() === hoja.ID_BUS_PER) {
