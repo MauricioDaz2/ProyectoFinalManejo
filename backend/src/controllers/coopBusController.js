@@ -600,206 +600,21 @@ async function listarTiposAsiento(req, res) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                             RESOLUCIONES ANT                                */
+/*                     RESOLUCIONES ANT (SIMPLIFICADO RFC-000078)             */
 /* -------------------------------------------------------------------------- */
 
-function normalizarResolucion(body, id = null) {
-    const datos = body && typeof body === 'object' ? body : {};
-    return {
-        ID_RES: id === null ? codigo(datos.ID_RES) : codigo(id),
-        FEC_EMI_RES: fecha(datos.FEC_EMI_RES) || hoyISO(),
-        CUP_FRE_MAX: entero(datos.CUP_FRE_MAX),
-        DOC_URL_RES: texto(datos.DOC_URL_RES),
-        ID_COP_PER: codigo(datos.ID_COP_PER)
-    };
+function resolucionesDeprecado(req, res) {
+    return res.status(410).json({
+        success: false,
+        code: 'MODULO_RESOLUCIONES_ELIMINADO',
+        message: 'El módulo independiente de Resoluciones ANT y los cupos máximos fueron eliminados. Registra el número de resolución directamente en cada frecuencia.'
+    });
 }
 
-function validarResolucion(datos) {
-    if (datos.ID_RES && !CODIGO_RE.test(datos.ID_RES)) {
-        return 'El código de la resolución debe tener máximo 5 caracteres.';
-    }
-    if (!datos.FEC_EMI_RES) {
-        return 'La fecha de emisión no es válida.';
-    }
-    if (
-        !Number.isInteger(datos.CUP_FRE_MAX)
-        || datos.CUP_FRE_MAX < CUPO_FRECUENCIA_MIN
-        || datos.CUP_FRE_MAX > CUPO_FRECUENCIA_MAX
-    ) {
-        return `El cupo máximo de frecuencias debe estar entre ${CUPO_FRECUENCIA_MIN} y ${CUPO_FRECUENCIA_MAX}.`;
-    }
-    if (datos.DOC_URL_RES.length > 500) {
-        return 'La URL del documento debe tener máximo 500 caracteres.';
-    }
-    if (!CODIGO_RE.test(datos.ID_COP_PER)) {
-        return 'Debes indicar la cooperativa de la resolución.';
-    }
-    return null;
-}
-
-async function listarResoluciones(req, res) {
-    const cooperativa = cooperativaSolicitada(req);
-    if (!cooperativa) {
-        return res.status(400).json({ success: false, message: 'Debes indicar una cooperativa válida.' });
-    }
-
-    try {
-        const pool = await conectarBD();
-        const resultado = await pool.request()
-            .input('cooperativa', sql.VarChar(5), cooperativa)
-            .query(`
-                SELECT R.ID_RES, R.FEC_EMI_RES, R.CUP_FRE_MAX, R.DOC_URL_RES, R.ID_COP_PER,
-                       ${cc.enabled() ? `R.FEC_INI_VIG_RES,R.FEC_FIN_VIG_RES,R.REVOCADA_RES,
-                           CASE WHEN R.REVOCADA_RES=1 THEN 'REVOCADA' WHEN R.FEC_INI_VIG_RES IS NULL THEN 'SIN_VIGENCIA_ANT'
-                                WHEN R.FEC_INI_VIG_RES>${cc.today} THEN 'PENDIENTE'
-                                WHEN R.FEC_FIN_VIG_RES<${cc.today} THEN 'VENCIDA' ELSE 'VIGENTE' END AS EST_VIGENCIA,` : ''}
-                       C.NOM_COP,
-                       (SELECT COUNT(*) FROM dbo.FRECUENCIAS F WHERE F.ID_RES_PER = R.ID_RES) AS TOTAL_FRECUENCIAS,
-                       (SELECT COUNT(*) FROM dbo.FRECUENCIAS F WHERE F.ID_RES_PER = R.ID_RES AND F.EST_RES = '1') AS FRECUENCIAS_ACTIVAS
-                FROM dbo.RESOLUCIONES_ANT R
-                INNER JOIN dbo.COOPERATIVAS C ON C.ID_COP = R.ID_COP_PER
-                WHERE R.ID_COP_PER = @cooperativa
-                ORDER BY R.FEC_EMI_RES DESC, R.ID_RES DESC
-            `);
-
-        return res.status(200).json({
-            success: true,
-            controlFrecuencias: cc.enabled(),
-            total: resultado.recordset.length,
-            resoluciones: resultado.recordset
-        });
-    } catch (error) {
-        return manejarError(res, 'listado de resoluciones', error);
-    }
-}
-
-async function crearResolucion(req, res) {
-    const datos = normalizarResolucion(req.body);
-    const problema = validarResolucion(datos);
-    if (problema) return res.status(400).json({ success: false, message: problema });
-
-    try {
-        const pool = await conectarBD();
-        if (!(await cooperativaExiste(pool, datos.ID_COP_PER))) {
-            return res.status(404).json({ success: false, message: 'La cooperativa indicada no existe.' });
-        }
-
-        const id = datos.ID_RES || await siguienteCodigo(pool.request(), 'RESOLUCIONES_ANT', 'ID_RES', 'R');
-
-        if (datos.ID_RES) {
-            const existente = await pool.request()
-                .input('id', sql.VarChar(5), id)
-                .query('SELECT 1 AS existe FROM dbo.RESOLUCIONES_ANT WHERE ID_RES = @id');
-            if (existente.recordset.length > 0) {
-                return res.status(409).json({ success: false, message: 'Ya existe una resolución con ese código.' });
-            }
-        }
-
-        const vigencia = cc.enabled() ? cc.permit(req.body) : null;
-        const solicitud = pool.request()
-            .input('id', sql.VarChar(5), id)
-            .input('fecha', sql.Date, datos.FEC_EMI_RES)
-            .input('cupo', sql.Int, datos.CUP_FRE_MAX)
-            .input('documento', sql.VarChar(500), datos.DOC_URL_RES || null)
-            .input('cooperativa', sql.VarChar(5), datos.ID_COP_PER);
-        if (vigencia) solicitud.input('vigInicio', sql.Date, vigencia.start).input('vigFin', sql.Date, vigencia.end)
-            .input('revocada', sql.Bit, vigencia.revoked);
-        const resultado = await solicitud.query(`
-                INSERT INTO dbo.RESOLUCIONES_ANT (ID_RES, FEC_EMI_RES, CUP_FRE_MAX, DOC_URL_RES, ID_COP_PER
-                    ${vigencia ? ', FEC_INI_VIG_RES,FEC_FIN_VIG_RES,REVOCADA_RES' : ''})
-                OUTPUT INSERTED.*
-                VALUES (@id, @fecha, @cupo, @documento, @cooperativa ${vigencia ? ', @vigInicio,@vigFin,@revocada' : ''})
-            `);
-
-        return res.status(201).json({
-            success: true,
-            message: 'Resolución ANT registrada correctamente.',
-            resolucion: resultado.recordset[0]
-        });
-    } catch (error) {
-        return manejarError(res, 'registro de resolución', error);
-    }
-}
-
-async function actualizarResolucion(req, res) {
-    const id = codigo(req.params.id);
-    if (!CODIGO_RE.test(id)) {
-        return res.status(400).json({ success: false, message: 'Código de resolución inválido.' });
-    }
-
-    const datos = normalizarResolucion(req.body, id);
-    const problema = validarResolucion(datos);
-    if (problema) return res.status(400).json({ success: false, message: problema });
-
-    try {
-        const resultado = await cc.operation(await conectarBD(), async db => {
-            const actual = await db.request().input('id', sql.VarChar(5), id)
-                .input('empresa', sql.VarChar(5), cooperativaSolicitada(req))
-                .query('SELECT * FROM dbo.RESOLUCIONES_ANT WHERE ID_RES=@id AND ID_COP_PER=@empresa');
-            if (!actual.recordset.length) throw cc.fail(404, 'RESOLUCION_NO_ENCONTRADA', 'Resolución no encontrada.');
-            const vigencia = cc.enabled() ? cc.permit(req.body, actual.recordset[0]) : null;
-            const asignadas = await contarFrecuenciasDeResolucion(db, id);
-            if (asignadas > datos.CUP_FRE_MAX) throw cc.fail(409, 'CUPO_RESOLUCION_AGOTADO',
-                `La resolución ya tiene ${asignadas} frecuencias; el cupo no puede ser menor.`);
-            const solicitud = db.request()
-                .input('id', sql.VarChar(5), id).input('empresa', sql.VarChar(5), cooperativaSolicitada(req))
-                .input('fecha', sql.Date, datos.FEC_EMI_RES).input('cupo', sql.Int, datos.CUP_FRE_MAX)
-                .input('documento', sql.VarChar(500), datos.DOC_URL_RES || null);
-            if (vigencia) solicitud.input('vigInicio', sql.Date, vigencia.start).input('vigFin', sql.Date, vigencia.end)
-                .input('revocada', sql.Bit, vigencia.revoked);
-            return solicitud.query(`
-                DECLARE @cambios TABLE (ID_RES varchar(5));
-                UPDATE dbo.RESOLUCIONES_ANT
-                SET FEC_EMI_RES = @fecha,
-                    CUP_FRE_MAX = @cupo,
-                    DOC_URL_RES = @documento
-                    ${vigencia ? ', FEC_INI_VIG_RES=@vigInicio,FEC_FIN_VIG_RES=@vigFin,REVOCADA_RES=@revocada' : ''}
-                OUTPUT INSERTED.ID_RES INTO @cambios
-                WHERE ID_RES=@id AND ID_COP_PER=@empresa;
-                SELECT r.* FROM dbo.RESOLUCIONES_ANT r JOIN @cambios a ON a.ID_RES=r.ID_RES;
-            `);
-        });
-
-        return res.status(200).json({
-            success: true,
-            message: 'Resolución actualizada correctamente.',
-            resolucion: resultado.recordset[0]
-        });
-    } catch (error) {
-        return manejarError(res, 'actualización de resolución', error);
-    }
-}
-
-async function eliminarResolucion(req, res) {
-    const id = codigo(req.params.id);
-    if (!CODIGO_RE.test(id)) {
-        return res.status(400).json({ success: false, message: 'Código de resolución inválido.' });
-    }
-
-    try {
-        const pool = await conectarBD();
-        const asignadas = await contarFrecuenciasDeResolucion(pool, id);
-
-        if (asignadas > 0) {
-            return res.status(409).json({
-                success: false,
-                message: 'No se puede eliminar la resolución porque tiene frecuencias asociadas.'
-            });
-        }
-
-        const resultado = await pool.request()
-            .input('id', sql.VarChar(5), id)
-            .query('DELETE FROM dbo.RESOLUCIONES_ANT OUTPUT DELETED.ID_RES WHERE ID_RES = @id');
-
-        if (resultado.recordset.length === 0) {
-            return res.status(404).json({ success: false, message: 'Resolución no encontrada.' });
-        }
-
-        return res.status(200).json({ success: true, message: 'Resolución eliminada correctamente.' });
-    } catch (error) {
-        return manejarError(res, 'eliminación de resolución', error);
-    }
-}
+const listarResoluciones = resolucionesDeprecado;
+const crearResolucion = resolucionesDeprecado;
+const actualizarResolucion = resolucionesDeprecado;
+const eliminarResolucion = resolucionesDeprecado;
 
 /* -------------------------------------------------------------------------- */
 /*                                FRECUENCIAS                                  */
@@ -814,7 +629,7 @@ function normalizarFrecuencia(body, id = null) {
         FEC_HOR_INI_FRE: fecha(datos.FEC_HOR_INI_FRE),
         FEC_HOR_FIN_FRE: fecha(datos.FEC_HOR_FIN_FRE),
         EST_RES: datos.EST_RES === undefined ? '1' : String(datos.EST_RES),
-        ID_RES_PER: codigo(datos.ID_RES_PER)
+        NUM_RES_FRE: texto(datos.NUM_RES_FRE)
     };
 }
 
@@ -840,106 +655,26 @@ function validarFrecuencia(datos) {
     if (!ESTADOS_FRECUENCIA.includes(datos.EST_RES)) {
         return 'El estado de la frecuencia debe ser 1 (activa) o 0 (inactiva).';
     }
-    if (!CODIGO_RE.test(datos.ID_RES_PER)) {
-        return 'Debes indicar la resolución ANT de la frecuencia.';
+    if (!datos.NUM_RES_FRE || datos.NUM_RES_FRE.length > 50) {
+        return 'El número de resolución ANT es obligatorio y debe tener máximo 50 caracteres.';
     }
     return null;
 }
 
-async function obtenerResolucionDeCooperativa(pool, idResolucion, cooperativa) {
-    const resultado = await pool.request()
-        .input('resolucion', sql.VarChar(5), idResolucion)
-        .input('cooperativa', sql.VarChar(5), cooperativa)
-        .query(`
-            SELECT *
-            FROM dbo.RESOLUCIONES_ANT
-            WHERE ID_RES = @resolucion AND ID_COP_PER = @cooperativa
-        `);
-    return resultado.recordset[0] || null;
+function catalogoTerritorial(req, res) {
+    return res.status(410).json({
+        success: false,
+        code: 'CONTROL_CUPOS_ELIMINADO',
+        message: 'El catálogo restringido de CC-01 fue reemplazado por el selector nacional de provincias y cantones.'
+    });
 }
 
-/**
- * Cuenta cuántas frecuencias tiene asignadas una resolución.
- * Permite excluir la frecuencia en edición para no contar el registro actual.
- */
-async function contarFrecuenciasDeResolucion(pool, idResolucion, idExcluir = null) {
-    const resultado = await pool.request()
-        .input('resolucion', sql.VarChar(5), idResolucion)
-        .input('idExcluir', sql.VarChar(5), idExcluir)
-        .query(`
-            SELECT COUNT(*) AS total
-            FROM dbo.FRECUENCIAS
-            WHERE ID_RES_PER = @resolucion
-              AND (@idExcluir IS NULL OR ID_FRE <> @idExcluir)
-        `);
-
-    return resultado.recordset[0].total;
-}
-
-async function validarCupoResolucion(pool, resolucion, idActual = null) {
-    const usadas = await contarFrecuenciasDeResolucion(pool, resolucion.ID_RES, idActual);
-    if (usadas >= resolucion.CUP_FRE_MAX) {
-        return `La resolución ${resolucion.ID_RES} alcanzó su cupo máximo de ${resolucion.CUP_FRE_MAX} frecuencias.`;
-    }
-    return null;
-}
-
-async function catalogoTerritorial(req, res) {
-    if (!cc.enabled()) return res.status(404).json({ success: false, code: 'CATALOGO_NO_HABILITADO', message: 'El catálogo aún no está habilitado.' });
-    const levels = {
-        provincia: ['CAT_PROVINCIAS','ID_PRO','NOM_PRO',null,0],
-        canton: ['CAT_CANTONES','ID_CAN','NOM_CAN','ID_PRO',2],
-        parroquia: ['CAT_PARROQUIAS','ID_PAR','NOM_PAR','ID_CAN',4],
-        punto: ['CAT_PUNTOS_TRAYECTO','ID_PUN','NOM_PUN','ID_PAR',6]
-    };
-    const { nivel, padreId } = req.query;
-    if (nivel === undefined && padreId === undefined) {
-        try {
-            const pool = await conectarBD();
-            const { recordset } = await pool.request().query(`
-                SELECT p.*, pr.NOM_PRO, c.NOM_CAN, a.NOM_PAR FROM dbo.v_CC_PuntosTrayecto p
-                JOIN dbo.CAT_PROVINCIAS pr ON pr.ID_PRO=p.ID_PRO
-                JOIN dbo.CAT_CANTONES c ON c.ID_CAN=p.ID_CAN
-                JOIN dbo.CAT_PARROQUIAS a ON a.ID_PAR=p.ID_PAR
-                ORDER BY pr.NOM_PRO,c.NOM_CAN,a.NOM_PAR,p.NOM_PUN`);
-            return res.json({ success: true, puntos: recordset });
-        } catch (error) { return manejarError(res, 'catálogo territorial', error); }
-    }
-    const level = typeof nivel === 'string' && Object.hasOwn(levels, nivel) && levels[nivel];
-    if (!level || (level[3] ? typeof padreId !== 'string' || !new RegExp(`^[0-9]{${level[4]}}$`).test(padreId) : padreId !== undefined)) {
-        return res.status(400).json({ success: false, code: 'NIVEL_TERRITORIAL_INVALIDO', message: 'Indica un nivel y código de padre válidos.' });
-    }
-    const [table, id, name, parent] = level;
-    try {
-        const pool = await conectarBD();
-        const request = pool.request();
-        if (parent) request.input('padre', sql.VarChar(level[4]), padreId);
-        const { recordset } = await request.query(`SELECT ${id} AS id,${name} AS nombre
-            ${nivel === 'punto' ? ',ETIQUETA AS etiqueta' : ''} FROM dbo.${table}
-            ${parent ? `WHERE ${parent}=@padre` : ''} ORDER BY ${name}`);
-        return res.json({ success: true, elementos: recordset });
-    } catch (error) { return manejarError(res, 'catálogo territorial', error); }
-}
-
-async function disponibilidadFrecuencia(req, res) {
-    if (!cc.enabled()) return res.status(404).json({ success: false, code: 'CONTROL_NO_HABILITADO', message: 'El control de frecuencias no está habilitado.' });
-    const dia = cc.date(req.query.fecha);
-    if (!dia) return res.status(400).json({ success: false, code: 'FECHA_INVALIDA', message: 'Indica una fecha válida en formato AAAA-MM-DD.' });
-    try {
-        const pool = await conectarBD();
-        const { recordset: [row] } = await pool.request().input('fecha', sql.Date, dia).input('id', sql.VarChar(5), codigo(req.params.id))
-            .input('empresa', sql.VarChar(5), cooperativaSolicitada(req)).query(`
-                SELECT c.*,v.EST_VIGENCIA,t.TIPO_TRAYECTO
-                FROM dbo.fn_CC_CupoDia(@id,@fecha) c
-                CROSS APPLY dbo.fn_CC_VigenciaFrecuencia(c.ID_FRE,@fecha) v
-                LEFT JOIN dbo.v_CC_TrayectoFrecuencia t ON t.ID_FRE=c.ID_FRE
-                WHERE v.ID_COP_PER=@empresa`);
-        if (!row) return res.status(404).json({ success: false, code: 'FRECUENCIA_NO_ENCONTRADA', message: 'Frecuencia no encontrada.' });
-        const remaining = (max, used) => max === null ? null : Math.max(0, max - Number(used));
-        return res.json({ success: true, fecha: dia, disponibilidad: { ...row,
-            UNIDADES_DISPONIBLES: remaining(row.MAX_UNIDADES, row.UNIDADES_USADAS),
-            PASAJEROS_DISPONIBLES: remaining(row.MAX_PASAJEROS, row.PASAJEROS_USADOS) } });
-    } catch (error) { return manejarError(res, 'disponibilidad de frecuencia', error); }
+function disponibilidadFrecuencia(req, res) {
+    return res.status(410).json({
+        success: false,
+        code: 'CONTROL_CUPOS_ELIMINADO',
+        message: 'Los cupos diarios de frecuencias fueron eliminados en RFC-000078.'
+    });
 }
 
 async function listarFrecuencias(req, res) {
@@ -961,27 +696,26 @@ async function listarFrecuencias(req, res) {
             .input('estado', sql.Char(1), estado)
             .query(`
                 SELECT F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
-                       F.FEC_HOR_FIN_FRE, F.EST_RES, F.ID_RES_PER,
-                       R.CUP_FRE_MAX,
+                       F.FEC_HOR_FIN_FRE, F.EST_RES, F.ID_COP_PER, F.NUM_RES_FRE,
                        ${categories.enabled() ? 'F.ID_CAT_OP,CAT.NOM_CAT,' : ''}
-                       ${cc.enabled() ? `F.ID_PUN_ORI,F.ID_PUN_DES,F.MAX_UNIDADES,F.MAX_PASAJEROS,T.TIPO_TRAYECTO,
-                           V.EST_VIGENCIA,CU.UNIDADES_USADAS,CU.PASAJEROS_USADOS,` : ''}
+                       CASE
+                           WHEN ISNULL(F.EST_RES, '0') <> '1' THEN 'INACTIVA'
+                           WHEN F.FEC_HOR_INI_FRE > ${cc.today} THEN 'PENDIENTE'
+                           WHEN F.FEC_HOR_FIN_FRE IS NOT NULL AND F.FEC_HOR_FIN_FRE < ${cc.today} THEN 'VENCIDA'
+                           ELSE 'VIGENTE'
+                       END AS EST_VIGENCIA,
                        DATEDIFF(DAY, F.FEC_HOR_INI_FRE, ISNULL(F.FEC_HOR_FIN_FRE, F.FEC_HOR_INI_FRE)) + 1 AS DIAS_VIGENCIA,
                        (SELECT COUNT(*) FROM dbo.HOJAS_RUTAS H WHERE H.ID_FRE_PER = F.ID_FRE) AS TOTAL_HOJAS
                 FROM dbo.FRECUENCIAS F
-                INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                 ${categories.enabled() ? 'LEFT JOIN dbo.CATEGORIAS_OPERATIVAS CAT ON CAT.ID_CAT=F.ID_CAT_OP' : ''}
-                ${cc.enabled() ? `LEFT JOIN dbo.v_CC_TrayectoFrecuencia T ON T.ID_FRE=F.ID_FRE
-                  OUTER APPLY dbo.fn_CC_VigenciaFrecuencia(F.ID_FRE,${cc.today}) V
-                  OUTER APPLY dbo.fn_CC_CupoDia(F.ID_FRE,${cc.today}) CU` : ''}
-                WHERE R.ID_COP_PER = @cooperativa
+                WHERE F.ID_COP_PER = @cooperativa
                   AND (@origen IS NULL OR F.CIU_ORI_FRE = @origen)
                   AND (@destino IS NULL OR F.CIU_DES_FRE = @destino)
                   AND (@estado IS NULL OR F.EST_RES = @estado)
                 ORDER BY F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE
             `);
 
-        return res.status(200).json({ success: true, controlFrecuencias: cc.enabled(), total: resultado.recordset.length, frecuencias: resultado.recordset });
+        return res.status(200).json({ success: true, total: resultado.recordset.length, frecuencias: resultado.recordset });
     } catch (error) {
         return manejarError(res, 'listado de frecuencias', error);
     }
@@ -993,65 +727,45 @@ async function guardarFrecuencia(req, res, editar) {
     const datos = normalizarFrecuencia(req.body, id);
     const empresa = cooperativaSolicitada(req);
     if (!empresa) return res.status(403).json({ success: false, message: 'Cooperativa no disponible.' });
+    const problema = validarFrecuencia(datos);
+    if (problema) return res.status(400).json({ success: false, code: 'FRECUENCIA_INVALIDA', message: problema });
+
     try {
-        const resultado = await cc.operation(await conectarBD(), async db => {
-            let config = null;
-            if (cc.enabled()) {
-                config = await cc.frequency(db, req.body, {
-                    start: req.body?.FEC_HOR_INI_FRE, end: req.body?.FEC_HOR_FIN_FRE || null
-                });
-                datos.CIU_ORI_FRE = config.from;
-                datos.CIU_DES_FRE = config.to;
-            }
-            const problema = validarFrecuencia(datos);
-            if (problema) throw cc.fail(400, 'FRECUENCIA_INVALIDA', problema);
-            let actual;
-            if (editar) {
-                actual = (await db.request().input('id', sql.VarChar(5), id).input('empresa', sql.VarChar(5), empresa).query(`
-                    SELECT f.ID_RES_PER FROM dbo.FRECUENCIAS f JOIN dbo.RESOLUCIONES_ANT r ON r.ID_RES=f.ID_RES_PER
-                    WHERE f.ID_FRE=@id AND r.ID_COP_PER=@empresa`)).recordset[0];
-                if (!actual) throw cc.fail(404, 'FRECUENCIA_NO_ENCONTRADA', 'Frecuencia no encontrada.');
-            }
-            const resolucion = await obtenerResolucionDeCooperativa(db, datos.ID_RES_PER, empresa);
-            if (!resolucion) throw cc.fail(404, 'RESOLUCION_NO_ENCONTRADA', 'La resolución no pertenece a tu cooperativa.');
-            if (config) {
-                const inicio = resolucion.FEC_INI_VIG_RES && new Date(resolucion.FEC_INI_VIG_RES).toISOString().slice(0, 10);
-                const fin = resolucion.FEC_FIN_VIG_RES && new Date(resolucion.FEC_FIN_VIG_RES).toISOString().slice(0, 10);
-                if (!inicio || resolucion.REVOCADA_RES || (fin && fin < datos.FEC_HOR_INI_FRE) ||
-                    (datos.FEC_HOR_FIN_FRE && inicio > datos.FEC_HOR_FIN_FRE)) {
-                    throw cc.fail(409, 'VIGENCIA_ANT_NO_COMPATIBLE', 'La resolución debe estar habilitada y cubrir al menos un día de la frecuencia.');
-                }
-            }
-            if (!actual || actual.ID_RES_PER !== datos.ID_RES_PER) {
-                const cupo = await validarCupoResolucion(db, resolucion, id);
-                if (cupo) throw cc.fail(409, 'CUPO_RESOLUCION_AGOTADO', cupo);
-            }
-            const identificador = datos.ID_FRE || await siguienteCodigo(db.request(), 'FRECUENCIAS', 'ID_FRE', 'F');
-            const solicitud = db.request().input('id', sql.VarChar(5), identificador)
-                .input('origen', sql.VarChar(15), datos.CIU_ORI_FRE).input('destino', sql.VarChar(15), datos.CIU_DES_FRE)
-                .input('inicio', sql.Date, datos.FEC_HOR_INI_FRE).input('fin', sql.Date, datos.FEC_HOR_FIN_FRE)
-                .input('estado', sql.Char(1), datos.EST_RES).input('resolucion', sql.VarChar(5), datos.ID_RES_PER);
-            if (config) solicitud.input('pOrigen', sql.Int, config.origin).input('pDestino', sql.Int, config.destination)
-                .input('unidades', sql.Int, config.units).input('pasajeros', sql.Int, config.passengers);
-            return solicitud.query(`
+        const db = await conectarBD();
+        if (editar) {
+            const actual = (await db.request().input('id', sql.VarChar(5), id).input('empresa', sql.VarChar(5), empresa).query(`
+                SELECT ID_FRE FROM dbo.FRECUENCIAS WHERE ID_FRE=@id AND ID_COP_PER=@empresa`)).recordset[0];
+            if (!actual) return res.status(404).json({ success: false, code: 'FRECUENCIA_NO_ENCONTRADA', message: 'Frecuencia no encontrada.' });
+        }
+        const identificador = datos.ID_FRE || await siguienteCodigo(db.request(), 'FRECUENCIAS', 'ID_FRE', 'F');
+        const resultado = await db.request()
+            .input('id', sql.VarChar(5), identificador)
+            .input('origen', sql.VarChar(15), datos.CIU_ORI_FRE)
+            .input('destino', sql.VarChar(15), datos.CIU_DES_FRE)
+            .input('inicio', sql.Date, datos.FEC_HOR_INI_FRE)
+            .input('fin', sql.Date, datos.FEC_HOR_FIN_FRE)
+            .input('estado', sql.Char(1), datos.EST_RES)
+            .input('empresa', sql.VarChar(5), empresa)
+            .input('numRes', sql.NVarChar(50), datos.NUM_RES_FRE)
+            .query(`
                 DECLARE @cambios TABLE (ID_FRE varchar(5));
                 ${editar ? `
-                    UPDATE dbo.FRECUENCIAS SET CIU_ORI_FRE=@origen,CIU_DES_FRE=@destino,
-                    FEC_HOR_INI_FRE=@inicio,FEC_HOR_FIN_FRE=@fin,EST_RES=@estado,ID_RES_PER=@resolucion
-                    ${config ? ', ID_PUN_ORI=@pOrigen,ID_PUN_DES=@pDestino,MAX_UNIDADES=@unidades,MAX_PASAJEROS=@pasajeros' : ''}
-                    OUTPUT INSERTED.ID_FRE INTO @cambios WHERE ID_FRE=@id;
-                ` : `
-                    INSERT dbo.FRECUENCIAS (ID_FRE,CIU_ORI_FRE,CIU_DES_FRE,FEC_HOR_INI_FRE,FEC_HOR_FIN_FRE,EST_RES,ID_RES_PER
-                         ${config ? ', ID_PUN_ORI,ID_PUN_DES,MAX_UNIDADES,MAX_PASAJEROS' : ''})
+                    UPDATE dbo.FRECUENCIAS
+                    SET CIU_ORI_FRE=@origen, CIU_DES_FRE=@destino,
+                        FEC_HOR_INI_FRE=@inicio, FEC_HOR_FIN_FRE=@fin,
+                        EST_RES=@estado, NUM_RES_FRE=@numRes
                     OUTPUT INSERTED.ID_FRE INTO @cambios
-                    VALUES (@id,@origen,@destino,@inicio,@fin,@estado,@resolucion
-                         ${config ? ', @pOrigen,@pDestino,@unidades,@pasajeros' : ''});
+                    WHERE ID_FRE=@id AND ID_COP_PER=@empresa;
+                ` : `
+                    INSERT dbo.FRECUENCIAS (ID_FRE, CIU_ORI_FRE, CIU_DES_FRE, FEC_HOR_INI_FRE, FEC_HOR_FIN_FRE, EST_RES, ID_COP_PER, NUM_RES_FRE)
+                    OUTPUT INSERTED.ID_FRE INTO @cambios
+                    VALUES (@id, @origen, @destino, @inicio, @fin, @estado, @empresa, @numRes);
                 `}
                 SELECT f.* FROM dbo.FRECUENCIAS f JOIN @cambios a ON a.ID_FRE=f.ID_FRE;
             `);
-        });
         return res.status(editar ? 200 : 201).json({
-            success: true, message: editar ? 'Frecuencia actualizada correctamente.' : 'Frecuencia registrada correctamente.',
+            success: true,
+            message: editar ? 'Frecuencia actualizada correctamente.' : 'Frecuencia registrada correctamente.',
             frecuencia: resultado.recordset[0]
         });
     } catch (error) {
@@ -1196,6 +910,18 @@ async function listarHojasRuta(req, res) {
 
     try {
         const pool = await conectarBD();
+        const cols = await pool.request().query(`
+            SELECT CASE WHEN COL_LENGTH('dbo.HOJAS_RUTAS', 'SALIDA_PLAN_UTC') IS NOT NULL
+                         AND COL_LENGTH('dbo.HOJAS_RUTAS', 'ID_USU_CHO') IS NOT NULL
+                        THEN 1 ELSE 0 END AS tieneHorario
+        `);
+        const tieneHorario = Number(cols.recordset?.[0]?.tieneHorario) === 1;
+        const camposHorario = tieneHorario
+            ? 'H.SALIDA_PLAN_UTC, H.LLEGADA_PLAN_UTC, H.ID_USU_CHO, CHO.NOM_USU AS NOM_CHOFER, CHO.APE_USU AS APE_CHOFER,'
+            : 'CAST(NULL AS DATETIME2) AS SALIDA_PLAN_UTC, CAST(NULL AS DATETIME2) AS LLEGADA_PLAN_UTC, CAST(NULL AS VARCHAR(10)) AS ID_USU_CHO, CAST(NULL AS VARCHAR(40)) AS NOM_CHOFER, CAST(NULL AS VARCHAR(40)) AS APE_CHOFER,';
+        const joinChofer = tieneHorario
+            ? 'LEFT JOIN dbo.USUARIOS CHO ON CHO.ID_USU = H.ID_USU_CHO'
+            : '';
         const resultado = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa)
             .input('fecha', sql.Date, fechaFiltro)
@@ -1203,6 +929,7 @@ async function listarHojasRuta(req, res) {
             .query(`
                 SELECT H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ, H.OBS_HOJ,
                        H.ID_BUS_PER, H.ID_FRE_PER, H.ID_USU_CON,
+                       ${camposHorario}
                        B.NUM_BUS, B.PLA_BUS, B.NUM_PIS,
                        F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE, F.FEC_HOR_FIN_FRE,
                        U.NOM_USU AS NOM_CONTROLADOR, U.APE_USU AS APE_CONTROLADOR,
@@ -1213,12 +940,12 @@ async function listarHojasRuta(req, res) {
                 FROM dbo.HOJAS_RUTAS H
                 INNER JOIN dbo.BUSES B ON B.ID_BUS = H.ID_BUS_PER
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
                 LEFT JOIN dbo.USUARIOS U ON U.ID_USU = H.ID_USU_CON
-                WHERE R.ID_COP_PER = @cooperativa
+                ${joinChofer}
+                WHERE F.ID_COP_PER = @cooperativa
                   AND (@fecha IS NULL OR H.FEC_PRO_HOJ = @fecha)
                   AND (@estado IS NULL OR H.EST_VIA_HOJ = @estado)
-                ORDER BY H.FEC_PRO_HOJ ASC, H.ID_HOJ ASC, F.CIU_ORI_FRE, F.CIU_DES_FRE
+                ORDER BY H.FEC_PRO_HOJ DESC, H.ID_HOJ DESC, F.CIU_ORI_FRE, F.CIU_DES_FRE
             `);
 
         return res.status(200).json({ success: true, total: resultado.recordset.length, hojas: resultado.recordset });
@@ -1246,8 +973,7 @@ async function validarRelacionesHoja(pool, datos, cooperativa) {
         .query(`
             SELECT F.ID_FRE, F.EST_RES, F.FEC_HOR_INI_FRE, F.FEC_HOR_FIN_FRE
             FROM dbo.FRECUENCIAS F
-            INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-            WHERE F.ID_FRE = @frecuencia AND R.ID_COP_PER = @cooperativa
+            WHERE F.ID_FRE = @frecuencia AND F.ID_COP_PER = @cooperativa
         `);
 
     if (frecuencia.recordset.length === 0) {
@@ -1451,31 +1177,26 @@ async function resumenCooperativa(req, res) {
                 SELECT
                     (SELECT COUNT(*) FROM dbo.BUSES WHERE ID_COP_PER = @cooperativa) AS TOTAL_BUSES,
                     (SELECT COUNT(*) FROM dbo.BUSES WHERE ID_COP_PER = @cooperativa AND EST_BUS = 'ACTIVO') AS BUSES_ACTIVOS,
-                    (SELECT COUNT(*) FROM dbo.RESOLUCIONES_ANT WHERE ID_COP_PER = @cooperativa) AS TOTAL_RESOLUCIONES,
+                    (SELECT COUNT(DISTINCT NUM_RES_FRE) FROM dbo.FRECUENCIAS WHERE ID_COP_PER = @cooperativa AND NULLIF(LTRIM(RTRIM(NUM_RES_FRE)), '') IS NOT NULL) AS TOTAL_RESOLUCIONES,
                     (SELECT COUNT(*) FROM dbo.FRECUENCIAS F
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                       WHERE R.ID_COP_PER = @cooperativa AND F.EST_RES = '1') AS FRECUENCIAS_ACTIVAS,
+                       WHERE F.ID_COP_PER = @cooperativa AND F.EST_RES = '1') AS FRECUENCIAS_ACTIVAS,
                     (SELECT COUNT(*) FROM dbo.HOJAS_RUTAS H
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                       WHERE R.ID_COP_PER = @cooperativa AND H.FEC_PRO_HOJ = @hoy) AS HOJAS_HOY,
+                       WHERE F.ID_COP_PER = @cooperativa AND H.FEC_PRO_HOJ = @hoy) AS HOJAS_HOY,
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                       WHERE R.ID_COP_PER = @cooperativa AND B.FEC_COM_BOL = @hoy
+                       WHERE F.ID_COP_PER = @cooperativa AND B.FEC_COM_BOL = @hoy
                          AND B.EST_BOL IN ('EMITIDO','PAGADO','USADO')) AS BOLETOS_HOY,
                     (SELECT ISNULL(SUM(B.PRE_FIN_BOL), 0) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                       WHERE R.ID_COP_PER = @cooperativa AND B.FEC_COM_BOL = @hoy
+                       WHERE F.ID_COP_PER = @cooperativa AND B.FEC_COM_BOL = @hoy
                          AND B.EST_BOL IN ('EMITIDO','PAGADO','USADO')) AS INGRESOS_HOY,
                     (SELECT COUNT(*) FROM dbo.BOLETOS B
                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                       INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                       WHERE R.ID_COP_PER = @cooperativa AND B.EST_BOL = 'RESERVADO') AS RESERVAS_PENDIENTES
+                       WHERE F.ID_COP_PER = @cooperativa AND B.EST_BOL = 'RESERVADO') AS RESERVAS_PENDIENTES
             `);
 
         const proximas = await pool.request()
@@ -1493,10 +1214,9 @@ async function resumenCooperativa(req, res) {
                 FROM dbo.HOJAS_RUTAS H
                 INNER JOIN dbo.BUSES B ON B.ID_BUS = H.ID_BUS_PER
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
-                INNER JOIN dbo.RESOLUCIONES_ANT R ON R.ID_RES = F.ID_RES_PER
-                WHERE R.ID_COP_PER = @cooperativa
+                WHERE F.ID_COP_PER = @cooperativa
                   AND H.FEC_PRO_HOJ >= @hoy
-                  AND H.EST_VIA_HOJ IN ('PROGRAMADA','EN CURSO')
+                  AND H.EST_VIA_HOJ IN ('PROGRAMADA','PROGRAMADO','EN CURSO')
                 ORDER BY H.FEC_PRO_HOJ, F.CIU_ORI_FRE, H.ID_HOJ
             `);
 
