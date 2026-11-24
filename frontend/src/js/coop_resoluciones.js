@@ -22,6 +22,8 @@
   const tabHojas = document.getElementById('tabHojas');
   const panelFrecuencias = document.getElementById('panelFrecuencias');
   const panelHojas = document.getElementById('panelHojas');
+  const tabRotacion = document.getElementById('tabRotacion');
+  const panelRotacion = document.getElementById('panelRotacion');
 
   const formFrecuencia = document.getElementById('formFrecuencia');
   const tituloModalFrecuencia = document.getElementById('tituloModalFrecuencia');
@@ -250,12 +252,17 @@
 
   function cambiarVista(vista, frecuenciaId = null) {
     const esHojas = vista === 'hojas';
-    tabFrecuencias?.classList?.toggle?.('active', !esHojas);
+    const esRotacion = vista === 'rotacion';
+    const esFrecuencias = !esHojas && !esRotacion;
+    tabFrecuencias?.classList?.toggle?.('active', esFrecuencias);
     tabHojas?.classList?.toggle?.('active', esHojas);
-    tabFrecuencias?.setAttribute?.('aria-selected', String(!esHojas));
+    tabRotacion?.classList?.toggle?.('active', esRotacion);
+    tabFrecuencias?.setAttribute?.('aria-selected', String(esFrecuencias));
     tabHojas?.setAttribute?.('aria-selected', String(esHojas));
-    if (panelFrecuencias) panelFrecuencias.hidden = esHojas;
+    tabRotacion?.setAttribute?.('aria-selected', String(esRotacion));
+    if (panelFrecuencias) panelFrecuencias.hidden = !esFrecuencias;
     if (panelHojas) panelHojas.hidden = !esHojas;
+    if (panelRotacion) panelRotacion.hidden = !esRotacion;
 
     if (esHojas && frecuenciaId !== null && filtroFrecuenciaHoja) {
       filtroFrecuenciaHoja.value = frecuenciaId;
@@ -265,6 +272,7 @@
 
   tabFrecuencias?.addEventListener('click', () => cambiarVista('frecuencias'));
   tabHojas?.addEventListener('click', () => cambiarVista('hojas'));
+  tabRotacion?.addEventListener('click', () => cambiarVista('rotacion'));
 
   btnAbrirProgramacion?.addEventListener('click', () => {
     const panel = document.getElementById('coopAssignment');
