@@ -7,6 +7,7 @@
   <title>Mis Boletos | Transporte</title>
   <link rel="stylesheet" href="../../assets/usuario.css">
   <link rel="stylesheet" href="../../assets/public_catalog.css">
+  <link rel="stylesheet" href="../../assets/passenger_modern.css">
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
 <script src="../../js/worker_passenger.js" defer></script></head>
@@ -27,10 +28,10 @@
       <p class="usuario-eyebrow">Tus viajes y reservas</p>
       <h1 class="usuario-title">Historial de Boletos</h1>
 
-      <div id="historialStatus" class="usuario-status" role="status" style="margin-bottom: 20px;">Cargando tus boletos...</div>
+      <div id="historialStatus" class="usuario-status" role="status">Cargando tus boletos...</div>
 
       <!-- Contenedor dinámico del historial -->
-      <div id="historialContainer" style="display: flex; flex-direction: column; gap: 15px;"></div>
+      <div id="historialContainer" class="ticket-list"></div>
     </main>
   </div>
 

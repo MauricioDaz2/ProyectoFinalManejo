@@ -33,30 +33,29 @@ const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api';
                 const esReservado = ['RESERVADO', 'PENDIENTE'].includes(estado);
                 const colorEstado = estado === 'PAGADO' || estado === 'EMITIDO' ? 'green' : (esReservado ? 'orange' : 'red');
 
+                const claseEstado = estado === 'PAGADO' || estado === 'EMITIDO' ? 'is-ok' : (esReservado ? 'is-pending' : 'is-off');
                 return `
-                    <div class="usuario-card" style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--usuario-border); display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
-                        <div style="flex: 1;">
-                            <strong style="font-size: 16px; color: var(--usuario-primary);">Boleto N°: ${escapeHtml(b.ID_BOL)}</strong><br>
-                            <span style="font-size: 14px; color: var(--usuario-muted);">Ruta: <strong>${escapeHtml(b.ORI_TRA_BOL)} ➔ ${escapeHtml(b.DES_TRA_BOL)}</strong></span><br>
-                            <span style="font-size: 13px;">Asiento: <strong>${escapeHtml(b.ID_ASI_PER)}</strong> · Bus N°: ${escapeHtml(b.NUM_BUS)} · Hoja: ${escapeHtml(b.ID_HOJ_PER)}</span><br>
-                            <span style="font-size: 13px;">Precio: <strong>$${Number(b.PRE_FIN_BOL || 0).toFixed(2)}</strong> · Método: ${escapeHtml(b.MET_PAG_BOL)}</span><br>
-                            <span style="font-size: 13px;">Estado: <strong style="color: ${colorEstado};">${escapeHtml(b.EST_BOL)}</strong></span><br>
-                            <div style="margin-top: 12px; display: flex; align-items: center; gap: 15px;">
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(b.COD_QR_BOL)}" alt="Código QR del boleto" style="width: 90px; height: 90px; border-radius: 8px; border: 1px solid var(--usuario-border); background: #fff; padding: 4px;" />
-    <div style="font-size: 11px; color: var(--usuario-muted); word-break: break-all; max-width: 250px;">
-        <strong>Código QR:</strong><br>
-        <code>${escapeHtml(b.COD_QR_BOL)}</code>
-    </div>
-</div>
+                    <article class="ticket-card">
+                        <div class="ticket-main">
+                            <div class="ticket-head">
+                                <span class="ticket-number">Boleto N.º ${escapeHtml(b.ID_BOL)}</span>
+                                <span class="ticket-state ${claseEstado}">${escapeHtml(b.EST_BOL)}</span>
+                            </div>
+                            <div class="ticket-route">${escapeHtml(b.ORI_TRA_BOL)} <span aria-hidden="true">→</span><span class="sr-only"> a </span> ${escapeHtml(b.DES_TRA_BOL)}</div>
+                            <dl class="viaje-facts">
+                                <div><dt>Asiento</dt><dd>${escapeHtml(b.ID_ASI_PER)}</dd></div>
+                                <div><dt>Bus</dt><dd>N.º ${escapeHtml(b.NUM_BUS)}</dd></div>
+                                <div><dt>Hoja de ruta</dt><dd>${escapeHtml(b.ID_HOJ_PER)}</dd></div>
+                                <div><dt>Precio</dt><dd class="viaje-precio">$${Number(b.PRE_FIN_BOL || 0).toFixed(2)}</dd></div>
+                                <div><dt>Método de pago</dt><dd>${escapeHtml(b.MET_PAG_BOL)}</dd></div>
+                            </dl>
+                            ${esReservado ? `<button class="usuario-button ticket-cancel" type="button" data-cancelar-boleto="${escapeHtml(b.ID_BOL)}">Cancelar reserva</button>` : ''}
                         </div>
-                        <div>
-                            ${esReservado ? `
-                                <button class="usuario-button usuario-button-secondary" style="background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;" onclick="cancelarBoleto('${escapeHtml(b.ID_BOL)}')">
-                                    Cancelar Reserva
-                                </button>
-                            ` : ''}
+                        <div class="ticket-qr">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(b.COD_QR_BOL)}" alt="Código QR del boleto" width="96" height="96">
+                            <code>${escapeHtml(b.COD_QR_BOL)}</code>
                         </div>
-                    </div>
+                    </article>
                 `;
             }).join('');
         } catch (error) {
@@ -82,6 +81,11 @@ const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api';
             alert(error.message);
         }
     };
+
+    historialContainer.addEventListener('click', (event) => {
+        const boton = event.target.closest('button[data-cancelar-boleto]');
+        if (boton) cancelarBoleto(boton.dataset.cancelarBoleto);
+    });
 
     window.TransportSession.ready.then(user => {
         if (!user) return;
