@@ -93,6 +93,41 @@
     return td;
   }
 
+  // RFC-000085: límite de frecuencias destacadas contratadas (sin pasarela de pago en la app).
+  function celdaDestacadas(cooperativa) {
+    const td = document.createElement('td');
+    const form = document.createElement('form');
+    form.className = 'featured-limit';
+    form.dataset.featured = cooperativa.ID_COP;
+    const input = document.createElement('input');
+    input.type = 'number'; input.min = '0'; input.max = '50'; input.step = '1'; input.required = true;
+    input.value = String(cooperativa.LIM_DES_COP);
+    input.setAttribute('aria-label', 'Límite de frecuencias destacadas de ' + (cooperativa.NOM_COM_COP || cooperativa.NOM_COP));
+    const usadas = document.createElement('small');
+    usadas.textContent = `${Number(cooperativa.DES_USADAS) || 0} en uso`;
+    const boton = document.createElement('button');
+    boton.type = 'submit'; boton.className = 'coop-button coop-button-secondary'; boton.textContent = 'Guardar';
+    form.append(input, boton, usadas);
+    return td.appendChild(form) && td;
+  }
+
+  async function guardarLimiteDestacadas(form) {
+    const input = form.querySelector('input');
+    const boton = form.querySelector('button');
+    boton.disabled = true;
+    try {
+      const datos = await solicitar(`/${encodeURIComponent(form.dataset.featured)}/destacadas`, 'PUT', { limite: input.value });
+      const cooperativa = estado.cooperativas.find((c) => c.ID_COP === form.dataset.featured);
+      if (cooperativa) { cooperativa.LIM_DES_COP = datos.limite; cooperativa.DES_USADAS = datos.usadas; }
+      form.querySelector('small').textContent = `${datos.usadas} en uso`;
+      mostrarNotificacion(datos.message);
+    } catch (error) {
+      mostrarNotificacion(error.message, true);
+    } finally {
+      boton.disabled = false;
+    }
+  }
+
   function crearFila(cooperativa) {
     const fila = document.createElement('tr');
     fila.className='company-row';fila.tabIndex=0;fila.dataset.company=cooperativa.ID_COP;fila.setAttribute('aria-label','Abrir ficha de '+(cooperativa.NOM_COM_COP||cooperativa.NOM_COP));
@@ -121,6 +156,7 @@
     insignia.textContent = ({1:'Activa',0:'Inactiva',S:'Suspendida'})[cooperativa.EST_COP] || 'No disponible';
     estadoCelda.append(insignia);
     fila.append(estadoCelda);
+    if (cooperativa.LIM_DES_COP !== undefined && cooperativa.LIM_DES_COP !== null) fila.append(celdaDestacadas(cooperativa));
 
     return fila;
   }
@@ -168,6 +204,8 @@
         throw new Error('El servidor no devolvió un listado válido de cooperativas.');
       }
       estado.cooperativas = datos.cooperativas;
+      const thDestacadas = document.getElementById('thDestacadas');
+      if (thDestacadas) thDestacadas.hidden = !datos.cooperativas.some((c) => c.LIM_DES_COP !== undefined && c.LIM_DES_COP !== null);
       estado.registroDisponible=datos.registroDisponible===true;
       permissions=datos.permisos||{};
       $('suspendedMetric').hidden=!datos.estadosDisponibles; $('suspendedFilter').hidden=!datos.estadosDisponibles;
@@ -320,7 +358,8 @@
     renderizarTabla();
   });
 
-  tabla.addEventListener('click',event=>{const row=event.target.closest('[data-company]');if(row&&!event.target.closest('a'))location.hash='cooperativa='+encodeURIComponent(row.dataset.company);});
+  tabla.addEventListener('submit',event=>{const form=event.target.closest('form[data-featured]');if(form){event.preventDefault();guardarLimiteDestacadas(form);}});
+  tabla.addEventListener('click',event=>{const row=event.target.closest('[data-company]');if(row&&!event.target.closest('a')&&!event.target.closest('.featured-limit'))location.hash='cooperativa='+encodeURIComponent(row.dataset.company);});
   tabla.addEventListener('keydown',event=>{if(event.target.matches('[data-company]')&&['Enter',' '].includes(event.key)){event.preventDefault();location.hash='cooperativa='+encodeURIComponent(event.target.dataset.company);}});
   formulario.addEventListener('submit', async (evento) => {
     evento.preventDefault();
