@@ -47,6 +47,7 @@ function cooperativaSolicitada(req) {
 }
 
 function manejarError(res, contexto, error) {
+    if (error.status || error.number === 51701) return res.status(error.status || 400).json({ success: false, message: error.message });
     const control = cc.respond(res, error);
     if (control) return control;
     console.error(`Error en ${contexto}:`, error);
@@ -454,6 +455,7 @@ async function crearBus(req, res) {
             `);
         }
 
+        await require('../services/busTemplates').updateCrew(transaccion, idBus, datos.ID_COP_PER, req.body);
         const totalAsientos = await crearAsientos(transaccion, idBus, datos.ASIENTOS_P1, datos.ASIENTOS_P2, datos.PLANTILLA);
         await transaccion.commit();
 
@@ -559,6 +561,7 @@ async function actualizarBus(req, res) {
             `);
         }
 
+        await require('../services/busTemplates').updateCrew(transaccion, id, datos.ID_COP_PER, req.body);
         if (configuraAsientos || cambiaPisos) {
             let piso1 = configuraAsientos ? datos.ASIENTOS_P1 : busActual.ASIENTOS_P1 ?? 20;
             let piso2 = datos.NUM_PIS === 2
