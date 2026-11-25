@@ -61,7 +61,9 @@
   let ubicaciones = [];
   let cargaUbicaciones = null;
 
-  const permitido = (permiso) => usuario.accesoConfigurado !== true || usuario.principal || usuario.permisos?.includes(permiso);
+  const permitido = (permiso) => usuario.rolId === 'R003'
+    ? ['rutas', 'salidas', 'ventanilla'].includes(permiso)
+    : (usuario.accesoConfigurado !== true || usuario.principal || usuario.permisos?.includes(permiso));
   const normalizarTexto = (valor) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   const claveCiudad = (valor) => String(valor || '').trim().toUpperCase();
 
