@@ -24,8 +24,91 @@
  }
  function show(name) {
   document.querySelectorAll('[data-panel]').forEach(n=>{n.hidden=n.dataset.panel!==name;});document.querySelectorAll('[data-section]').forEach(n=>{if(n.dataset.section===name)n.setAttribute('aria-current','page');else n.removeAttribute('aria-current');});
-  $('workTitle').textContent=({jornada:'Mi jornada',agenda:'Mi agenda',pasajeros:'Pasajeros',validar:'Validar boleto',venta:'Venta a bordo',ocupacion:'Ocupación',operaciones:'Mis operaciones',historial:'Historial'})[name];if(name!=='validar')stopCamera();
+  $('workTitle').textContent=({jornada:'Mi jornada',agenda:'Mi agenda',pasajeros:'Pasajeros',validar:'Validar boleto',venta:'Venta a bordo',finanzas:'Reporte financiero',ocupacion:'Ocupación',operaciones:'Mis operaciones',historial:'Historial'})[name];if(name!=='validar')stopCamera();
+  if(name==='venta')loadSale();
+  if(name==='finanzas')loadFinance();
   $('workNav').classList.remove('is-expanded');$('workMenu').setAttribute('aria-expanded','false');
+ }
+ let quote, seat, financeTrip, sendingSale=false, sendingExpense=false;
+ const saleForm=()=>$('workSaleFields');
+ const expenseForm=()=>$('workExpenseFields');
+ const usd=value=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(value);
+ const tokens=new Map();
+ function payload(path,fields){
+  const key=JSON.stringify([path,fields]);
+  if(!tokens.has(key))tokens.set(key,crypto.randomUUID());
+  return {key,body:{...fields,operacion:tokens.get(key)}};
+ }
+ function showChange(){
+  const difference=Math.round(Number($('workCash').value)*100)-Math.round(Number(quote?.precio)*100);
+  $('workChange').textContent=!$('workCash').value||!quote?.disponible?'':difference<0?'Efectivo insuficiente':`Vuelto: ${usd(difference/100)}`;
+ }
+ async function loadSale(){
+  saleForm().disabled=true;quote=null;seat=null;
+  $('workSaleSeats').replaceChildren();$('workSaleReason').textContent='Consultando viaje en curso?';
+  try{
+   quote=await request('/api/operacion/venta');
+   $('workSaleOrigin').value=quote.origen||'';
+   $('workSaleDestination').replaceChildren(...quote.destinos.map(p=>{
+    const option=element('option',p.NOMBRE);option.value=p.ORDEN;return option;
+   }));
+   $('workTotal').value=quote.precio==null?'':usd(quote.precio);
+   let floor, grid, number=0;
+   for(const a of quote.asientos){
+    if(a.PIS_ASI!==floor){
+     floor=a.PIS_ASI;grid=element('div');grid.className='work-seat-grid';
+     $('workSaleSeats').append(element('p',`Piso ${floor}`),grid);
+    }
+    const button=element('button',`${++number} ? ${a.libre?'Libre':'Ocupado'}`);
+    button.type='button';button.disabled=!a.libre;button.dataset.free=String(a.libre);
+    button.setAttribute('aria-pressed','false');
+    button.addEventListener('click',()=>{
+     for(const item of $('workSaleSeats').querySelectorAll('button'))item.setAttribute('aria-pressed',String(item===button));
+     seat=a.ID_ASI;
+    });
+    grid.append(button);
+   }
+   $('workSaleReason').textContent=quote.disponible?`Viaje ${quote.id}. Selecciona un asiento libre.`:'La parada actual o la tarifa no permite vender.';
+   saleForm().disabled=!quote.disponible;showChange();
+  }catch(e){$('workSaleReason').textContent=e.message;}
+ }
+ async function submitSale(e){
+  e.preventDefault();
+  if(sendingSale||!quote?.disponible)return;
+  if(!seat){$('workSaleReason').textContent='Selecciona un asiento libre.';return;}
+  const path=`/api/operacion/hojas/${quote.id}/venta`;
+  const {key,body}=payload(path,{asiento:seat,destino:Number($('workSaleDestination').value),efectivo:$('workCash').value});
+  sendingSale=true;saleForm().disabled=true;
+  try{
+   const sale=await request(path,body);tokens.delete(key);$('workCash').value='';
+   await loadSale();$('workSaleReason').textContent=`Boleto ${sale.boleto} confirmado. Vuelto: ${usd(sale.vuelto)}.`;
+  }catch(e){saleForm().disabled=false;$('workSaleReason').textContent=e.message;}
+  finally{sendingSale=false;}
+ }
+ async function loadFinance(){
+  expenseForm().disabled=true;financeTrip=null;
+  $('workFinanceStatus').textContent='Consultando viaje?';
+  $('workFinanceTotals').textContent='';$('workExpenses').replaceChildren();
+  try{
+   const trips=await request('/api/operacion/jornada');
+   const current=trips.viajes.find(h=>normalized(h.estado)==='EN CURSO');
+   const h=current||[...trips.viajes,...trips.historial].find(h=>h.id===selected);
+   if(!h)throw new Error('Selecciona un viaje para consultar su reporte.');
+   const data=await request(`/api/operacion/hojas/${h.id}/finanzas`);
+   financeTrip=current?.id;$('workFinanceStatus').textContent=`Viaje ${h.id} ? ${h.origen} ? ${h.destino}`;
+   $('workFinanceTotals').textContent=`Vendidos: ${data.vendidos} ? Abordados: ${data.abordados} ? Ingresos: ${usd(data.ingresos)} ? Gastos: ${usd(data.gastos)} ? Saldo: ${usd(data.saldo)}`;
+   for(const g of data.registros)$('workExpenses').append(element('li',`${g.CATEGORIA} ? ${usd(g.MONTO)}${g.DETALLE?' ? '+g.DETALLE:''}`));
+   expenseForm().disabled=!financeTrip;
+  }catch(e){$('workFinanceStatus').textContent=e.message;}
+ }
+ async function submitExpense(e){
+  e.preventDefault();if(!financeTrip||sendingExpense)return;
+  const path=`/api/operacion/hojas/${financeTrip}/gastos`;
+  const {key,body}=payload(path,Object.fromEntries(new FormData(e.currentTarget)));
+  sendingExpense=true;expenseForm().disabled=true;
+  try{await request(path,body);tokens.delete(key);e.target.reset();await loadFinance();}
+  catch(error){expenseForm().disabled=false;$('workFinanceStatus').textContent=error.message;}
+  finally{sendingExpense=false;}
  }
  function clear() {
   detail=null;$('workTripDetails').hidden=true;$('workEmpty').hidden=false;
@@ -65,8 +148,8 @@
   $('workRecordedTickets').replaceChildren(...(data.boletosRegistrados||[]).map(t=>{const row=element('tr');const values=[t.id,t.fecha?String(t.fecha).slice(0,10):'No registrada',t.importe!==null&&Number.isFinite(Number(t.importe))?new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(t.importe):'No disponible',t.metodo,t.estado];values.forEach((v,i)=>row.append(cell(['Boleto','Fecha','Importe registrado','Método','Estado'][i],v)));return row;}));
   if(!data.boletosRegistrados?.length){const row=element('tr'),td=element('td','No hay boletos asociados a tu cuenta en este viaje.');td.colSpan=5;row.append(td);$('workRecordedTickets').append(row);}
   $('workOperationsEmpty').textContent=data.eventos.some(e=>e.propio)?'':'Todavía no tienes eventos confirmados en este viaje.';
-  $('workSaleReason').textContent=data.venta.motivo;$('workSaleOrigin').value=data.recorrido[h.parada]?.NOMBRE||'';
-  $('workSaleDestination').replaceChildren(...data.recorrido.filter(p=>p.ORDEN>h.parada&&p.COMERCIAL).map(p=>{const n=element('option',p.NOMBRE);n.value=p.ORDEN;return n;}));connection();
+
+  connection();
  }
  async function loadTrip() {
   const id=selected,version=++readSequence;if(detail?.viaje.id!==id)clear();if(!id)return;
@@ -128,7 +211,7 @@
   document.querySelectorAll('[data-controller]').forEach(n=>{n.hidden=role!=='R004';});document.querySelectorAll('[data-driver]').forEach(n=>{n.hidden=role!=='R006';});document.querySelectorAll('[data-section]').forEach(n=>n.addEventListener('click',()=>show(n.dataset.section)));document.querySelectorAll('[data-action]').forEach(n=>n.addEventListener('click',()=>perform(n.dataset.action)));
   $('workMenu').addEventListener('click',()=>{const expanded=$('workMenu').getAttribute('aria-expanded')!=='true';$('workMenu').setAttribute('aria-expanded',String(expanded));$('workNav').classList.toggle('is-expanded',expanded);});
   $('workChecklist').addEventListener('click',()=>{$('tripPreparation').scrollIntoView({block:'center',behavior:'smooth'});$('tripPreparation').focus();});$('workReport').addEventListener('click',()=>{show('operaciones');$('workNoteText').focus();});
-  $('workTrip').addEventListener('change',()=>{selected=$('workTrip').value;stopCamera();loadTrip();});$('workRefresh').addEventListener('click',refresh);$('workValidate').addEventListener('submit',e=>{e.preventDefault();perform('ABORDAJE',{codigo:$('workCode').value});});$('workNote').addEventListener('submit',e=>{e.preventDefault();perform('NOVEDAD',{detalle:$('workNoteText').value});});$('workSale').addEventListener('submit',e=>{e.preventDefault();status('No existe una tarifa confirmada para realizar esta venta.');});$('workCamera').addEventListener('click',camera);$('workCameraStop').addEventListener('click',stopCamera);loaded=true;await identity();await refresh();
+  $('workTrip').addEventListener('change',()=>{selected=$('workTrip').value;stopCamera();loadTrip();});$('workRefresh').addEventListener('click',refresh);$('workValidate').addEventListener('submit',e=>{e.preventDefault();perform('ABORDAJE',{codigo:$('workCode').value});});$('workNote').addEventListener('submit',e=>{e.preventDefault();perform('NOVEDAD',{detalle:$('workNoteText').value});});$('workSale').addEventListener('submit',submitSale);$('workExpense').addEventListener('submit',submitExpense);$('workCash').addEventListener('input',showChange);$('workCamera').addEventListener('click',camera);$('workCameraStop').addEventListener('click',stopCamera);loaded=true;await identity();await refresh();
  }
  window.addEventListener('offline',()=>{synced=false;if(loaded){connection();if(detail)render(detail);status('Sin conexión. Datos desactualizados: consulta únicamente. No se confirmarán ventas ni validaciones.');}stopCamera();});window.addEventListener('online',()=>{if(loaded)refresh();});document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();else if(loaded)refresh();});window.addEventListener('pagehide',stopCamera);window.addEventListener('transport:logout',()=>{disposed=true;readSequence++;stopCamera();if(loaded)clear();pending.clear();});
  const timer=setInterval(()=>{if(loaded&&!document.hidden&&!busy&&navigator.onLine)refresh();},30000);
