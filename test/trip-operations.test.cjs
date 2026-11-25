@@ -65,7 +65,7 @@ test('portales: flujo HTTP operativo con transacciones aisladas',async t=>{
   const info=await (await call('/operacion/hojas/H0001','CON01')).json();assert.equal(info.ocupacion.disponibles,0);assert.equal(info.ocupacion.aBordo,0);assert.equal(info.pasajeros[0].estado,'Descendió');
   assert.equal((await event('FIN')).status,200);assert.equal((await event('NOVEDAD','DRV01',{detalle:'No debe cambiar un viaje cerrado'})).status,409);
   const history=await (await call('/operacion/jornada')).json();assert.equal(history.historial.length,1);assert.ok(history.historial[0].inicio&&history.historial[0].fin);
-  assert.equal((await call('/operacion/hojas/H0001/venta','CON01',{precio:0})).status,503);
+  assert.equal((await call('/operacion/hojas/H0001/venta','CON01',{precio:0})).status,400);
  });
  await t.test('asignación con permisos, misma empresa y horarios no superpuestos',async()=>{
   const body={idBus:'BUS01',idFre:'F0001',idUsuCho:'DRV01',idUsuCon:'CON01',salida:'2026-12-02T12:00:00Z',llegada:'2026-12-02T14:00:00Z'};
