@@ -56,7 +56,8 @@
             <p id="assignmentHelp" class="assignment-help">Selecciona personal activo de tu cooperativa. Se comprobarán horarios laborales y reservas personales.</p>
             <div id="assignmentStatus" class="assignment-status" role="status"></div>
 
-            <div id="singleAssignment">
+            <details id="singleAssignment">
+              <summary>Viaje extra / feriado (1 a 1)</summary>
               <form id="assignmentForm">
                 <div class="form-grid">
                   <div class="field"><label for="assignmentBus">Bus</label><select id="assignmentBus" required></select></div>
@@ -70,8 +71,36 @@
                   <button class="btn btn-primary" id="assignmentSubmit" type="submit">Guardar salida</button>
                 </div>
               </form>
-            </div>
+            </details>
 
+            <details id="groupAssignment" hidden>
+              <summary>Programaci?n por grupos y fechas</summary>
+              <form id="groupEdit" class="assignment-step">
+                <h3>Administrar grupos</h3>
+                <div class="form-grid">
+                  <label>Tipo<select id="groupType"><option value="BUS">Buses</option><option value="FRECUENCIA">Frecuencias</option></select></label>
+                  <label>Grupo<select id="groupEditId"></select></label>
+                  <label>Nombre<input id="groupName" maxlength="80" required></label>
+                  <label>Miembros<select id="groupMembers" multiple size="6" required></select></label>
+                </div>
+                <button class="btn btn-primary" type="submit">Guardar grupo</button>
+                <button class="btn btn-secondary" id="groupDelete" type="button">Eliminar grupo</button>
+              </form>
+              <form id="groupGenerate" class="assignment-step">
+                <h3>Generar salidas</h3>
+                <div class="form-grid">
+                  <label>Grupo de buses<select id="groupBus" required></select></label>
+                  <label>Grupo de frecuencias<select id="groupFrequency" required></select></label>
+                  <label>Desde<input id="groupStart" type="date" required></label>
+                  <label>Hasta<input id="groupEnd" type="date" required></label>
+                  <label>Duraci?n por viaje (minutos)<input id="groupDuration" type="number" min="1" max="1440" required></label>
+                </div>
+                <div id="groupCrew"></div>
+                <p>Se usa la hora de salida de cada frecuencia. Las unidades rotan a diario.</p>
+                <button class="btn btn-primary" type="submit">Generar salidas del rango</button>
+              </form>
+              <p id="groupStatus" role="status"></p>
+            </details>
             <form id="batchForm" hidden>
               <div class="assignment-step">
                 <div class="assignment-step-head">
