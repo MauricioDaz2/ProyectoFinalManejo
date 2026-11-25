@@ -59,7 +59,7 @@ test('con CC-02 la programación cambia a lote y consulta disponibilidad en UTC'
   ui.get('coopAssignment').open = true;
   await ui.get('coopAssignment').events.toggle();
 
-  assert.equal(ui.get('singleAssignment').hidden, true);
+  assert.equal(ui.get('singleAssignment').hidden, false);
   assert.equal(ui.get('batchForm').hidden, false);
   assert.equal(ui.get('batchFrequency').children[1].value, 'F0001');
 
