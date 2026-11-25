@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const groups = require('../services/routeGroups');
 const router = express.Router();
 const { cooperativaScope } = require('../middleware/cooperativaScope');
 const batches = require('../controllers/routeBatchController');
@@ -31,7 +32,7 @@ const busPhotoUpload = multer({
 router.use(cooperativaScope);
 router.use((req, res, next) => {
     const [,resource,action] = req.path.split('/');
-    const permission = { buses: 'buses', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'catalogo-territorial': 'rutas', 'categorias-operativas': 'rutas', 'hojas-ruta': req.method === 'GET' && action !== 'disponibilidad' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
+    const permission = { buses: 'buses', 'grupos-programacion': 'rutas', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'catalogo-territorial': 'rutas', 'categorias-operativas': 'rutas', 'hojas-ruta': req.method === 'GET' && action !== 'disponibilidad' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
     if (!permission) return next();
     require('../security/permissions').requirePermission(permission)(req, res, next);
 });
@@ -107,6 +108,9 @@ router.put('/frecuencias/:id/categoria', batches.setFrequency);
 router.patch('/frecuencias/:id/estado', cambiarEstadoFrecuencia);
 router.delete('/frecuencias/:id', eliminarFrecuencia);
 
+router.get('/grupos-programacion', groups.handle(groups.list));
+router.post('/grupos-programacion', groups.handle(groups.edit));
+router.post('/grupos-programacion/generar', groups.handle(groups.generate));
 router.get('/hojas-ruta', listarHojasRuta);
 router.get('/hojas-ruta/disponibilidad', batches.availability);
 router.post('/hojas-ruta/lotes', batches.create);
