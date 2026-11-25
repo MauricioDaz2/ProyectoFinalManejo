@@ -22,6 +22,8 @@
     ['gestion_buses.html','bus','Buses','buses'],
     ['resoluciones_ant.html','route','Rutas y frecuencias','rutas'],
     ['dashboard_coop.html#salidas','calendar','Próximas salidas','salidas'],
+    ['../oficinista/ventanilla_boletos.html','document','Ventanilla de boletos','ventanilla'],
+    ['../oficinista/validacion_reservas.html','eye','Validación de reservas','ventanilla'],
     ['personal.html','person','Personal y accesos','trabajadores'],
     ['personalizar.html','palette','Personalización','personalizacion']
   ];
