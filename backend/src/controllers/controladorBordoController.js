@@ -1,10 +1,5 @@
 const { sql, conectarBD } = require('../config/db');
 
-const generarId = (prefijo, ultimoId) => {
-    const numero = ultimoId ? parseInt(String(ultimoId).replace(/\D/g, ''), 10) || 0 : 0;
-    return prefijo + String(numero + 1).padStart(5 - prefijo.length, '0');
-};
-
 // 1. Listar hojas de ruta asignadas a un controlador específico
 const listarHojasPorControlador = async (req, res) => {
     const { idControlador } = req.params;
@@ -61,10 +56,15 @@ const listarAsientosDisponibles = async (req, res) => {
     }
 };
 
-// 3. Venta de boleto a bordo por el controlador (Efectivo)
-
-// 3. Venta de boleto a bordo por el controlador (Efectivo)
-const venderBoletoABordo = async (req,res) => res.status(503).json({success:false,message:'Venta bloqueada: falta una tarifa por tramo y disponibilidad compartida con reservas.'});
+const venderBoletoABordo = async (req, res) => {
+    try {
+        const result = await require('../services/tripFinance').sell(req.auth, req.body.idHoj, req.body);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        return require('../services/frequencyControl').respond(res, error) ||
+            res.status(error.status || 503).json({ success: false, message: error.status ? error.message : 'No se pudo confirmar la venta.' });
+    }
+};
 const escanerValidarBoleto = async (req,res) => {
     if(!req.body.idHoj)return res.status(400).json({success:false,message:'Selecciona el viaje antes de validar.'});
     try { const result=await require('../services/tripOperations').event(req.auth,req.body.idHoj,{tipo:'ABORDAJE',evento:req.body.evento,codigo:req.body.codigo||req.body.idBoleto});res.json({success:true,...result}); }
