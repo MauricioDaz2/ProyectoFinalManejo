@@ -1,7 +1,15 @@
-(() => {
+(async () => {
   'use strict';
   const sidebar = document.querySelector('.admin-sidebar');
   if (!sidebar) return;
+  const vistaCompartida = document.body.hasAttribute('data-coop-operaciones');
+  if (vistaCompartida) {
+    if (window.TransportSession) await window.TransportSession.ready;
+    if (window.App?.sesion()?.rolId !== 'R002') return;
+    document.body.classList.add('coop-dashboard');
+    const contexto = document.querySelector('[data-coop-contexto]');
+    if (contexto) contexto.textContent = `Cooperativa / ${contexto.dataset.coopContexto}`;
+  }
   const paths = {
     bus: '<rect x="4" y="3" width="16" height="17" rx="3"/><path d="M4 13h16M8 20v2m8-2v2M7 16h2m6 0h2M4 7h16"/>',
     home: '<path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z"/>',
@@ -27,7 +35,8 @@
     ['personal.html','person','Personal y accesos','trabajadores'],
     ['personalizar.html','palette','Personalización','personalizacion']
   ];
-  sidebar.innerHTML = `<div class="coop-platform"><span aria-hidden="true">${iconSvg('bus')}</span><div>Transporte<br>Cooperativas<small>Gestión de transporte de pasajeros<br>del Ecuador</small></div></div><p class="coop-nav-label">PANEL DE MI COOPERATIVA</p><nav class="coop-nav" aria-label="Mi cooperativa">${links.map(([href,symbol,label,permission])=>`<a href="${href}"${permission ? ` data-coop-permission="${permission}" hidden` : ''}><span aria-hidden="true">${iconSvg(symbol)}</span>${label}</a>`).join('')}</nav><div class="coop-sidebar-footer"><a href="../public/index.html">Página principal del sistema ↗</a><p>Tu operación, en un solo lugar.</p><small>Universidad Técnica de Ambato</small></div>`;
+  const coopHref = href => vistaCompartida ? new URL(href, new URL("../cooperativa/", location.href)).href : href;
+  sidebar.innerHTML = `<div class="coop-platform"><span aria-hidden="true">${iconSvg('bus')}</span><div>Transporte<br>Cooperativas<small>Gestión de transporte de pasajeros<br>del Ecuador</small></div></div><p class="coop-nav-label">PANEL DE MI COOPERATIVA</p><nav class="coop-nav" aria-label="Mi cooperativa">${links.map(([href,symbol,label,permission])=>`<a href="${coopHref(href)}"${permission ? ` data-coop-permission="${permission}" hidden` : ''}><span aria-hidden="true">${iconSvg(symbol)}</span>${label}</a>`).join('')}</nav><div class="coop-sidebar-footer"><a href="../public/index.html">Página principal del sistema ↗</a><p>Tu operación, en un solo lugar.</p><small>Universidad Técnica de Ambato</small></div>`;
   function active() {
     const current = location.pathname.split('/').pop();
     sidebar.querySelectorAll('nav a').forEach(link => {

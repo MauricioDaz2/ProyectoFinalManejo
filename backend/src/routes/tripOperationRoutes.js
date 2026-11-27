@@ -1,6 +1,7 @@
 const router=require('express').Router();
 const {requireSession,requireRole}=require('../middleware/session');
 const service=require('../services/tripOperations');
+const finance=require('../services/tripFinance');
 const cc=require('../services/frequencyControl');
 const run=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{res.json({success:true,...await fn(req)});}catch(e){return cc.respond(res,e)||res.status(e.status||503).json({success:false,message:e.status?e.message:'No se pudo confirmar la operación. Actualiza e inténtalo nuevamente.'});}};
 router.use(requireSession);
@@ -10,5 +11,9 @@ router.use(requireRole('R004','R006'));
 router.get('/jornada',run(req=>service.journal(req.auth)));
 router.get('/hojas/:id',run(req=>service.detail(req.auth,req.params.id)));
 router.post('/hojas/:id/eventos',run(req=>service.event(req.auth,req.params.id,req.body)));
-router.post('/hojas/:id/venta',requireRole('R004'),run(async req=>{await service.detail(req.auth,req.params.id);throw Object.assign(new Error('Venta bloqueada: falta configurar tarifas por tramo y disponibilidad compartida con reservas.'),{status:503});}));
+router.get('/venta',run(req=>finance.current(req.auth)));
+router.post('/hojas/:id/venta',run(req=>finance.sell(req.auth,req.params.id,req.body)));
+router.get('/hojas/:id/finanzas',run(req=>finance.report(req.auth,req.params.id)));
+router.get('/hojas/:id/gastos',run(async req=>({gastos:(await finance.report(req.auth,req.params.id)).registros})));
+router.post('/hojas/:id/gastos',run(req=>finance.expense(req.auth,req.params.id,req.body)));
 module.exports=router;

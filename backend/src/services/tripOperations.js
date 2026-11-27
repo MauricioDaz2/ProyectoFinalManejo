@@ -160,4 +160,4 @@ async function protectOperationalSheet(id) {
  const h=(await req(db).input('sheet',sql.VarChar(5),id).query(`SELECT EST_VIA_HOJ,${available?'ID_USU_CHO,SALIDA_PLAN_UTC':'NULL AS ID_USU_CHO,NULL AS SALIDA_PLAN_UTC'} FROM dbo.HOJAS_RUTAS WHERE ID_HOJ=@sheet`)).recordset[0];
  if(h&&(h.ID_USU_CHO||h.SALIDA_PLAN_UTC||!['PROGRAMADO','PROGRAMADA'].includes(norm(h.EST_VIA_HOJ))))throw fail(409,'No se puede alterar esta salida desde el formulario antiguo. El recorrido operativo conserva sus asignaciones e historial.');
 }
-module.exports={installed,journal,detail,event,assign,assignInTransaction,sheet,transaction,assignmentOptions,protectOperationalSheet,canAssign,verifyScheduler,stops,localDay};
+module.exports={installed,journal,detail,event,assign,assignInTransaction,sheet,sheets,actor,transaction,assignmentOptions,protectOperationalSheet,canAssign,verifyScheduler,stops,localDay};

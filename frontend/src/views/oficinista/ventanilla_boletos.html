@@ -7,13 +7,18 @@
   <title>Ventanilla de Boletos | Transporte UTA</title>
   <link rel="stylesheet" href="../../assets/admin_layout.css">
   <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <link rel="stylesheet" href="../../assets/coop_dashboard.css">
+  <link rel="stylesheet" href="../../assets/coop_navigation.css">
+  <link rel="stylesheet" href="../../assets/coop_operaciones.css">
   <script src="../../js/api.js" defer></script>
+  <script src="../../js/coop_navigation.js" defer></script>
+  <script src="../../js/coop_access.js" defer></script>
   <script src="../../js/panel_layout.js" defer></script>
   <script src="../../js/oficinista_ventanilla.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
 </head>
-<body data-app="oficinista" data-page="ventanilla">
+<body data-app="oficinista" data-page="ventanilla" data-coop-operaciones>
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
     <div id="menuBackdrop" class="menu-backdrop" hidden></div>
@@ -24,7 +29,7 @@
       <main id="main-content" class="admin-main">
         <div class="page-head">
           <div>
-            <p class="eyebrow">Oficinista / Ventanilla</p>
+            <p class="eyebrow" data-coop-contexto="Ventanilla">Oficinista / Ventanilla</p>
             <h1>Venta de boletos en ventanilla</h1>
             <p>Selecciona una salida y un asiento disponible, cobra en efectivo, transferencia o depósito con cálculo automático de tarifa y emite el boleto con su código QR.</p>
           </div>
