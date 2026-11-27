@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const templates = require('../services/busTemplates');
 const groups = require('../services/routeGroups');
 const router = express.Router();
 const { cooperativaScope } = require('../middleware/cooperativaScope');
@@ -32,7 +33,7 @@ const busPhotoUpload = multer({
 router.use(cooperativaScope);
 router.use((req, res, next) => {
     const [,resource,action] = req.path.split('/');
-    const permission = { buses: 'buses', 'grupos-programacion': 'rutas', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'catalogo-territorial': 'rutas', 'categorias-operativas': 'rutas', 'hojas-ruta': req.method === 'GET' && action !== 'disponibilidad' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
+    const permission = { buses: 'buses', 'plantillas-bus': 'buses', 'grupos-programacion': 'rutas', asientos: 'buses', 'tipos-asiento': 'buses', resoluciones: 'resoluciones', frecuencias: 'rutas', 'catalogo-territorial': 'rutas', 'categorias-operativas': 'rutas', 'hojas-ruta': req.method === 'GET' && action !== 'disponibilidad' ? 'salidas' : 'rutas', resumen: 'reportes' }[resource];
     if (!permission) return next();
     require('../security/permissions').requirePermission(permission)(req, res, next);
 });
@@ -78,6 +79,10 @@ const {
 
 router.get('/resumen', resumenCooperativa);
 
+router.get('/plantillas-bus', templates.handle(req => templates.list(req.auth)));
+router.post('/plantillas-bus', templates.handle(req => templates.save(req.auth, req.body)));
+router.put('/plantillas-bus/:id', templates.handle(req => templates.save(req.auth, req.body, req.params.id)));
+router.delete('/plantillas-bus/:id', templates.handle(req => templates.remove(req.auth, req.params.id)));
 router.get('/buses', listarBuses);
 router.get('/buses/:id', obtenerBus);
 router.get('/buses/:id/asientos', listarAsientos);

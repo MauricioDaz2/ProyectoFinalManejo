@@ -148,12 +148,12 @@ async function assignmentOptions(user) {
  if(user.rolId!=='R001'&&!require('../security/permissions').can(user,'rutas'))throw fail(403,'No tienes permiso para organizar salidas.');
  const db=await conectarBD();await ready(db);
  const scoped=()=>req(db).input('company',sql.VarChar(5),user.rolId==='R001'?null:user.cooperativaId);
- const buses=(await scoped().query("SELECT B.ID_BUS,B.NUM_BUS,B.PLA_BUS FROM dbo.BUSES B JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER WHERE C.EST_COP='1' AND UPPER(B.EST_BUS) IN ('ACTIVO','1') AND (@company IS NULL OR B.ID_COP_PER=@company) ORDER BY B.NUM_BUS")).recordset;
+ const buses=(await scoped().query("SELECT B.* FROM dbo.BUSES B JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER WHERE C.EST_COP='1' AND UPPER(B.EST_BUS) IN ('ACTIVO','1') AND (@company IS NULL OR B.ID_COP_PER=@company) ORDER BY B.NUM_BUS")).recordset;
   const frecuencias=(await scoped().query(`SELECT F.ID_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE FROM dbo.FRECUENCIAS F JOIN dbo.COOPERATIVAS C ON C.ID_COP=F.ID_COP_PER
     WHERE C.EST_COP='1' AND F.EST_RES='1' AND (@company IS NULL OR F.ID_COP_PER=@company)
     ORDER BY F.CIU_ORI_FRE,F.CIU_DES_FRE`)).recordset;
  const personal=(await scoped().query("SELECT U.ID_USU,U.NOM_USU,U.APE_USU,U.ID_ROL_PER FROM dbo.USUARIOS U JOIN dbo.COOPERATIVAS C ON C.ID_COP=U.ID_COP_PER WHERE U.EST_USU='1' AND C.EST_COP='1' AND U.ID_ROL_PER IN ('R004','R006') AND (@company IS NULL OR U.ID_COP_PER=@company) ORDER BY U.NOM_USU,U.APE_USU")).recordset;
-  return {buses,frecuencias,personal,lotesDisponibles:categories.enabled()};
+  return {buses:buses.map(({ID_BUS,NUM_BUS,PLA_BUS,ID_CHO_1,ID_CHO_2,ID_CON_DEF})=>({ID_BUS,NUM_BUS,PLA_BUS,ID_CHO_1,ID_CHO_2,ID_CON_DEF})),frecuencias,personal,lotesDisponibles:categories.enabled()};
 }
 async function protectOperationalSheet(id) {
  const db=await conectarBD(),available=await installed(db);

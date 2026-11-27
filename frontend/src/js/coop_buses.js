@@ -486,6 +486,68 @@
     ayudaAsientosP2.textContent = dosPisos ? 'Mínimo 4 y máximo 60 asientos.' : 'Disponible solo para buses de 2 pisos.';
   }
 
+  const templateSelect = document.getElementById('busPlantillaGuardada');
+  const templateEdit = document.getElementById('busPlantillaEdicion');
+  const templateName = document.getElementById('busPlantillaNombre');
+  const crewFields = {ID_CHO_1:'R006',ID_CHO_2:'R006',ID_CON_DEF:'R004'};
+  let catalog = [], crewReady = false;
+  function option(value,label) {
+    const node = document.createElement('option');
+    node.value=value;node.textContent=label;return node;
+  }
+  async function loadTemplates(bus=null) {
+    if (!templateSelect) return;
+    crewReady=false;
+    try {
+      const {plantillas,personal}=await App.api('/coop/plantillas-bus');
+      catalog=plantillas;
+      for(const [select,title] of [[templateSelect,'Usar modelo base'],[templateEdit,'Nueva plantilla']]){
+        select.replaceChildren(option('',title),...catalog.map(row=>option(row.ID_PLA,row.NOM_PLA)));
+      }
+      templateName.value='';
+      for(const [field,role] of Object.entries(crewFields)){
+        const select=document.getElementById(field);
+        select.replaceChildren(option('','Sin asignar'),...personal.filter(u=>u.ID_ROL_PER===role).map(u=>option(u.ID_USU,[u.NOM_USU,u.APE_USU].join(' '))));
+        if(bus?.[field]&&!personal.some(u=>u.ID_USU===bus[field]))select.append(option(bus[field],'Asignaci?n anterior'));
+        select.value=bus?.[field]||'';
+      }
+      crewReady=true;
+    }catch(error){App.aviso(error.message,'error');}
+  }
+  templateSelect?.addEventListener('change',()=>{
+    const saved=catalog.find(row=>String(row.ID_PLA)===templateSelect.value);
+    if(!saved)return;
+    pisosBus.value=String(saved.NUM_PIS);
+    actualizarPisos();
+    const count=contarAsientosPlantilla(saved.PLANTILLA);
+    asientosP1.value=count.p1;asientosP2.value=count.p2;
+  });
+  templateEdit?.addEventListener('change',()=>{
+    const saved=catalog.find(row=>String(row.ID_PLA)===templateEdit.value);
+    templateName.value=saved?.NOM_PLA||'';
+    if(saved){
+      plantillaActiva=JSON.parse(JSON.stringify(saved.PLANTILLA));
+      pisoActivoDisenador=1;
+      renderDisenadorPlantilla();
+    }
+  });
+  document.getElementById('busPlantillaGuardar')?.addEventListener('click',async()=>{
+    if(!plantillaActiva||!templateName.value.trim()){App.aviso('Indica el nombre de la plantilla.','error');return;}
+    const id=templateEdit.value;
+    try{
+      await App.api('/coop/plantillas-bus'+(id?'/'+id:''),{method:id?'PUT':'POST',body:{NOM_PLA:templateName.value,PLANTILLA:plantillaActiva}});
+      await loadTemplates();App.aviso('Plantilla guardada.','success');
+    }catch(error){App.aviso(error.message,'error');}
+  });
+  document.getElementById('busPlantillaEliminar')?.addEventListener('click',async()=>{
+    const id=templateEdit.value;
+    if(!id||!window.confirm('?Eliminar esta plantilla del cat?logo?'))return;
+    try{
+      await App.api('/coop/plantillas-bus/'+id,{method:'DELETE'});
+      await loadTemplates();App.aviso('Plantilla eliminada.','success');
+    }catch(error){App.aviso(error.message,'error');}
+  });
+
   function abrirNuevoBus() {
     busEnEdicion = null;
     formBus.reset();
@@ -504,6 +566,7 @@
     avisoAsientos.classList.add('hidden');
     tituloModalBus.textContent = 'Nuevo bus';
     subtituloModalBus.textContent = 'Completa los datos de la unidad, su fotografía local y la plantilla base de asientos.';
+    if(templateSelect){templateSelect.disabled=false;loadTemplates();}
     App.abrirModal('modalBus');
   }
 
@@ -532,6 +595,7 @@
     actualizarPisos();
     avisoAsientos.classList.remove('hidden');
     tituloModalBus.textContent = `Editar unidad N° ${bus.NUM_BUS}`;
+    if(templateSelect){templateSelect.disabled=true;loadTemplates(bus);}
     subtituloModalBus.textContent = `Placa ${bus.PLA_BUS} · Año ${bus.ANIO_BUS}`;
     App.abrirModal('modalBus');
   }
@@ -620,8 +684,14 @@
         ID_COP_PER: cooperativa
       };
 
+      if(crewReady)for(const field of Object.keys(crewFields)){
+        const value=document.getElementById(field).value;
+        if(!busEnEdicion||value!==(busEnEdicion[field]||''))cuerpo[field]=value||null;
+      }
       if (!busEnEdicion) {
-        const plantillaGenerada = generarPlantillaPorModelo(
+        const saved=catalog.find(row=>String(row.ID_PLA)===templateSelect?.value);
+        if(saved&&saved.NUM_PIS!==pisos)throw new Error('Selecciona una plantilla compatible con el n?mero de pisos.');
+        const plantillaGenerada = saved?.PLANTILLA || generarPlantillaPorModelo(
           modelo,
           pisos,
           modelo === 'DESDE_CERO' ? p1 : null,
@@ -630,7 +700,7 @@
         const conteo = contarAsientosPlantilla(plantillaGenerada);
         cuerpo.ASIENTOS_P1 = conteo.p1;
         cuerpo.ASIENTOS_P2 = pisos === 2 ? conteo.p2 : 0;
-        cuerpo.MOD_PLA_BUS = modelo;
+        cuerpo.MOD_PLA_BUS = saved ? 'PERSONALIZADA' : modelo;
         cuerpo.PLANTILLA = plantillaGenerada;
       } else {
         const cambioAsientos = p1 !== asientosOriginales.p1
@@ -926,6 +996,7 @@
     subtituloModalAsientos.textContent = `Placa ${bus.PLA_BUS} · ${bus.NUM_PIS} piso(s) · Haz clic en cualquier espacio para personalizarlo`;
     mapaAsientos.innerHTML = `<div class="empty-state"><div class="spinner"></div><p>Cargando estructura del bus…</p></div>`;
     App.abrirModal('modalAsientos');
+    loadTemplates();
 
     try {
       await cargarTiposAsiento();

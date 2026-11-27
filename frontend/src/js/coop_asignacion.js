@@ -278,7 +278,8 @@
     try {
       const data = await request('/operacion/asignaciones/opciones');
       loteDisponible = data.lotesDisponibles === true;
-      options('assignmentBus', data.buses || [], 'ID_BUS', busLabel);
+      busesConTripulacion=data.buses||[];
+      options('assignmentBus', busesConTripulacion, 'ID_BUS', busLabel);
       options('assignmentRoute', data.frecuencias || [], 'ID_FRE', row => `${row.CIU_ORI_FRE} → ${row.CIU_DES_FRE}`);
       for (const [id, role] of [['assignmentDriver', 'R006'], ['assignmentController', 'R004']]) {
         options(id, (data.personal || []).filter(p => p.ID_ROL_PER === role), 'ID_USU', personaLabel);
@@ -427,6 +428,14 @@
     });
   }
 
+  let busesConTripulacion=[];
+  $('assignmentBus').addEventListener('change',()=>{
+    const bus=busesConTripulacion.find(row=>row.ID_BUS===$('assignmentBus').value);
+    const driver=$('assignmentDriver'), controller=$('assignmentController');
+    const exists=(select,id)=>id&&Array.from(select.options).some(option=>option.value===id);
+    driver.value=[bus?.ID_CHO_1,bus?.ID_CHO_2].find(id=>exists(driver,id))||'';
+    controller.value=exists(controller,bus?.ID_CON_DEF)?bus.ID_CON_DEF:'';
+  });
   $('assignmentForm').addEventListener('submit', async e => {
     e.preventDefault();
     if (loading || !loaded) return;
