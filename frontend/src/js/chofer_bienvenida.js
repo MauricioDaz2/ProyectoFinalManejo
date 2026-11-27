@@ -43,9 +43,48 @@
   const difference=Math.round(Number($('workCash').value)*100)-Math.round(Number(quote?.precio)*100);
   $('workChange').textContent=!$('workCash').value||!quote?.disponible?'':difference<0?'Efectivo insuficiente':`Vuelto: ${usd(difference/100)}`;
  }
+ function renderSaleSeats({asientos,plantilla}){
+  const map=$('workSaleSeats');
+  for(const floor of new Set(asientos.map(a=>a.PIS_ASI))){
+   const seats=asientos.filter(a=>a.PIS_ASI===floor);
+   const layout=plantilla?.pisos.find(p=>Number(p?.piso)===Number(floor));
+   const grid=element('div');
+   grid.className='work-seat-grid';
+   map.append(element('h3',`Piso ${floor}`),grid);
+   const coordinate=a=>`${a.FIL_ASI}:${a.COL_ASI}`;
+   const cells=Array.isArray(layout?.celdas)?layout.celdas.filter(c=>
+    c&&Number.isInteger(Number(c.fila))&&Number(c.fila)>0&&Number(c.fila)<=100&&
+    c.col!=null&&Number.isInteger(Number(c.col))&&Number(c.col)>=0&&Number(c.col)<5):[];
+   const byPosition=new Map(seats.map((a,index)=>[coordinate(a),index]));
+   const types=new Set(['ASIENTO','NORMAL','VIP','DISCAPACIDAD']);
+   const positions=new Map(cells.map(c=>[`${Number(c.fila)}:${Number(c.col)}`,normalized(c.tipoCelda||c.rol)]));
+   const mapped=positions.size>0&&byPosition.size===seats.length&&seats.every(a=>types.has(positions.get(coordinate(a))));
+   const buttons=seats.map((a,index)=>{
+    const label=`${floor}${String(index+1).padStart(2,'0')}`;
+    const button=element('button',label);
+    button.type='button';button.disabled=!a.libre;button.dataset.free=String(a.libre);
+    button.setAttribute('aria-label',`Asiento ${label}, ${a.libre?'libre':'ocupado'}`);
+    button.setAttribute('aria-pressed','false');
+    button.addEventListener('click',()=>{
+     for(const item of map.querySelectorAll('button'))item.setAttribute('aria-pressed',String(item===button));
+     seat=a.ID_ASI;
+    });
+    return button;
+   });
+   if(!mapped){grid.append(...buttons);continue;}
+   grid.classList.add('work-seat-plan');
+   for(const [position,type] of positions){
+    const [row,column]=position.split(':').map(Number);
+    const item=buttons[byPosition.get(position)]||element('span',({BANO:'Baño',ESCALERA:'Esc.'})[type]||'');
+    item.style.gridRow=row;
+    item.style.gridColumn=column+1;
+    grid.append(item);
+   }
+  }
+ }
  async function loadSale(){
   saleForm().disabled=true;quote=null;seat=null;
-  $('workSaleSeats').replaceChildren();$('workSaleReason').textContent='Consultando viaje en curso?';
+  $('workSaleSeats').replaceChildren();$('workSaleReason').textContent='Consultando viaje en curso…';
   try{
    quote=await request('/api/operacion/venta');
    $('workSaleOrigin').value=quote.origen||'';
@@ -53,23 +92,12 @@
     const option=element('option',p.NOMBRE);option.value=p.ORDEN;return option;
    }));
    $('workTotal').value=quote.precio==null?'':usd(quote.precio);
-   let floor, grid, number=0;
-   for(const a of quote.asientos){
-    if(a.PIS_ASI!==floor){
-     floor=a.PIS_ASI;grid=element('div');grid.className='work-seat-grid';
-     $('workSaleSeats').append(element('p',`Piso ${floor}`),grid);
-    }
-    const button=element('button',`${++number} ? ${a.libre?'Libre':'Ocupado'}`);
-    button.type='button';button.disabled=!a.libre;button.dataset.free=String(a.libre);
-    button.setAttribute('aria-pressed','false');
-    button.addEventListener('click',()=>{
-     for(const item of $('workSaleSeats').querySelectorAll('button'))item.setAttribute('aria-pressed',String(item===button));
-     seat=a.ID_ASI;
-    });
-    grid.append(button);
-   }
-   $('workSaleReason').textContent=quote.disponible?`Viaje ${quote.id}. Selecciona un asiento libre.`:'La parada actual o la tarifa no permite vender.';
-   saleForm().disabled=!quote.disponible;showChange();
+   renderSaleSeats(quote);
+   const hasFreeSeat=quote.asientos.some(a=>a.libre);
+   $('workSaleReason').textContent=!quote.disponible?'La parada actual o la tarifa no permite vender.':
+    !quote.asientos.length?'La unidad no tiene asientos registrados.':
+    hasFreeSeat?`Viaje ${quote.id}. Selecciona un asiento libre.`:'No hay asientos libres.';
+   saleForm().disabled=!quote.disponible||!hasFreeSeat;showChange();
   }catch(e){$('workSaleReason').textContent=e.message;}
  }
  async function submitSale(e){
@@ -87,7 +115,7 @@
  }
  async function loadFinance(){
   expenseForm().disabled=true;financeTrip=null;
-  $('workFinanceStatus').textContent='Consultando viaje?';
+  $('workFinanceStatus').textContent='Consultando viaje…';
   $('workFinanceTotals').textContent='';$('workExpenses').replaceChildren();
   try{
    const trips=await request('/api/operacion/jornada');
@@ -95,9 +123,9 @@
    const h=current||[...trips.viajes,...trips.historial].find(h=>h.id===selected);
    if(!h)throw new Error('Selecciona un viaje para consultar su reporte.');
    const data=await request(`/api/operacion/hojas/${h.id}/finanzas`);
-   financeTrip=current?.id;$('workFinanceStatus').textContent=`Viaje ${h.id} ? ${h.origen} ? ${h.destino}`;
-   $('workFinanceTotals').textContent=`Vendidos: ${data.vendidos} ? Abordados: ${data.abordados} ? Ingresos: ${usd(data.ingresos)} ? Gastos: ${usd(data.gastos)} ? Saldo: ${usd(data.saldo)}`;
-   for(const g of data.registros)$('workExpenses').append(element('li',`${g.CATEGORIA} ? ${usd(g.MONTO)}${g.DETALLE?' ? '+g.DETALLE:''}`));
+   financeTrip=current?.id;$('workFinanceStatus').textContent=`Viaje ${h.id} · ${h.origen} → ${h.destino}`;
+   $('workFinanceTotals').textContent=`Vendidos: ${data.vendidos} · Abordados: ${data.abordados} · Ingresos: ${usd(data.ingresos)} · Gastos: ${usd(data.gastos)} · Saldo: ${usd(data.saldo)}`;
+   for(const g of data.registros)$('workExpenses').append(element('li',`${g.CATEGORIA} · ${usd(g.MONTO)}${g.DETALLE?' · '+g.DETALLE:''}`));
    expenseForm().disabled=!financeTrip;
   }catch(e){$('workFinanceStatus').textContent=e.message;}
  }
@@ -113,7 +141,7 @@
  function clear() {
   detail=null;$('workTripDetails').hidden=true;$('workEmpty').hidden=false;
   for(const id of ['workPassengers','workEvents','workSeats','tripChecks','tripStops','workRecordedTickets','workSegments'])$(id).replaceChildren();
-  $('workCapacity').textContent='Selecciona un viaje.';$('workSaleReason').textContent='Selecciona un viaje. No hay una cotización confirmada.';
+  $('workCapacity').textContent='Selecciona un viaje.';
   $('workBoarded').textContent='No disponible';$('workOccupied').textContent='No disponible';
   $('workPassengerSummary').textContent='Selecciona un viaje para consultar sus pasajeros.';
   for(const id of ['workNoteSubmit','workValidateSubmit','workCamera'])$(id).disabled=true;

@@ -15,6 +15,9 @@ h1,h2,h3,p{overflow-wrap:anywhere}h2{font-size:20px;line-height:1.3;margin:0 0 1
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
 .work-seat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: .5rem; }
+.work-seat-plan { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 26rem; }
+.work-seat-plan button { min-width: 0; padding-inline: .2rem; }
+.work-seat-plan span { align-self: center; text-align: center; font-size: .75rem; }
 .work-seat-grid button[data-free="true"] { background: #d4f4df; color: #135532; }
 .work-seat-grid button[data-free="false"] { background: #fce1e1; color: #852626; opacity: 1; }
 .work-seat-grid button[aria-pressed="true"] { outline: 3px solid #135532; outline-offset: 2px; }
