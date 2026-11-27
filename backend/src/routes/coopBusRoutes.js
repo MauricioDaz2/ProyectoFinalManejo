@@ -64,6 +64,8 @@ const {
     disponibilidadFrecuencia,
     crearFrecuencia,
     actualizarFrecuencia,
+    obtenerParadasFrecuencia,
+    actualizarParadasFrecuencia,
     cambiarEstadoFrecuencia,
     eliminarFrecuencia,
     listarHojasRuta,
@@ -99,6 +101,8 @@ router.put('/resoluciones/:id', actualizarResolucion);
 router.delete('/resoluciones/:id', eliminarResolucion);
 
 router.get('/frecuencias', listarFrecuencias);
+router.get('/frecuencias/:id/paradas', obtenerParadasFrecuencia);
+router.put('/frecuencias/:id/paradas', actualizarParadasFrecuencia);
 router.get('/frecuencias/:id/disponibilidad', disponibilidadFrecuencia);
 router.get('/catalogo-territorial', catalogoTerritorial);
 router.get('/categorias-operativas', batches.catalog);
