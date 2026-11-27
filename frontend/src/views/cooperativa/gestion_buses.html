@@ -228,6 +228,19 @@
           </div>
         </div>
 
+        <div class="template-catalog">
+          <label class="field">Plantillas reutilizables
+            <select id="busPlantillaEdicion"><option value="">Nueva plantilla</option></select>
+          </label>
+          <label class="field">Nombre de la plantilla
+            <input id="busPlantillaNombre" maxlength="80" placeholder="Cepeda 42">
+          </label>
+          <div class="catalog-actions">
+            <button class="btn btn-secondary btn-sm" type="button" id="busPlantillaGuardar">Guardar en catálogo</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="busPlantillaEliminar">Eliminar del catálogo</button>
+          </div>
+        </div>
+
         <div id="tabsPisosDisenador" class="designer-floor-tabs mt-2"></div>
 
         <div id="mapaAsientos" class="mt-2">
@@ -244,15 +257,11 @@
         </div>
       </div>
       <footer class="modal-footer">
-        <span class="muted" id="resumenPlantillaAsientos" style="margin-right:auto;">—</span>
-        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
-        <label for="busPlantillaEdicion">Plantillas reutilizables</label>
-        <select id="busPlantillaEdicion"><option value="">Nueva plantilla</option></select>
-        <label for="busPlantillaNombre">Nombre</label>
-        <input id="busPlantillaNombre" maxlength="80" placeholder="Cepeda 42">
-        <button class="btn btn-secondary" type="button" id="busPlantillaGuardar">Guardar en cat?logo</button>
-        <button class="btn btn-secondary" type="button" id="busPlantillaEliminar">Eliminar del cat?logo</button>
-        <button class="btn btn-primary" type="button" id="btnGuardarPlantillaAsientos">Guardar plantilla del bus</button>
+        <span class="muted" id="resumenPlantillaAsientos" aria-live="polite">—</span>
+        <div class="template-actions">
+          <button class="btn btn-secondary" type="button" data-cerrar-modal>Cancelar</button>
+          <button class="btn btn-primary" type="button" id="btnGuardarPlantillaAsientos">Guardar plantilla del bus</button>
+        </div>
       </footer>
     </div>
   </div>

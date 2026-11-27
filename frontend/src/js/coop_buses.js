@@ -541,7 +541,7 @@
   });
   document.getElementById('busPlantillaEliminar')?.addEventListener('click',async()=>{
     const id=templateEdit.value;
-    if(!id||!window.confirm('?Eliminar esta plantilla del cat?logo?'))return;
+    if(!id||!window.confirm('¿Eliminar esta plantilla del catálogo?'))return;
     try{
       await App.api('/coop/plantillas-bus/'+id,{method:'DELETE'});
       await loadTemplates();App.aviso('Plantilla eliminada.','success');
@@ -834,7 +834,7 @@
     const conteo = contarAsientosPlantilla(plantillaActiva);
     if (resumenPlantillaAsientos) {
       resumenPlantillaAsientos.innerHTML = pisos.length === 2
-        ? `<strong>Total unidad: ${conteo.total} asientos</strong> · Piso 1: ${conteo.p1} · Piso 2: ${conteo.p2}`
+        ? `<strong>Total unidad: ${conteo.total} asientos</strong> <span>Piso 1: ${conteo.p1}</span> <span>Piso 2: ${conteo.p2}</span>`
         : `<strong>Total configurado: ${conteo.p1} asientos comerciales</strong>`;
     }
 

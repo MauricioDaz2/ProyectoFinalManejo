@@ -1825,6 +1825,46 @@ table.data-table .actions {
 
 /* ------------------ Diseñador de Plantilla de Asientos -------------------- */
 
+#modalAsientos .modal-card {
+    min-width: 0;
+    max-height: calc(100dvh - 44px);
+    overflow: hidden;
+}
+
+#modalAsientos .modal-header { flex: none; }
+#modalAsientos .modal-body { overscroll-behavior: contain; }
+#modalAsientos .template-catalog {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+    align-items: end;
+    gap: 10px;
+    margin-block: 14px;
+}
+#modalAsientos .template-catalog .field { min-width: 0; margin: 0; }
+#modalAsientos .template-catalog :is(input, select),
+#modalAsientos #selectModeloPlantilla { min-width: 0; width: 100%; max-width: 100%; }
+#modalAsientos .catalog-actions, #modalAsientos .template-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+#modalAsientos .modal-footer {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-block: 10px;
+}
+#resumenPlantillaAsientos { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+#resumenPlantillaAsientos span { white-space: nowrap; }
+@media (max-width: 650px), (max-height: 540px) {
+    #modalAsientos { padding: 6px; }
+    #modalAsientos .modal-card { max-height: calc(100dvh - 12px); }
+    #modalAsientos :is(.modal-header, .modal-footer) { padding: 8px 12px; }
+    #modalAsientos .modal-body { padding: 12px; }
+    #modalAsientos .template-actions { margin-left: auto; }
+    #modalAsientos .modal-footer { gap: 4px 10px; }
+}
+
 .template-toolbar {
     display: flex;
     flex-direction: column;
