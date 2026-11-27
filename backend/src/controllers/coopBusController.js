@@ -1,6 +1,7 @@
 const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
 const categories = require('../services/routeCategories');
+const featured = require('../services/featuredFrequencies');
 
 /**
  * Módulo de la cooperativa:
@@ -1101,6 +1102,7 @@ async function listarFrecuencias(req, res) {
     try {
         const pool = await conectarBD();
         const esquema = await columnasEsquemaExtendidas(pool);
+        const destacadas = await featured.summary(pool, cooperativa);
         const resultado = await pool.request()
             .input('cooperativa', sql.VarChar(5), cooperativa)
             .input('origen', sql.VarChar(15), origen || null)
@@ -1110,6 +1112,7 @@ async function listarFrecuencias(req, res) {
                 SELECT F.ID_FRE, F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE,
                        F.FEC_HOR_FIN_FRE, F.EST_RES, F.ID_COP_PER, F.NUM_RES_FRE,
                        ${esquema.FRE_HORA_TARIFA ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : ''}
+                       ${destacadas.disponible ? 'F.ES_DESTACADA,' : ''}
                        ${esquema.FRE_LLEGADA_PARADAS ? 'F.HORA_LLE_FRE, F.ES_DIRECTA,' : ''}
                        ${categories.enabled() ? 'F.ID_CAT_OP,CAT.NOM_CAT,' : ''}
                        CASE
@@ -1130,7 +1133,7 @@ async function listarFrecuencias(req, res) {
             `);
 
         const frecuencias = await adjuntarParadasAFrecuencias(pool, resultado.recordset, cooperativa, esquema);
-        return res.status(200).json({ success: true, total: frecuencias.length, frecuencias });
+        return res.status(200).json({ success: true, total: frecuencias.length, frecuencias, destacadas });
     } catch (error) {
         return manejarError(res, 'listado de frecuencias', error);
     }
@@ -1340,6 +1343,28 @@ async function cambiarEstadoFrecuencia(req, res) {
         });
     } catch (error) {
         return manejarError(res, 'cambio de estado de frecuencia', error);
+    }
+}
+
+// RFC-000085: marcar o desmarcar una frecuencia destacada respetando el cupo contratado.
+async function destacarFrecuencia(req, res) {
+    const cooperativa = cooperativaSolicitada(req);
+    if (!cooperativa) return res.status(403).json({ success: false, message: 'Cooperativa no asignada.' });
+    try {
+        const pool = await conectarBD();
+        const resultado = await featured.toggle(pool, cooperativa, req.params.id, req.body?.destacada);
+        return res.status(200).json({
+            success: true,
+            ...resultado,
+            message: resultado.destacada
+                ? `Frecuencia destacada. Usas ${resultado.usadas} de ${resultado.limite} contratadas.`
+                : `Frecuencia quitada de destacadas. Usas ${resultado.usadas} de ${resultado.limite} contratadas.`
+        });
+    } catch (error) {
+        if (error.status) {
+            return res.status(error.status).json({ success: false, message: error.message, code: error.code, limite: error.limite, usadas: error.usadas });
+        }
+        return manejarError(res, 'frecuencia destacada', error);
     }
 }
 
@@ -1814,6 +1839,7 @@ module.exports = {
     obtenerParadasFrecuencia,
     actualizarParadasFrecuencia,
     cambiarEstadoFrecuencia,
+    destacarFrecuencia,
     eliminarFrecuencia,
     listarHojasRuta,
     crearHojaRuta,

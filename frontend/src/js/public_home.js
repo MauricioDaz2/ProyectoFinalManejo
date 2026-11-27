@@ -50,14 +50,27 @@
       $('searchButton').disabled = !routes.length;
       destinations();
       $('searchStatus').textContent = routes.length ? 'Selecciona tu ruta y consulta viajes para la fecha elegida.' : 'Todavía no hay rutas registradas.';
-      if (!routes.length) return empty('routes', 'Las rutas aparecerán aquí cuando estén registradas en el sistema.');
-      $('routes').innerHTML = routes.slice(0, 4).map((r) => `<a class="route-card" href="${escape(catalog(r.ORIGEN, r.DESTINO))}"><div class="route-photo"><img src="../../assets/images/route-${routeImage(r)}.png" alt="Paisaje ecuatoriano ilustrativo" loading="lazy"><h3>${escape(r.ORIGEN)} → ${escape(r.DESTINO)}</h3></div><div class="route-meta"><span>Consultar viajes</span><span aria-hidden="true">→</span></div></a>`).join('');
     } catch {
       $('origen').replaceChildren(new Option('Consulta no disponible', ''));
       $('origen').disabled = true;
       $('searchButton').disabled = true;
       $('searchStatus').textContent = 'No se pudo conectar con el servidor. Reintenta la consulta de rutas.';
-      empty('routes', 'No pudimos cargar las rutas.', loadRoutes);
+    }
+  }
+  // RFC-000085: «Rutas destacadas» muestra solo frecuencias patrocinadas de cooperativas activas.
+  async function loadFeatured() {
+    try {
+      const data = await get('/public/destacadas');
+      const featured = Array.isArray(data.destacadas) ? data.destacadas : [];
+      if (!featured.length) return empty('routes', 'Aún no hay rutas destacadas por las cooperativas. Usa el buscador para consultar todos los viajes.');
+      $('routes').innerHTML = featured.map((f) => {
+        const route = { ORIGEN: f.CIU_ORI_FRE, DESTINO: f.CIU_DES_FRE };
+        const hour = f.HORA_SAL_FRE ? `Sale ${escape(String(f.HORA_SAL_FRE).slice(0, 5))}` : 'Consultar viajes';
+        const fare = f.TAR_BAS_FRE !== null && f.TAR_BAS_FRE !== undefined ? ` · desde $${Number(f.TAR_BAS_FRE).toFixed(2)}` : '';
+        return `<a class="route-card is-featured" href="${escape(catalog(f.CIU_ORI_FRE, f.CIU_DES_FRE))}"><div class="route-photo"><span class="featured-badge">★ Destacado · Patrocinado</span><img src="../../assets/images/route-${routeImage(route)}.png" alt="Paisaje ecuatoriano ilustrativo" loading="lazy"><h3>${escape(f.CIU_ORI_FRE)} → ${escape(f.CIU_DES_FRE)}</h3></div><div class="route-meta"><span><strong>${escape(f.NOM_COP)}</strong><br>${hour}${fare}</span><span aria-hidden="true">→</span></div></a>`;
+      }).join('');
+    } catch {
+      empty('routes', 'No pudimos cargar las rutas destacadas.', loadFeatured);
     }
   }
   async function loadDepartures() {
@@ -129,6 +142,7 @@
     if (event.target.closest('a')) { $('navigation').classList.remove('open'); $('menuToggle').setAttribute('aria-expanded', 'false'); }
   });
   loadRoutes();
+  loadFeatured();
   loadDepartures();
   loadCoops();
 })();

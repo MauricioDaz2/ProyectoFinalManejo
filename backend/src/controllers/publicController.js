@@ -2,6 +2,7 @@ const { conectarBD, sql } = require('../config/db');
 const profiles = require('../repositories/cooperativaProfileRepository');
 const { publicData } = require('../services/profileContent');
 const cc = require('../services/frequencyControl');
+const featured = require('../services/featuredFrequencies');
 
 async function cooperativas(req, res) {
     try {
@@ -77,4 +78,14 @@ async function perfilCooperativa(req, res) {
     }
 }
 
-module.exports = { cooperativas, salidas, perfilCooperativa };
+// RFC-000085: frecuencias destacadas (patrocinadas) de cooperativas activas para la portada.
+async function destacadas(req, res) {
+    try {
+        const pool = await conectarBD();
+        res.set('Cache-Control', 'no-store').json({ success: true, destacadas: await featured.publicList(pool, 8) });
+    } catch {
+        res.status(500).json({ success: false, message: 'No se pudieron consultar las rutas destacadas.' });
+    }
+}
+
+module.exports = { cooperativas, salidas, perfilCooperativa, destacadas };

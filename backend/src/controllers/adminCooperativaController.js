@@ -2,6 +2,7 @@ const { sql, conectarBD } = require('../config/db');
 const registration=require('../services/companyRegistration');
 const access=require('../security/permissions');
 const management=require('../services/companyAdministration');
+const featured=require('../services/featuredFrequencies');
 
 const columnas = `
     ID_COP, NOM_COP, RUC_COP, DIR_COP,
@@ -12,7 +13,7 @@ const texto = (valor) => typeof valor === 'string' ? valor.trim() : '';
 const codigo = (valor) => texto(valor).toUpperCase();
 
 function manejarError(res, error) {
-    if(error.status)return res.status(error.status).json({success:false,message:error.message,fields:error.fields,dependencias:error.dependencias});
+    if(error.status)return res.status(error.status).json({success:false,message:error.message,fields:error.fields,dependencias:error.dependencias,limite:error.limite,usadas:error.usadas,code:error.code});
     const numero = error.number ?? error.originalError?.info?.number;
 
     if (numero === 2627 || numero === 2601) {
@@ -25,7 +26,8 @@ function manejarError(res, error) {
 async function readColumns(pool) {
     const expanded=await registration.installed(pool);
     const principal=await access.installed(pool);
-    return { expanded, columns:columnas+(expanded?', NOM_COM_COP,TIP_ORG_COP,PROVINCIA_COP,CIUDAD_COP,COR_INS_COP,SIT_WEB_COP':', NULL AS CIUDAD_COP')+(principal?", (SELECT U.NOM_USU+' '+U.APE_USU FROM dbo.COOPERATIVA_RESPONSABLES R JOIN dbo.USUARIOS U ON U.ID_USU=R.ID_USU WHERE R.ID_COP=COOPERATIVAS.ID_COP) AS RESPONSABLE":', NULL AS RESPONSABLE') };
+    const destacadas=await featured.installed(pool);
+    return { expanded, columns:columnas+(destacadas?', LIM_DES_COP, (SELECT COUNT(*) FROM dbo.FRECUENCIAS F WHERE F.ID_COP_PER=COOPERATIVAS.ID_COP AND F.ES_DESTACADA=1) AS DES_USADAS':'')+(expanded?', NOM_COM_COP,TIP_ORG_COP,PROVINCIA_COP,CIUDAD_COP,COR_INS_COP,SIT_WEB_COP':', NULL AS CIUDAD_COP')+(principal?", (SELECT U.NOM_USU+' '+U.APE_USU FROM dbo.COOPERATIVA_RESPONSABLES R JOIN dbo.USUARIOS U ON U.ID_USU=R.ID_USU WHERE R.ID_COP=COOPERATIVAS.ID_COP) AS RESPONSABLE":', NULL AS RESPONSABLE') };
 }
 async function listarCooperativas(req, res) {
     const buscar = texto(req.query.buscar);
@@ -89,4 +91,11 @@ const personal=action=>async(req,res)=>{
  try {return res.status(action==='create'?201:200).json({success:true,usuario:await management.peopleChange(req.auth,codigo(req.params.id),action,req.params.usuario,req.body),message:'Cuenta actualizada.'});}
  catch(error){return manejarError(res,error);}
 };
-module.exports={listarCooperativas,obtenerCooperativa,crearCooperativa,actualizarCooperativa,cambiarEstadoCooperativa,eliminarCooperativa,personal};
+// RFC-000085: límite de frecuencias destacadas contratadas por cooperativa.
+async function obtenerDestacadas(req,res) {
+ try{const pool=await conectarBD();return res.json({success:true,...await featured.summary(pool,codigo(req.params.id))});}catch(error){return manejarError(res,error);}
+}
+async function actualizarDestacadas(req,res) {
+ try{const pool=await conectarBD();const resultado=await featured.setLimit(pool,codigo(req.params.id),req.body?.limite);return res.json({success:true,...resultado,message:`Límite de frecuencias destacadas actualizado a ${resultado.limite}.`});}catch(error){return manejarError(res,error);}
+}
+module.exports={obtenerDestacadas,actualizarDestacadas,listarCooperativas,obtenerCooperativa,crearCooperativa,actualizarCooperativa,cambiarEstadoCooperativa,eliminarCooperativa,personal};
