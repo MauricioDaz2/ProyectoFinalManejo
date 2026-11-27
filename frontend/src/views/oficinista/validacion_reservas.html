@@ -24,24 +24,63 @@
       <main id="main-content" class="admin-main">
         <div class="page-head">
           <div>
-            <p class="eyebrow">Oficinista / Control de abordaje</p>
-            <h1>Validación de reservas</h1>
-            <p>Escanea el código QR del boleto o ingresa la cédula del pasajero. La validación marca el boleto como usado y registra la fecha de abordaje.</p>
+            <p class="eyebrow">Oficinista / Pagos y control de abordaje</p>
+            <h1>Aprobación de transferencias y validación</h1>
+            <p>Revisa los comprobantes de reservas por transferencia para aprobar o rechazar el pago, y valida los boletos pagados al abordar.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" type="button" id="btnRecargarTransferencias">Actualizar bandeja</button>
           </div>
         </div>
 
         <div id="avisoValidacion"></div>
 
+        <!-- Bandeja automática de reservas por transferencia pendientes de aprobación -->
+        <div class="section-head">
+          <div>
+            <h2>Reservas por transferencia pendientes de aprobación</h2>
+            <p>Verifica el comprobante bancario adjunto por el pasajero antes de aprobar el boleto o rechazar la reserva para liberar el asiento.</p>
+          </div>
+          <span class="badge badge-warning" id="contadorTransferenciasPendientes">0 pendientes</span>
+        </div>
+
+        <section class="panel mb-3" id="bandejaTransferencias">
+          <div class="table-wrap">
+            <table class="data-table" aria-label="Reservas por transferencia pendientes de aprobación">
+              <thead>
+                <tr>
+                  <th>Pasajero</th>
+                  <th>Ruta y unidad</th>
+                  <th>Asiento y valor</th>
+                  <th>Comprobante y banco</th>
+                  <th>Estado / Tiempo</th>
+                  <th class="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaTransferenciasPendientes">
+                <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando reservas por transferencia pendientes…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="section-head">
+          <div>
+            <h2>Validación de abordaje por QR o cédula</h2>
+            <p>Escanea el código QR o ingresa la cédula de un boleto pagado o emitido para registrar el abordaje.</p>
+          </div>
+        </div>
+
         <section class="scanner-card">
           <form class="scanner-form" id="formValidacion">
             <div class="search-box">
               <label class="sr-only" for="codigoValidacion">Código QR o cédula</label>
-              <input class="scanner-input" type="text" id="codigoValidacion" maxlength="100" placeholder="Escanea el QR o escribe la cédula…" autocomplete="off" autofocus>
+              <input class="scanner-input" type="text" id="codigoValidacion" maxlength="100" placeholder="Escanea el QR o escribe la cédula del pasajero…" autocomplete="off" autofocus>
             </div>
             <button class="btn btn-success" type="submit" id="btnValidarBoleto">Validar boleto</button>
             <button class="btn btn-secondary" type="button" id="btnEscanearCamara">Escanear con cámara</button>
           </form>
-          <p class="scanner-hint">Compatible con lectores de código de barras tipo teclado: el código se captura automáticamente al presionar Enter. También puedes validar por cédula si el boleto está asociado a un pasajero registrado.</p>
+          <p class="scanner-hint">Si una reserva por transferencia aún no tiene su pago aprobado, el sistema te mostrará el comprobante primero para aprobar el pago antes del abordaje.</p>
         </section>
 
         <section class="validation-result" id="resultadoValidacion" hidden aria-live="polite"></section>
@@ -49,7 +88,7 @@
         <div class="section-head">
           <div>
             <h2>Consulta y gestión de boletos</h2>
-            <p>Busca por código QR, código de boleto o cédula para revisar reservas y estados.</p>
+            <p>Busca por código QR o cédula del pasajero para revisar reservas, comprobantes y estados.</p>
           </div>
           <span class="muted" id="contadorBusqueda">—</span>
         </div>
@@ -58,7 +97,7 @@
           <div class="panel-toolbar">
             <div class="search-box">
               <label class="sr-only" for="busquedaBoletos">Buscar boletos</label>
-              <input type="search" id="busquedaBoletos" placeholder="Código QR, boleto o cédula…" autocomplete="off">
+              <input type="search" id="busquedaBoletos" placeholder="Código QR o cédula del pasajero…" autocomplete="off">
             </div>
             <button class="btn btn-secondary" type="button" id="btnBuscarBoletos">Buscar</button>
             <div class="spacer"></div>
@@ -68,17 +107,16 @@
             <table class="data-table" aria-label="Boletos encontrados">
               <thead>
                 <tr>
-                  <th>Boleto</th>
                   <th>Pasajero</th>
-                  <th>Ruta</th>
+                  <th>Ruta y unidad</th>
                   <th>Asiento</th>
-                  <th>Compra</th>
+                  <th>Compra y comprobante</th>
                   <th>Estado</th>
                   <th class="text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody id="tablaBoletos">
-                <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⌕</div><h3>Realiza una búsqueda</h3><p>Ingresa un código QR, el código del boleto o la cédula del pasajero.</p></div></td></tr>
+                <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⌕</div><h3>Realiza una búsqueda</h3><p>Ingresa el código QR del boleto o la cédula del pasajero.</p></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -100,6 +138,26 @@
           </div>
         </section>
       </main>
+    </div>
+  </div>
+
+  <!-- Modal de vista previa de comprobante de transferencia -->
+  <div class="modal" id="modalComprobante" hidden>
+    <div class="modal-backdrop" data-cerrar-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tituloModalComprobante">
+      <header class="modal-header">
+        <div>
+          <h3 id="tituloModalComprobante">Comprobante de transferencia bancaria</h3>
+          <p id="subtituloModalComprobante">Revisa el documento adjunto antes de aprobar o rechazar el pago.</p>
+        </div>
+        <button class="modal-close" type="button" data-cerrar-modal aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal-body" id="contenidoModalComprobante"></div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-cerrar-modal>Cerrar</button>
+        <button class="btn btn-danger-soft" type="button" id="btnRechazarDesdeModal">Rechazar pago</button>
+        <button class="btn btn-success" type="button" id="btnAprobarDesdeModal">Aprobar pago</button>
+      </footer>
     </div>
   </div>
 

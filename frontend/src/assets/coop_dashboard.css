@@ -111,3 +111,68 @@
 .coop-dashboard .has-published-identity .coop-customization>a:nth-child(even) { background:color-mix(in srgb,var(--coop-secondary) 6%,white); border-color:color-mix(in srgb,var(--coop-secondary) 18%,#e2e7ef); }
 .coop-dashboard .has-published-identity .coop-customization>a:nth-child(even) svg,
 .coop-dashboard .has-published-identity .coop-preview-info h3 { color:var(--coop-secondary-ink); }
+
+/* RFC-000088: Constructor de paradas intermedias en modal de Frecuencia */
+.stops-builder-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.stops-builder-bar .stops-city-field {
+  flex: 1 1 240px;
+  margin-bottom: 0;
+}
+.stops-commercial-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--ink-2, #334155);
+  padding-bottom: 0.45rem;
+  cursor: pointer;
+}
+.stops-ordered-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.stops-ordered-list .stops-empty {
+  padding: 0.75rem;
+  border: 1px dashed var(--line, #cbd5e1);
+  border-radius: 0.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.stops-ordered-list .stop-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 0.5rem;
+  background: var(--surface-2, #f8fafc);
+}
+.stops-ordered-list .stop-order {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--brand, #1d4ed8);
+  min-width: 1.75rem;
+}
+.stops-ordered-list .stop-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.stops-ordered-list .stop-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+

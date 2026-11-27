@@ -26,7 +26,7 @@
           <div>
             <p class="eyebrow">Oficinista / Ventanilla</p>
             <h1>Venta de boletos en ventanilla</h1>
-            <p>Selecciona una hoja de ruta y un asiento disponible, registra al pasajero y emite el boleto con su código QR.</p>
+            <p>Selecciona una salida y un asiento disponible, cobra en efectivo, transferencia o depósito con cálculo automático de tarifa y emite el boleto con su código QR.</p>
           </div>
           <div class="page-actions">
             <label class="sr-only" for="fechaVentanilla">Fecha de operación</label>
@@ -49,26 +49,26 @@
             <section class="panel">
               <div class="panel-toolbar">
                 <div>
-                  <h2 class="mb-0" style="font-size:16px;">Hojas de ruta del día</h2>
+                  <h2 class="mb-0" style="font-size:16px;">Salidas programadas del día</h2>
                   <span class="muted" id="subtituloHojas">—</span>
                 </div>
                 <div class="spacer"></div>
                 <span class="badge badge-info" id="contadorHojas">—</span>
               </div>
               <div class="table-wrap">
-                <table class="data-table" aria-label="Hojas de ruta disponibles">
+                <table class="data-table" aria-label="Salidas disponibles">
                   <thead>
                     <tr>
                       <th>Ruta</th>
-                      <th>Bus</th>
-                      <th>Fecha</th>
+                      <th>Unidad / Bus</th>
+                      <th>Horario y tarifa</th>
                       <th>Disponibles</th>
                       <th>Estado</th>
                       <th class="text-right">Acción</th>
                     </tr>
                   </thead>
                   <tbody id="tablaHojas">
-                    <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando hojas de ruta…</td></tr>
+                    <tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando salidas programadas…</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -85,11 +85,12 @@
               </div>
               <div class="panel-body">
                 <div id="mapaAsientosVenta">
-                  <div class="empty-state"><div class="empty-icon">▤</div><p>Selecciona una hoja de ruta para ver sus asientos.</p></div>
+                  <div class="empty-state"><div class="empty-icon">▤</div><p>Selecciona una salida para ver la estructura de asientos del bus.</p></div>
                 </div>
                 <div class="seat-legend">
                   <span><i class="legend-dot"></i> Normal</span>
                   <span><i class="legend-dot vip"></i> VIP / Cama</span>
+                  <span><i class="legend-dot" style="background:#dbeafe;border-color:#2563eb;"></i> Discapacidad ♿</span>
                   <span><i class="legend-dot occupied"></i> Ocupado</span>
                   <span><i class="legend-dot selected"></i> Seleccionado</span>
                 </div>
@@ -99,7 +100,7 @@
 
           <aside class="panel sale-summary">
             <div class="panel-body">
-              <h2 class="mt-0" style="font-size:16px;">Resumen de venta</h2>
+              <h2 class="mt-0" style="font-size:16px;">Resumen de venta en ventanilla</h2>
 
               <div class="sale-seat-chip" id="resumenAsiento">
                 <div>
@@ -110,25 +111,35 @@
               </div>
 
               <div class="form-grid">
+                <div class="field span-2">
+                  <label for="tipoTarifaVentanilla">Tipo de tarifa / descuento</label>
+                  <select id="tipoTarifaVentanilla" disabled>
+                    <option value="NORMAL">Tarifa normal / Adulto (100%)</option>
+                    <option value="MENOR_50">Niño / Menor de edad (50%)</option>
+                    <option value="TERCERA_EDAD_50">Adulto mayor / Tercera edad (50%)</option>
+                    <option value="DISCAPACIDAD_50">Persona con discapacidad (50%)</option>
+                  </select>
+                </div>
                 <div class="field">
-                  <label for="precioBoleto">Precio final <span class="req">*</span></label>
-                  <input type="number" id="precioBoleto" min="1" step="1" placeholder="0" disabled>
+                  <label for="precioBoleto">Precio final (USD) <span class="req">*</span></label>
+                  <input type="number" id="precioBoleto" min="0.25" step="0.25" placeholder="0.00" disabled>
                 </div>
                 <div class="field">
                   <label for="metodoPago">Método de pago <span class="req">*</span></label>
                   <select id="metodoPago" disabled>
                     <option value="">Selecciona…</option>
-                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="EFECTIVO">Efectivo (Ventanilla)</option>
                     <option value="TRANSFERENCIA">Transferencia</option>
                     <option value="DEPOSITO">Depósito</option>
                   </select>
                 </div>
               </div>
+              <p class="help mt-1" id="desgloseTarifaVentanilla">El precio se calcula automáticamente con la tarifa base de la frecuencia y el tipo de asiento.</p>
 
               <div class="section-head" style="margin:22px 0 10px;">
                 <div>
                   <h2 style="font-size:15px;">Pasajero</h2>
-                  <p>Opcional. Si registras la cédula podrás validar el boleto por documento.</p>
+                  <p>Opcional. Si registras la cédula podrás consultar o validar el boleto por documento.</p>
                 </div>
               </div>
 
@@ -170,7 +181,7 @@
               </div>
 
               <button class="btn btn-primary btn-block mt-2" type="button" id="btnEmitirBoleto" disabled>Emitir boleto</button>
-              <p class="help mt-1">El boleto se emite con estado EMITIDO y un código QR único. Si no registras pasajero, la venta quedará como anónima.</p>
+              <p class="help mt-1">El boleto se emite con estado EMITIDO y un código QR único. Las ventas en efectivo son exclusivas de esta ventanilla.</p>
             </div>
           </aside>
         </div>
@@ -192,6 +203,7 @@
       <div class="modal-body" id="ticketContenido"></div>
       <footer class="modal-footer">
         <button class="btn btn-secondary" type="button" data-cerrar-modal>Cerrar</button>
+        <button class="btn btn-secondary" type="button" id="btnDescargarPdfBoleto">Descargar PDF</button>
         <button class="btn btn-primary" type="button" id="btnImprimirBoleto">Imprimir boleto</button>
       </footer>
     </div>
