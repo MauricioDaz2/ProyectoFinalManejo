@@ -85,47 +85,47 @@ const cargarHistorial = async () => {
             const faltaComprobante = esReservado && String(b.MET_PAG_BOL || '').toUpperCase() === 'TRANSFERENCIA' && !b.COM_PAG_URL;
             const enRevision = esReservado && String(b.MET_PAG_BOL || '').toUpperCase() === 'TRANSFERENCIA' && Boolean(b.COM_PAG_URL);
 
+            const claseEstado = estado === 'PAGADO' || estado === 'EMITIDO' ? 'is-ok' : (esReservado ? 'is-pending' : 'is-off');
+
             return `
-                <div class="usuario-card" data-boleto="${escapeHtml(b.ID_BOL)}" style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--usuario-border); display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 260px;">
-                        <strong style="font-size: 16px; color: var(--usuario-primary);">Ruta: ${escapeHtml(b.ORI_TRA_BOL)} ➔ ${escapeHtml(b.DES_TRA_BOL)}</strong><br>
-                        <span style="font-size: 13px;">Asiento N°: <strong>${escapeHtml(asientoEtiqueta)}</strong> · Bus N°: ${escapeHtml(b.NUM_BUS)}${b.PLA_BUS ? ` (${escapeHtml(b.PLA_BUS)})` : ''}</span><br>
-                        <span style="font-size: 13px; color: var(--usuario-muted);">Fecha de viaje: <strong>${escapeHtml(fechaViaje)}</strong> · Salida: <strong>${escapeHtml(horaSalida)}</strong></span><br>
-                        <span style="font-size: 13px;">Precio: <strong>$${Number(b.PRE_FIN_BOL || 0).toFixed(2)}</strong> · Método: ${escapeHtml(b.MET_PAG_BOL)}</span><br>
-                        <span style="font-size: 13px;">Estado: <strong style="color: ${colorEstado};">${escapeHtml(b.EST_BOL)}</strong>${enRevision ? ' <small style="color:#b45309;">(Comprobante en revisión por oficinista)</small>' : ''}</span><br>
+                <article class="ticket-card" data-boleto="${escapeHtml(b.ID_BOL)}">
+                    <div class="ticket-main">
+                        <div class="ticket-head">
+                            <span class="ticket-number">Boleto</span>
+                            <span class="ticket-state ${claseEstado}">${escapeHtml(b.EST_BOL)}</span>
+                            ${enRevision ? '<span class="ticket-note">Comprobante en revisión por oficinista</span>' : ''}
+                        </div>
+                        <div class="ticket-route">${escapeHtml(b.ORI_TRA_BOL)} <span aria-hidden="true">→</span><span class="sr-only"> a </span> ${escapeHtml(b.DES_TRA_BOL)}</div>
+                        <dl class="viaje-facts">
+                            <div><dt>Fecha de viaje</dt><dd>${escapeHtml(fechaViaje)}</dd></div>
+                            <div><dt>Salida</dt><dd class="viaje-hora">${escapeHtml(horaSalida)}</dd></div>
+                            <div><dt>Asiento</dt><dd>${escapeHtml(asientoEtiqueta)}</dd></div>
+                            <div><dt>Bus</dt><dd>N.º ${escapeHtml(b.NUM_BUS)}${b.PLA_BUS ? ` (${escapeHtml(b.PLA_BUS)})` : ''}</dd></div>
+                            <div><dt>Precio</dt><dd class="viaje-precio">$${Number(b.PRE_FIN_BOL || 0).toFixed(2)}</dd></div>
+                            <div><dt>Método de pago</dt><dd>${escapeHtml(b.MET_PAG_BOL)}</dd></div>
+                        </dl>
 
                         ${faltaComprobante ? `
-                            <div style="margin-top: 10px; padding: 10px 12px; background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px; font-size: 13px; color: #9a3412;">
+                            <div class="ticket-alert">
                                 <strong>⏱ Pendiente de comprobante de transferencia</strong>
                                 ${Number(b.SEGUNDOS_RESTANTES) > 0 ? `<span> · Tiempo restante: <strong>${formatearMinutos(b.SEGUNDOS_RESTANTES)}</strong></span>` : ''}
-                                <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                    <input type="file" data-archivo-comprobante="${escapeHtml(b.ID_BOL)}" accept=".jpg,.jpeg,.png,.webp,.pdf" style="font-size: 12px;">
-                                    <button type="button" class="usuario-button" data-subir-comprobante="${escapeHtml(b.ID_BOL)}" style="padding: 6px 12px; font-size: 12px;">Subir comprobante</button>
+                                <div class="ticket-upload">
+                                    <input type="file" data-archivo-comprobante="${escapeHtml(b.ID_BOL)}" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                                    <button type="button" class="usuario-button" data-subir-comprobante="${escapeHtml(b.ID_BOL)}">Subir comprobante</button>
                                 </div>
                             </div>
                         ` : ''}
 
-                        <div style="margin-top: 12px; display: flex; align-items: center; gap: 15px;">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(b.COD_QR_BOL)}" alt="Código QR del boleto" style="width: 90px; height: 90px; border-radius: 8px; border: 1px solid var(--usuario-border); background: #fff; padding: 4px;" />
-                            <div style="font-size: 11px; color: var(--usuario-muted); word-break: break-all; max-width: 250px;">
-                                <strong>Código QR de abordaje:</strong><br>
-                                <code>${escapeHtml(b.COD_QR_BOL)}</code>
-                            </div>
+                        <div class="ticket-actions">
+                            ${!esInactivo ? `<button class="usuario-button ticket-pdf" type="button" data-descargar-pdf="${escapeHtml(b.ID_BOL)}">Descargar PDF</button>` : ''}
+                            ${esReservado ? `<button class="usuario-button ticket-cancel" type="button" data-cancelar-boleto="${escapeHtml(b.ID_BOL)}">Cancelar reserva</button>` : ''}
                         </div>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                        ${!esInactivo ? `
-                            <button class="usuario-button" type="button" data-descargar-pdf="${escapeHtml(b.ID_BOL)}" style="background: #0d5c4a; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                                Descargar PDF
-                            </button>
-                        ` : ''}
-                        ${esReservado ? `
-                            <button class="usuario-button usuario-button-secondary" type="button" data-cancelar-boleto="${escapeHtml(b.ID_BOL)}" style="background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;" onclick="cancelarBoleto('${escapeHtml(b.ID_BOL)}')">
-                                Cancelar Reserva
-                            </button>
-                        ` : ''}
+                    <div class="ticket-qr">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(b.COD_QR_BOL)}" alt="Código QR del boleto" width="96" height="96">
+                        <code>${escapeHtml(b.COD_QR_BOL)}</code>
                     </div>
-                </div>
+                </article>
             `;
         }).join('');
     } catch (error) {
@@ -137,7 +137,7 @@ const cargarHistorial = async () => {
 const cancelarBoleto = async (idBoleto) => {
     if (!confirm('¿Estás seguro de cancelar esta reserva? El asiento será liberado.')) return;
     try {
-        const response = await fetch(`${API_BASE}/usuario/reservas/${idBoleto}/cancelar`, {
+        const response = await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(idBoleto)}/cancelar`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cedula: cedulaTitular })
@@ -154,6 +154,11 @@ const cancelarBoleto = async (idBoleto) => {
 
 if (historialContainer) {
     historialContainer.addEventListener('click', async (event) => {
+        const btnCancelar = event.target.closest('[data-cancelar-boleto]');
+        if (btnCancelar) {
+            cancelarBoleto(btnCancelar.dataset.cancelarBoleto);
+            return;
+        }
         const btnPdf = event.target.closest('[data-descargar-pdf]');
         if (btnPdf) {
             descargarBoletoPdf(btnPdf.dataset.descargarPdf, btnPdf);

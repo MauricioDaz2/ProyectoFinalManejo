@@ -72,27 +72,76 @@ origenInput.addEventListener('change', () => {
     destinoInput.disabled = destinos.length === 0;
 });
 
+// RFC-000087: hora de salida, tarifa base y detalle «Ver más» con foto, placa, pisos y asientos libres.
+const API_ORIGIN = (() => { try { return new URL(API_BASE).origin; } catch { return window.location.origin; } })();
+const resolveImage = (url) => {
+    const value = String(url || '').trim();
+    if (!value) return '';
+    if (/^(https?:|data:)/i.test(value)) return value;
+    return `${API_ORIGIN}${value.startsWith('/') ? '' : '/'}${value}`;
+};
+const departureTime = (trip) => {
+    if (trip.SALIDA_PLAN_UTC) {
+        const date = new Date(trip.SALIDA_PLAN_UTC);
+        if (!Number.isNaN(date.getTime())) {
+            return new Intl.DateTimeFormat('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Guayaquil' }).format(date);
+        }
+    }
+    const hour = String(trip.HORA_SAL_FRE || '').slice(0, 5);
+    return /^\d{2}:\d{2}$/.test(hour) ? hour : 'Por confirmar';
+};
+const fareText = (trip) => (trip.TAR_BAS_FRE === null || trip.TAR_BAS_FRE === undefined || trip.TAR_BAS_FRE === '' || Number.isNaN(Number(trip.TAR_BAS_FRE)))
+    ? 'Por confirmar'
+    : `$${Number(trip.TAR_BAS_FRE).toFixed(2)}`;
+
 const renderResults = (viajes) => {
     if (!viajes.length) {
         results.innerHTML = '<p class="usuario-empty">No encontramos frecuencias para los criterios seleccionados.</p>';
         return;
     }
-    results.innerHTML = viajes.map((viaje) => `
+    results.innerHTML = viajes.map(({ trip: viaje, free }, index) => {
+        const detailId = `detalleViaje${index}`;
+        const image = resolveImage(viaje.IMG_URL_BUS);
+        return `
         <article class="viaje-card">
-            <div>
-                <div class="viaje-route">${escapeHtml(viaje.CIU_ORI_FRE)} &rarr; ${escapeHtml(viaje.CIU_DES_FRE)}</div>
-                <div class="viaje-detail">${escapeHtml(viaje.NOM_COP)} · Bus ${escapeHtml(viaje.NUM_BUS)} · ${escapeHtml(viaje.TOTAL_ASIENTOS)} asientos</div>
-            </div>
-            <div>
-                <strong>Salida:</strong> ${formatDate(viaje.FEC_HOR_INI_FRE)}<br>
-                <strong>Viaje:</strong> ${formatDate(viaje.FEC_PRO_HOJ)} · ${escapeHtml(viaje.NUM_PIS)} piso(s)
+            <div class="viaje-main">
+                <span class="viaje-coop">${escapeHtml(viaje.NOM_COP)}</span>
+                <div class="viaje-route">${escapeHtml(viaje.CIU_ORI_FRE)} <span aria-hidden="true">&rarr;</span><span class="sr-only"> a </span> ${escapeHtml(viaje.CIU_DES_FRE)}</div>
+                <dl class="viaje-facts">
+                    <div><dt>Fecha</dt><dd>${formatDate(viaje.FEC_PRO_HOJ)}</dd></div>
+                    <div><dt>Hora de salida</dt><dd class="viaje-hora">${escapeHtml(departureTime(viaje))}</dd></div>
+                    <div><dt>Precio base</dt><dd class="viaje-precio">${escapeHtml(fareText(viaje))}</dd></div>
+                </dl>
             </div>
             <div class="viaje-action">
                 <a class="usuario-button" href="seleccion_asientos.html?idHoja=${encodeURIComponent(viaje.ID_HOJ)}&amp;${escapeHtml(searchContext().toString())}">Elegir asiento</a>
+                <button class="viaje-more" type="button" data-ver-mas="${detailId}" aria-expanded="false" aria-controls="${detailId}">Ver más</button>
             </div>
-        </article>
-    `).join('');
+            <div class="viaje-detail-panel" id="${detailId}" hidden>
+                <div class="viaje-photo">${image
+                    ? `<img src="${escapeHtml(image)}" alt="Fotografía del bus ${escapeHtml(viaje.NUM_BUS)} de ${escapeHtml(viaje.NOM_COP)}" loading="lazy">`
+                    : '<span class="viaje-photo-empty">Fotografía no disponible</span>'}</div>
+                <dl class="viaje-facts viaje-bus-facts">
+                    <div><dt>Bus</dt><dd>N.º ${escapeHtml(viaje.NUM_BUS)}</dd></div>
+                    <div><dt>Placa</dt><dd>${escapeHtml(viaje.PLA_BUS || 'No registrada')}</dd></div>
+                    <div><dt>Pisos</dt><dd>${escapeHtml(viaje.NUM_PIS ?? '—')}</dd></div>
+                    <div><dt>Asientos disponibles</dt><dd>${escapeHtml(free)} de ${escapeHtml(viaje.TOTAL_ASIENTOS)}</dd></div>
+                </dl>
+            </div>
+        </article>`;
+    }).join('');
 };
+
+results.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-ver-mas]');
+    if (!button) return;
+    const panel = document.getElementById(button.dataset.verMas);
+    if (!panel) return;
+    const open = panel.hidden;
+    panel.hidden = !open;
+    button.setAttribute('aria-expanded', String(open));
+    button.textContent = open ? 'Ver menos' : 'Ver más';
+});
 
 results.addEventListener('click', async (event) => {
     const link = event.target.closest('a[href^="seleccion_asientos.html"]');
@@ -137,7 +186,7 @@ searchForm.addEventListener('submit', async (event) => {
             const asientosLibres = seatsData.asientos.filter((seat) => seat.ESTADO_ASIENTO === 'LIBRE').length;
             return { trip, free: Math.min(asientosLibres, seatsData.viaje?.cupoPasajerosDisponible ?? Infinity) };
         }));
-        const available = checked.filter((item) => item.free >= passengers).map((item) => item.trip);
+        const available = checked.filter((item) => item.free >= passengers);
         renderResults(available);
         status.textContent = `${available.length} frecuencia(s) con plazas para ${passengers} pasajero(s). Selecciona esa cantidad de asientos al continuar. La disponibilidad se confirma al reservar.`;
         try { sessionStorage.removeItem('publicTripSearch'); } catch {}
