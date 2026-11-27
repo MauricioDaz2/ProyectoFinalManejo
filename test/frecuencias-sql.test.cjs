@@ -205,7 +205,7 @@ async function exerciseApi(connection, hoy, manana) {
 
         // Dos compras en asientos distintos deben pasar ambas (sin CUPO_PASAJEROS_AGOTADO)
         const v1 = await http('POST', '/usuario/reservas', 'UPASA', {
-            idHoja, idAsientos: '["ATC01"]', metodoPago: 'EFECTIVO', cedulaTitular: 'UPASA'
+            idHoja, idAsientos: '["ATC01"]', metodoPago: 'TRANSFERENCIA', cedulaTitular: 'UPASA'
         });
         const v2 = await http('POST', '/oficinista/boletos/ventanilla', 'UVENT', {
             ID_HOJ_PER: idHoja, ID_ASI_PER: 'ATC02', PRE_FIN_BOL: 8, MET_PAG_BOL: 'EFECTIVO'

@@ -17,7 +17,7 @@ function workerScope(kind) {
             const db = await conectarBD();
             const request = () => db.request().input('company', sql.VarChar(5), user.cooperativaId).input('operator', sql.VarChar(10), user.id);
             let hoja = kind === 'controlador' && resource === 'asientos' ? id : kind === 'oficinista' && resource === 'hojas' && id ? id : req.body?.ID_HOJ_PER || req.body?.idHoj;
-            const ticket = kind === 'controlador' ? req.body?.idBoleto : resource === 'boletos' && id && !['buscar','validar','ventanilla'].includes(id) ? id : null;
+            const ticket = kind === 'controlador' ? req.body?.idBoleto : resource === 'boletos' && id && !['buscar','validar','ventanilla','pendientes-transferencia'].includes(id) ? id : null;
             if (ticket) {
                 const result = await request().input('ticket', sql.VarChar(5), ticket).query('SELECT H.ID_HOJ,H.ID_USU_CON FROM dbo.BOLETOS T JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ=T.ID_HOJ_PER JOIN dbo.BUSES B ON B.ID_BUS=H.ID_BUS_PER JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER WHERE T.ID_BOL=@ticket AND B.ID_COP_PER=@company AND F.ID_COP_PER=@company');
                 const found = result.recordset[0];

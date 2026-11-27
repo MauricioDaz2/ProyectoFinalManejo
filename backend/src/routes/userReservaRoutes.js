@@ -2,10 +2,12 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
-const { 
-    obtenerAsientos, 
-    reservarAsiento, 
-    obtenerMisBoletos, 
+const {
+    obtenerAsientos,
+    reservarAsiento,
+    subirComprobanteTransferencia,
+    expirarReservaUsuario,
+    obtenerMisBoletos,
     cancelarReservaUsuario,
     descargarBoletoPdf
 } = require('../controllers/userReservaController');
@@ -13,7 +15,7 @@ const {
 const router = express.Router();
 
 // Configuración de Multer para el comprobante de pago
-const tiposPermitidos = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+const tiposPermitidos = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 const upload = multer({
     storage: multer.diskStorage({
         destination: path.join(__dirname, '../../uploads'),
@@ -28,19 +30,26 @@ const upload = multer({
     }
 });
 
-// Nuevas rutas para el historial, descarga PDF y cancelación de boletos
+const uploadComprobante = (req, res, next) => upload.single('comprobante')(req, res, (error) => {
+    if (error) {
+        return res.status(400).json({ success: false, message: 'El comprobante debe ser JPG, PNG, WebP o PDF de máximo 5 MB.' });
+    }
+    return next();
+});
+
+// Historial, descarga PDF, cancelación y expiración automática de reservas
 router.get('/mis-boletos/:cedula', obtenerMisBoletos);
 router.get('/:idBoleto/pdf', descargarBoletoPdf);
 router.put('/:idBoleto/cancelar', cancelarReservaUsuario);
+router.put('/:idBoleto/expirar', expirarReservaUsuario);
+router.post('/expirar', expirarReservaUsuario);
 
-// Rutas de asientos y reservas
+// Subida de comprobante dentro del temporizador de 5 minutos
+router.post('/comprobante', uploadComprobante, subirComprobanteTransferencia);
+router.post('/:idBoleto/comprobante', uploadComprobante, subirComprobanteTransferencia);
+
+// Rutas de asientos y creación de reservas
 router.get('/:idHoja/asientos', obtenerAsientos);
-
-router.post('/', (req, res, next) => upload.single('comprobante')(req, res, (error) => {
-    if (error) {
-        return res.status(400).json({ success: false, message: 'El comprobante debe ser JPG, PNG o PDF de máximo 5 MB.' });
-    }
-    return next();
-}), reservarAsiento);
+router.post('/', uploadComprobante, reservarAsiento);
 
 module.exports = router;
