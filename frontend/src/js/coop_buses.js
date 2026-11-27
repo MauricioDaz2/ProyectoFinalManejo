@@ -79,13 +79,7 @@
   let herramientaActiva = 'NORMAL';
   let pintandoArrastre = false;
 
-  const MODELOS_NOMBRE = {
-    MARCO_POLO_1P: 'Marco Polo Estándar (2x2)',
-    EJECUTIVO_2X1: 'Ejecutivo VIP (2x1)',
-    MARCO_POLO_2P: 'Marco Polo Doble Piso',
-    DESDE_CERO: 'Personalizada',
-    PERSONALIZADA: 'Personalizada'
-  };
+  const MODELOS_NOMBRE = SeatPlan.models;
 
   function ubicacionColumna(col) {
     if (col === 0 || col === 4) return 'VENTANA';
@@ -785,16 +779,6 @@
 
   /* ----------------- Diseñador de Plantilla de Asientos ----------------- */
 
-  function etiquetaCeldaEspecial(tipo) {
-    switch (tipo) {
-      case 'PASILLO': return '<span class="cell-special-icon">🚶</span><small>Pasillo</small>';
-      case 'BANO': return '<span class="cell-special-icon">🚻</span><small>Baño WC</small>';
-      case 'ESCALERA': return '<span class="cell-special-icon">🪜</span><small>Escalera</small>';
-      case 'VACIO': return '<span class="cell-special-icon">🚫</span><small>Bloqueado</small>';
-      default: return '';
-    }
-  }
-
   function renderTabsPisosDisenador(pisos) {
     if (!tabsPisosDisenador) return;
     if (pisos.length <= 1) {
@@ -841,99 +825,16 @@
     const pisoObj = pisos.find((p) => Number(p.piso) === pisoActivoDisenador) || pisos[0];
     const numPiso = Number(pisoObj.piso) || 1;
     let contadorAsiento = 0;
-    const celdasOrdenadas = [...(pisoObj.celdas || [])].sort((a, b) => (a.fila - b.fila) || (a.col - b.col));
-    const totalFilas = pisoObj.filas || Math.ceil(celdasOrdenadas.length / 5);
-    const filasMap = new Map();
-    for (const celda of celdasOrdenadas) {
-      if (!filasMap.has(celda.fila)) filasMap.set(celda.fila, []);
-      filasMap.get(celda.fila).push(celda);
-    }
-
-    mapaAsientos.innerHTML = `
-      <div class="bus-chassis-wrapper">
-        <div class="bus-chassis" data-floor-box="${numPiso}">
-          <div class="bus-mirror bus-mirror-left" aria-hidden="true"></div>
-          <div class="bus-mirror bus-mirror-right" aria-hidden="true"></div>
-          <div class="bus-wheel bus-wheel-fl" aria-hidden="true"></div>
-          <div class="bus-wheel bus-wheel-fr" aria-hidden="true"></div>
-          <div class="bus-wheel bus-wheel-rl" aria-hidden="true"></div>
-          <div class="bus-wheel bus-wheel-rr" aria-hidden="true"></div>
-
-          <div class="bus-nose">
-            <div class="bus-headlights"><span class="headlight"></span><span class="bus-grille">══════</span><span class="headlight"></span></div>
-            <div class="bus-windshield-curve">PARABRISAS FRONTAL · ${numPiso === 1 ? 'PLANTA BAJA' : 'PLANTA ALTA PANORÁMICA'}</div>
-            <div class="bus-cockpit">
-              <div class="cockpit-driver">
-                <span class="steering-wheel">🛞</span>
-                <div>
-                  <strong>Cabina del Chofer</strong>
-                  <small>${numPiso === 1 ? 'Volante y panel de instrumentos' : 'Mirador delantero superior'}</small>
-                </div>
-              </div>
-              <div class="cockpit-door">
-                <span>🚪</span>
-                <div>
-                  <strong>${numPiso === 1 ? 'Puerta de Abordaje' : 'Acceso Escalera'}</strong>
-                  <small>Gradas de ingreso</small>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="bus-cabin-body">
-            <div class="bus-columns-guide">
-              <span class="col-row-tag">Fila</span>
-              <span>🪟 Ventana Izq.</span>
-              <span>🚶 Pasillo Izq.</span>
-              <span>⇅ Corredor</span>
-              <span>🚶 Pasillo Der.</span>
-              <span>🪟 Ventana Der.</span>
-            </div>
-
-            <div class="bus-rows-container">
-              ${Array.from(filasMap.entries()).map(([numFila, celdasFila]) => `
-                <div class="bus-chassis-row">
-                  <span class="row-number-badge" title="Fila ${numFila}">F${numFila}</span>
-                  ${celdasFila.map((celda) => {
-                    const esAsiento = ['NORMAL', 'VIP', 'DISCAPACIDAD'].includes(celda.tipoCelda);
-                    let contenido = '';
-                    let claseExtra = '';
-                    if (esAsiento) {
-                      contadorAsiento += 1;
-                      const etiqueta = `${numPiso}${String(contadorAsiento).padStart(2, '0')}`;
-                      if (celda.tipoCelda === 'VIP') claseExtra = 'vip';
-                      else if (celda.tipoCelda === 'DISCAPACIDAD') claseExtra = 'disability';
-                      const sub = celda.tipoCelda === 'DISCAPACIDAD'
-                        ? '♿ Discap.'
-                        : (celda.tipoCelda === 'VIP' ? '⭐ VIP/Cama' : (celda.ubicacion === 'VENTANA' ? '🪟 Ventana' : '🚶 Pasillo'));
-                      contenido = `
-                        <span class="seat-backrest" aria-hidden="true"></span>
-                        <strong class="seat-number">${App.escapar(etiqueta)}</strong>
-                        <small class="seat-sub">${App.escapar(sub)}</small>`;
-                    } else {
-                      claseExtra = `cell-${celda.tipoCelda.toLowerCase()}`;
-                      contenido = etiquetaCeldaEspecial(celda.tipoCelda);
-                    }
-
-                    return `<button class="seat template-cell ${claseExtra}" type="button"
-                      data-celda-piso="${numPiso}"
-                      data-celda-fila="${celda.fila}"
-                      data-celda-col="${celda.col}"
-                      title="Fila ${celda.fila} · ${celda.ubicacion || ''} (Clic para cambiar a ${herramientaActiva})">
-                      ${contenido}
-                    </button>`;
-                  }).join('')}
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
-          <div class="bus-tail">
-            <span>🚨 Salida de emergencia posterior · Motor trasero · ${totalFilas} filas configuradas</span>
-            <div class="bus-taillights"><span class="taillight"></span><span class="taillight"></span></div>
-          </div>
-        </div>
-      </div>`;
+    mapaAsientos.innerHTML = SeatPlan.chassis(pisoObj, celda => {
+      const kind = celda.tipoCelda;
+      const content = ['NORMAL', 'VIP', 'DISCAPACIDAD'].includes(kind)
+        ? SeatPlan.seatFace(`${numPiso}${String(++contadorAsiento).padStart(2, '0')}`, kind, celda.ubicacion)
+        : SeatPlan.special(kind);
+      return `<button class="seat template-cell ${SeatPlan.faceClass(kind)}" type="button"
+        data-celda-piso="${numPiso}" data-celda-fila="${Number(celda.fila)}" data-celda-col="${Number(celda.col)}"
+        title="Fila ${Number(celda.fila)} · ${App.escapar(celda.ubicacion || '')} (Clic para cambiar a ${herramientaActiva})">
+        ${content}</button>`;
+    });
   }
 
   function modificarCeldaPlantilla(piso, fila, col) {

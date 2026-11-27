@@ -1,17 +1,378 @@
-.plan-scroll{max-width:100%;min-width:0;overflow-x:auto}
-.seat-plan{width:max-content;min-width:min(100%,32rem);margin:auto;border:4px solid #344358;border-radius:2.5rem 2.5rem 1rem 1rem;background:#f6f8fb;overflow:hidden}
-.seat-plan header,.plan-front{background:#203044;color:white;text-align:center;padding:.75rem}
-.plan-guide{text-align:center;padding:.5rem}
-.plan-grid{display:grid;grid-template-columns:repeat(var(--columns),minmax(4.5rem,1fr));gap:.35rem;padding:.6rem}
-.plan-grid>span,.plan-grid>button,.seat-list>button{min-height:48px;border-radius:.5rem;text-align:center;align-content:center}
-.plan-grid>span{background:#e4eaf0;font-size:.78rem}
-.plan-grid .seat,.seat-list .seat{width:auto;height:auto;display:grid;padding:.35rem}
-.seat-plan small,.seat-list small{display:block}
-.seat.selected::after{content:"✓ Seleccionado"}
-.seat-list{display:flex;gap:.5rem;flex-wrap:wrap}
-#seatGrid,#mapaAsientosVenta{display:block;min-width:0;max-width:100%}
+/* ------------------ Silueta Realista de Carrocería de Bus ----------------- */
 
-.plan-grid .seat.reservado,.seat-list .seat.reservado{background:#fff3d6;color:#794a00;border:1px dashed #ad741a}
-.plan-grid .seat.occupied,.seat-list .seat.occupied{background:#eceff3;color:#4d5968}
-[data-plan-floor]{padding:.45rem .8rem;margin:0 .25rem .6rem 0;border:1px solid #c5cfdb;border-radius:.5rem;background:white}
-[data-plan-floor][aria-pressed="true"]{background:#203044;color:white}
+.bus-chassis-wrapper {
+    display: flex;
+    justify-content: center;
+    min-width: calc(116px + var(--plan-columns, 5) * 66px);
+    padding: 14px 26px;
+    background: radial-gradient(circle at center, #f1f5f9 0%, #e2e8f0 100%);
+    border-radius: 14px;
+    border: 1px solid #cbd5e1;
+    user-select: none;
+}
+
+.bus-chassis {
+    position: relative;
+    width: min(max(560px, calc(64px + var(--plan-columns, 5) * 66px)), 100%);
+    background: #ffffff;
+    border: 4px solid #334155;
+    border-radius: 44px 44px 26px 26px;
+    box-shadow: 0 18px 38px rgba(15, 23, 42, .16), inset 0 0 0 3px #e2e8f0;
+    overflow: visible;
+}
+
+/* Espejos retrovisores laterales */
+.bus-mirror {
+    position: absolute;
+    top: 38px;
+    width: 16px;
+    height: 36px;
+    background: #1e293b;
+    border-radius: 6px;
+}
+
+.bus-mirror-left {
+    left: -20px;
+    border-radius: 8px 3px 3px 8px;
+}
+
+.bus-mirror-right {
+    right: -20px;
+    border-radius: 3px 8px 8px 3px;
+}
+
+/* Ruedas laterales del chasis */
+.bus-wheel {
+    position: absolute;
+    width: 11px;
+    height: 54px;
+    background: #0f172a;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px #475569;
+}
+
+.bus-wheel-fl { left: -15px; top: 110px; }
+.bus-wheel-fr { right: -15px; top: 110px; }
+.bus-wheel-rl { left: -15px; bottom: 85px; }
+.bus-wheel-rr { right: -15px; bottom: 85px; }
+
+/* Trompa / Cabina frontal del bus */
+.bus-nose {
+    background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+    color: #fff;
+    border-radius: 39px 39px 0 0;
+    padding: 10px 18px 14px;
+    border-bottom: 3px solid #475569;
+}
+
+.bus-headlights {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 6px;
+}
+
+.headlight {
+    width: 34px;
+    height: 8px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #fef08a, #facc15);
+    box-shadow: 0 0 10px rgba(250, 204, 21, .8);
+}
+
+.bus-grille {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #94a3b8;
+}
+
+.bus-windshield-curve {
+    text-align: center;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 22px 22px 8px 8px;
+    background: linear-gradient(180deg, rgba(56, 189, 248, .28), rgba(14, 165, 233, .12));
+    border: 1px solid rgba(125, 211, 252, .4);
+    color: #e0f2fe;
+}
+
+.bus-cockpit {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.cockpit-driver,
+.cockpit-door {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 11px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, .45);
+    border: 1px solid rgba(148, 163, 184, .25);
+}
+
+.cockpit-door {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.steering-wheel {
+    font-size: 20px;
+}
+
+.cockpit-driver strong,
+.cockpit-door strong {
+    display: block;
+    font-size: 12px;
+    color: #f8fafc;
+}
+
+.cockpit-driver small,
+.cockpit-door small {
+    display: block;
+    font-size: 10px;
+    color: #cbd5e1;
+}
+
+/* Interior de la cabina */
+.bus-cabin-body {
+    padding: 14px 16px 16px;
+    background:
+        linear-gradient(90deg, rgba(14, 165, 233, .08) 0, rgba(14, 165, 233, .08) 6px, transparent 6px, transparent calc(100% - 6px), rgba(14, 165, 233, .08) calc(100% - 6px));
+}
+
+.bus-columns-guide {
+    display: grid;
+    grid-template-columns: 36px repeat(var(--plan-columns, 5), minmax(0, 1fr));
+    gap: 7px;
+    align-items: center;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #475569;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    border-bottom: 2px dashed #cbd5e1;
+}
+
+.col-row-tag {
+    color: #64748b;
+}
+
+.bus-rows-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bus-chassis-row {
+    display: grid;
+    grid-template-columns: 36px repeat(var(--plan-columns, 5), minmax(0, 1fr));
+    gap: 7px;
+    align-items: stretch;
+}
+
+.row-number-badge {
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+/* Butaca / Asiento con forma realista */
+.seat.template-cell {
+    position: relative;
+    min-height: 54px;
+    padding: 7px 4px 5px;
+    border-radius: 12px 12px 8px 8px;
+    border: 2px solid #94a3b8;
+    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+    box-shadow: 0 3px 0 #cbd5e1;
+}
+
+.seat-backrest {
+    position: absolute;
+    top: 3px;
+    left: 16%;
+    right: 16%;
+    height: 5px;
+    border-radius: 4px;
+    background: #cbd5e1;
+}
+
+.seat.template-cell .seat-number {
+    font-size: 13px;
+    font-weight: 800;
+    margin-top: 4px;
+    color: #1e293b;
+}
+
+.seat.template-cell .seat-sub {
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.seat.template-cell.vip {
+    background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #f59e0b;
+    box-shadow: 0 3px 0 #d97706;
+}
+
+.seat.template-cell.vip .seat-backrest {
+    background: #f59e0b;
+}
+
+.seat.template-cell.vip .seat-number,
+.seat.template-cell.vip .seat-sub {
+    color: #92400e;
+}
+
+.seat.template-cell.disability {
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    border-color: #3b82f6;
+    box-shadow: 0 3px 0 #2563eb;
+}
+
+.seat.template-cell.disability .seat-backrest {
+    background: #3b82f6;
+}
+
+.seat.template-cell.disability .seat-number,
+.seat.template-cell.disability .seat-sub {
+    color: #1e40af;
+}
+
+.seat.cell-pasillo {
+    background: repeating-linear-gradient(180deg, #f8fafc, #f8fafc 8px, #f1f5f9 8px, #f1f5f9 16px);
+    border: 1px dashed #cbd5e1;
+    box-shadow: none;
+    color: #64748b;
+}
+
+.seat.cell-bano {
+    background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+    border: 2px solid #ef4444;
+    box-shadow: inset 0 0 0 2px rgba(239, 68, 68, .15);
+    color: #b91c1c;
+}
+
+.seat.cell-escalera {
+    background: repeating-linear-gradient(0deg, #f3e8ff, #f3e8ff 6px, #e9d5ff 6px, #e9d5ff 12px);
+    border: 2px solid #9333ea;
+    box-shadow: none;
+    color: #6b21a8;
+}
+
+.seat.cell-vacio {
+    background: #e2e8f0;
+    border: 1px dashed #94a3b8;
+    box-shadow: none;
+    color: #64748b;
+    opacity: .8;
+}
+
+.cell-special-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* Parte trasera del bus */
+.bus-tail {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 18px;
+    background: #1e293b;
+    color: #cbd5e1;
+    border-radius: 0 0 21px 21px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.bus-taillights {
+    display: flex;
+    gap: 8px;
+}
+
+.taillight {
+    width: 18px;
+    height: 7px;
+    border-radius: 4px;
+    background: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, .85);
+}
+
+
+.plan-scroll { min-width: 0; max-width: 100%; overflow-x: auto; }
+.plan-scroll *, .seat-list * { box-sizing: border-box; }
+#seatGrid, #mapaAsientosVenta { display: block; min-width: 0; max-width: 100%; }
+#seatGrid { padding: 0; border: 0; background: none; }
+#mapaAsientos, #panelAsientos, .sale-grid > div { min-width: 0; }
+.plan-model { margin: 8px 0; color: #475569; font-size: 13px; }
+.seat-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.seat-list .template-cell { min-width: 72px; }
+:is(.bus-chassis, .seat-list) .template-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    gap: 1px;
+    text-align: center;
+    color: #334155;
+    font-family: inherit;
+    line-height: 1.15;
+}
+:is(.bus-chassis, .seat-list) .template-cell small {
+    font-size: 9px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+:is(.bus-chassis, .seat-list) .seat-state { color: #366449; }
+:is(.bus-chassis, .seat-list) .template-cell[aria-pressed="true"] {
+    outline: 3px solid #0d5c4a;
+    outline-offset: 1px;
+    background: #e0f4ec !important;
+}
+:is(.bus-chassis, .seat-list) .template-cell:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+    box-shadow: none;
+    border-style: dashed;
+}
+:is(.bus-chassis, .seat-list) .reservado { border-color: #b46a0c; background: #fff6e6; }
+:is(.bus-chassis, .seat-list) .occupied { border-color: #a8474d; background: #fceef0; }
+:is(.bus-chassis, .seat-list) .unavailable { border-color: #94a3b8; background: #eef2f6; }
+:is(.bus-chassis, .seat-list) .reservado .seat-state { color: #874a06; }
+:is(.bus-chassis, .seat-list) .occupied .seat-state { color: #982c3a; }
+:is(.bus-chassis, .seat-list) .unavailable .seat-state { color: #475569; }
+.bus-chassis span.template-cell { cursor: default; }
+[data-plan-floor] { padding: .45rem .8rem; margin: 0 .25rem .5rem 0; border: 1px solid #c5cfdb; border-radius: .5rem; background: white; }
+[data-plan-floor][aria-pressed="true"] { background: #203044; color: white; }
+
+.plan-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.plan-legend > span::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    border: 2px solid #94a3b8;
+    background: #fff;
+}
+.plan-legend .chosen::before { border-color: #0d5c4a; background: #e0f4ec; }
+.plan-legend .held::before { border: 2px dashed #b46a0c; background: #fff6e6; }
+.plan-legend .sold::before { border: 2px dashed #a8474d; background: #fceef0; }
+.plan-legend .inactive::before { border-style: dashed; background: #eef2f6; }

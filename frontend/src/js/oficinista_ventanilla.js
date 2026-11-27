@@ -218,8 +218,8 @@
     let active = pisos.find(group => group.piso === asientoSeleccionado?.PIS_ASI) || pisos[0];
     function draw() {
       const tabs = pisos.map(group => '<button type="button" data-plan-floor="'+Number(group.piso)+'" aria-pressed="'+(group === active)+'">Piso '+Number(group.piso)+'</button>').join('');
-      mapaAsientos.innerHTML = tabs + SeatPlan.render(plantilla, active.piso, active.asientos, seat =>
-        SeatPlan.button(seat, 'data-asiento-venta', seat.DISPONIBLE, seat.ID_ASI === asientoSeleccionado?.ID_ASI));
+      mapaAsientos.innerHTML = tabs + SeatPlan.render(plantilla, active.piso, active.asientos, (seat, cell) =>
+        SeatPlan.button(seat, 'data-asiento-venta', seat.DISPONIBLE, seat.ID_ASI === asientoSeleccionado?.ID_ASI, cell), datos.hoja?.MOD_PLA_BUS);
       mapaAsientos.querySelectorAll('[data-plan-floor]').forEach(tab => tab.onclick = () => {
         active = pisos.find(group => Number(group.piso) === Number(tab.dataset.planFloor));
         draw();
@@ -280,7 +280,11 @@
 
   function marcarAsientoSeleccionado() {
     mapaAsientos.querySelectorAll('[data-asiento-venta]').forEach((boton) => {
-      boton.classList.toggle('selected', Boolean(asientoSeleccionado) && boton.dataset.asientoVenta === asientoSeleccionado.ID_ASI);
+      const selected = boton.dataset.asientoVenta === asientoSeleccionado?.ID_ASI;
+      boton.classList.toggle('selected', selected);
+      boton.setAttribute('aria-pressed', String(selected));
+      const label = boton.querySelector('.seat-state');
+      if (label) label.textContent = selected ? '✓ Seleccionado' : label.dataset.stateLabel;
     });
   }
 

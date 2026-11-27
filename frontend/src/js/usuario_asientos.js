@@ -158,8 +158,8 @@ const renderFloor = (floor) => {
     const floorSeats = seats.filter((seat) => Number(seat.PIS_ASI) === floor)
         .sort((first, second) => String(first.ID_ASI).localeCompare(String(second.ID_ASI), undefined, { numeric: true }));
 
-    seatGrid.innerHTML = SeatPlan.render(viajeActual.plantilla, floor, floorSeats, seat =>
-        SeatPlan.button(seat, 'data-seat', seat.ESTADO_ASIENTO === 'LIBRE' && cupoDisponible !== 0, selectedSeats.some(s => s.ID_ASI === seat.ID_ASI)));
+    seatGrid.innerHTML = SeatPlan.render(viajeActual.plantilla, floor, floorSeats, (seat, cell) =>
+        SeatPlan.button(seat, 'data-seat', seat.ESTADO_ASIENTO === 'LIBRE' && cupoDisponible !== 0, selectedSeats.some(s => s.ID_ASI === seat.ID_ASI), cell), viajeActual.modeloPlantilla);
     seatGrid.querySelectorAll('.seat.libre').forEach((button) => button.addEventListener('click', () => selectSeat(button.dataset.seat)));
 };
 
