@@ -371,12 +371,13 @@
     const asiento = asientos.find((elemento) => elemento.ID_ASI === id);
     if (!asiento || !asiento.DISPONIBLE) return;
     asientoSeleccionado = asiento;
+    precioBoleto.readOnly = true;
     precioBoleto.disabled = false;
     metodoPago.disabled = false;
     if (!metodoPago.value) metodoPago.value = 'EFECTIVO';
     if (tipoTarifaVentanilla) {
       tipoTarifaVentanilla.disabled = false;
-      tipoTarifaVentanilla.value = /DISCAPACIDAD/i.test(asiento.NOM_TIP || '') ? 'DISCAPACIDAD_50' : 'NORMAL';
+      tipoTarifaVentanilla.value = 'NORMAL';
     }
     recalcularPrecioAutomatico();
     marcarAsientoSeleccionado();
@@ -609,9 +610,7 @@
     }
 
     const modalidad = tipoTarifaVentanilla ? tipoTarifaVentanilla.value : 'NORMAL';
-    const etiquetaDescuento = modalidad === 'NORMAL'
-      ? (asientoSeleccionado.NOM_TIP || 'NORMAL')
-      : modalidad;
+    const etiquetaDescuento = modalidad;
 
     App.textoBoton(btnEmitir, 'Emitiendo…');
     try {

@@ -1,3 +1,4 @@
+const fare = require('../services/passengerFare');
 const crypto = require('crypto');
 const fs = require('fs/promises');
 const { sql, conectarBD } = require('../config/db');
@@ -180,8 +181,9 @@ const obtenerAsientos = async (req, res) => {
             else contadorP1 += 1;
             const numero = piso === 2 ? contadorP2 : contadorP1;
             const etiqueta = `${piso}${String(numero).padStart(2, '0')}`;
-            const recargo = Number(fila.PRE_TIP) || 0;
-            const precioCalculado = tarifaBase > 0 ? tarifaBase + recargo : (recargo > 0 ? recargo : 5.00);
+            const rate = fare.quote(tarifaBase, fila.ID_TIP_PER);
+            const recargo = rate.surcharge;
+            const precioCalculado = rate.total;
 
             return {
                 ...fila,
@@ -216,6 +218,7 @@ const obtenerAsientos = async (req, res) => {
             asientos
         });
     } catch (error) {
+        if (error.status) return res.status(error.status).json({success:false,message:error.message});
         console.error('Error al consultar asientos:', error);
         return res.status(500).json({ success: false, message: 'No fue posible consultar los asientos.' });
     }
@@ -630,7 +633,7 @@ const reservarAsiento = async (req, res) => {
         idAsientos.forEach((id, index) => solicitudAsientos.input(`idAsiento${index}`, sql.VarChar(5), id));
 
         const asiento = await solicitudAsientos.query(`
-            SELECT H.ID_HOJ, F.CIU_ORI_FRE, F.CIU_DES_FRE, A.ID_ASI, T.PRE_TIP, T.NOM_TIP
+            SELECT H.ID_HOJ, F.CIU_ORI_FRE, F.CIU_DES_FRE, A.ID_ASI, A.ID_TIP_PER, T.PRE_TIP, T.NOM_TIP
                    ${tieneTarifaFrecuencia ? ', F.TAR_BAS_FRE, A.PIS_ASI' : ''}
             FROM HOJAS_RUTAS H WITH (UPDLOCK, HOLDLOCK)
             INNER JOIN FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
@@ -679,13 +682,8 @@ const reservarAsiento = async (req, res) => {
             const pasajero = pasajeros[index] || { tipo: 'ADULTO' };
             const tipoPasajero = texto(pasajero.tipo).toUpperCase() || 'ADULTO';
 
-            const tarifaBaseFre = Number(datos.TAR_BAS_FRE) > 0 ? Number(datos.TAR_BAS_FRE) : 0;
-            const recargoAsiento = Number(datos.PRE_TIP) || 0;
-            const precioBase = tarifaBaseFre > 0
-                ? tarifaBaseFre + recargoAsiento
-                : (recargoAsiento > 0 ? recargoAsiento : 5.00);
-            const aplicaDescuento = ['NINO', 'ADULTO_MAYOR', 'DISCAPACIDAD', 'TERCERA_EDAD', 'MENOR_EDAD'].includes(tipoPasajero);
-            const precioFinal = Math.round((aplicaDescuento ? precioBase * 0.5 : precioBase) * 100) / 100;
+            const precioFinal = fare.quote(datos.TAR_BAS_FRE, datos.ID_TIP_PER, tipoPasajero).total;
+            fare.confirmQuote(pasajero.precioEsperado, precioFinal);
 
             const idBoleto = generarCodigo(metodoPago === 'DEPOSITO' ? 'B' : 'R');
             const codigoQr = generarQr(idBoleto, idHoja, datos.ID_ASI);

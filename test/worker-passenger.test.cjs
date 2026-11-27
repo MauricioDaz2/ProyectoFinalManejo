@@ -20,7 +20,7 @@ test('R004, R006 y R005 usan reservas personales con identidad y cupos aislados'
    if(q.startsWith('SELECT SALIDA_PLAN_UTC,LLEGADA_PLAN_UTC'))return result([{SALIDA_PLAN_UTC:s.start,LLEGADA_PLAN_UTC:s.end}]);
    if(q.startsWith('SELECT DISTINCT H.ID_HOJ,H.SALIDA_PLAN_UTC'))return result(s.work);
    if(q.startsWith('SELECT C.EST_COP'))return result([{EST_COP:'1'}]);
-   if(q.startsWith('SELECT H.ID_HOJ, F.CIU_ORI_FRE'))return result(Object.entries(p).filter(([k])=>k.startsWith('idAsiento')).map(([,id])=>({ID_HOJ:p.idHoja,CIU_ORI_FRE:'Ambato',CIU_DES_FRE:'Quito',ID_ASI:id,PRE_TIP:12,NOM_TIP:'NORMAL'})));
+   if(q.startsWith('SELECT H.ID_HOJ, F.CIU_ORI_FRE'))return result(Object.entries(p).filter(([k])=>k.startsWith('idAsiento')).map(([,id])=>({ID_HOJ:p.idHoja,CIU_ORI_FRE:'Ambato',CIU_DES_FRE:'Quito',ID_ASI:id,TAR_BAS_FRE:12,ID_TIP_PER:"TIP01",PRE_TIP:12,NOM_TIP:'NORMAL'})));
    if(q.startsWith('SELECT ID_BOL FROM dbo.BOLETOS'))return result(s.tickets.filter(b=>b.ID_HOJ_PER===p.sheetOccupied&&Object.entries(p).some(([k,v])=>k.startsWith('occupied')&&v===b.ID_ASI_PER)&&b.EST_BOL!=='CANCELADO'));
    if(q.startsWith('SELECT ID_USU FROM USUARIOS'))return result(users[p.cedula]?[{ID_USU:p.cedula}]:[]);
    if(q.startsWith('INSERT INTO BOLETOS')){assert.ok(this.db instanceof Transaction);s.tickets.push({ID_BOL:p.idBoleto,ID_HOJ_PER:p.idHoja,ID_ASI_PER:p.idAsiento,ID_USU_FIN:p.usuarioId,EST_BOL:p.estadoBoleto,PRE_FIN_BOL:p.precio});return result();}

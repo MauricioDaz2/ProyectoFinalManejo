@@ -30,7 +30,7 @@ test('perfiles públicos y consultas limitadas por cooperativa, sin sesión ni e
           assert.match(sql, /C.ID_COP = @cooperativa/);
           assert.match(sql, /B.ID_COP_PER = C.ID_COP/);
           assert.match(sql, /C.EST_COP = '1'/);
-          if (sql.includes('AS ESTADO_ASIENTO')) return { recordset: params.idHoja === (params.cooperativa === 'CP001' ? 'H001' : 'H002') ? [{ ID_HOJ: params.idHoja, ID_ASI: 'A001' }] : [] };
+          if (sql.includes('AS ESTADO_ASIENTO')) return { recordset: params.idHoja === (params.cooperativa === 'CP001' ? 'H001' : 'H002') ? [{ ID_HOJ: params.idHoja, ID_ASI: 'A001', TAR_BAS_FRE: 10, ID_TIP_PER: 'TIP01' }] : [] };
           if (sql.includes('AS ORIGEN')) return { recordset: [{ ORIGEN: params.cooperativa, DESTINO: 'Destino' }] };
           return { recordset: [{ ID_COP: params.cooperativa, ID_HOJ: params.cooperativa === 'CP001' ? 'H001' : 'H002' }] };
         } };

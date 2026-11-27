@@ -1,3 +1,4 @@
+process.env.VIP_SURCHARGE_PERCENT = '40';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -81,7 +82,7 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
       if (q.startsWith('SELECT H.ID_HOJ, F.CIU_ORI_FRE')) {
         return result(Object.entries(p).filter(([k]) => k.startsWith('idAsiento')).map(([, id]) => ({
           ID_HOJ: p.idHoja, CIU_ORI_FRE: 'AMBATO', CIU_DES_FRE: 'QUITO',
-          ID_ASI: id, PRE_TIP: id === 'A0002' ? 3 : 0, NOM_TIP: id === 'A0002' ? 'VIP' : 'NORMAL',
+          ID_ASI: id, ID_TIP_PER: id === 'A0002' ? 'TIP02' : 'TIP01', PRE_TIP: id === 'A0002' ? 3 : 0, NOM_TIP: id === 'A0002' ? 'VIP' : 'NORMAL',
           TAR_BAS_FRE: 7.50, PIS_ASI: 1
         })));
       }

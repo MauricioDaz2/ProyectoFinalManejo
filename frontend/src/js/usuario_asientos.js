@@ -141,13 +141,21 @@ const calcularTotalSeleccionado = () => {
         const select = passengerTypesContainer?.querySelector(`[data-seat-id="${seat.ID_ASI}"]`);
         const tipo = select ? select.value : 'ADULTO';
         const mitad = ['NINO', 'ADULTO_MAYOR', 'DISCAPACIDAD'].includes(tipo);
-        return sum + (mitad ? base * 0.5 : base);
+        return sum + Math.round(Math.round(base * 100) * (mitad ? 0.5 : 1)) / 100;
     }, 0);
 };
 
 const actualizarResumenReserva = () => {
     if (!reservationSummary) return;
     const totalEstimado = calcularTotalSeleccionado();
+    selectedSeats.forEach(seat => {
+        const select = passengerTypesContainer.querySelector(`[data-seat-id="${seat.ID_ASI}"]`);
+        const line = select?.parentElement.querySelector('output');
+        if (!line) return;
+        const cents = Math.round(seat.PRE_TIP * 100);
+        const final = select.value === 'ADULTO' ? cents : Math.round(cents / 2);
+        line.textContent = 'Descuento USD ' + ((cents-final)/100).toFixed(2) + ' · Individual USD ' + (final/100).toFixed(2);
+    });
     const etiquetas = selectedSeats.map(etiquetaVisibleAsiento).join(', ');
     reservationSummary.textContent = `${selectedSeats.length} asiento(s) seleccionado(s) (${etiquetas || 'ninguno'}). Total a pagar: $${totalEstimado.toFixed(2)}`;
 };
@@ -190,18 +198,18 @@ const renderPassengerTypes = () => {
     }
     passengerTypesContainer.innerHTML = selectedSeats.map((seat) => {
         const etiqueta = etiquetaVisibleAsiento(seat);
-        const esDiscapacidad = /DISCAPACIDAD/i.test(seat.NOM_TIP || '');
+
         const precioBase = Number(seat.PRE_TIP || seat.PRECIO_ASIENTO || 5).toFixed(2);
         return `
             <div style="margin-top: 10px; padding: 10px; background: #f8fafc; border: 1px solid var(--usuario-border); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                <span><strong>Asiento N° ${escapeHtml(etiqueta)}</strong> · ${escapeHtml(seat.NOM_TIP || 'NORMAL')} ($${precioBase})</span>
+                <span><strong>Asiento N° ${escapeHtml(etiqueta)}</strong> · ${escapeHtml(seat.NOM_TIP || 'NORMAL')} (base ${Number(viajeActual.tarifaBase).toFixed(2)} + recargo ${Number(seat.RECARGO_TIP).toFixed(2)} = ${precioBase})</span>
                 <div style="width: 220px;">
                     <select class="passenger-type-select" data-seat-id="${escapeHtml(seat.ID_ASI)}" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--usuario-border);">
-                        <option value="ADULTO" ${!esDiscapacidad ? 'selected' : ''}>Adulto (100%)</option>
+                        <option value="ADULTO">Adulto (100%)</option>
                         <option value="NINO">Niño / Menor (50%)</option>
                         <option value="ADULTO_MAYOR">Adulto mayor (50%)</option>
-                        <option value="DISCAPACIDAD" ${esDiscapacidad ? 'selected' : ''}>Discapacidad (50%)</option>
-                    </select>
+                        <option value="DISCAPACIDAD">Discapacidad (50%)</option>
+                    </select><output aria-live="polite"></output>
                 </div>
             </div>
         `;
@@ -387,6 +395,7 @@ reservationForm.addEventListener('submit', async (event) => {
         const select = passengerTypesContainer.querySelector(`[data-seat-id="${seat.ID_ASI}"]`);
         return {
             cedula: cedulaTitular,
+            precioEsperado: Math.round(Math.round(seat.PRE_TIP * 100) * (select?.value && select.value !== 'ADULTO' ? 0.5 : 1)) / 100,
             tipo: select ? select.value : 'ADULTO'
         };
     });

@@ -1,3 +1,4 @@
+const fare = require('../services/passengerFare');
 const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
 const { liberarReservasVencidas } = require('./userReservaController');
@@ -418,10 +419,9 @@ async function obtenerMapaAsientosHoja(req, res) {
             else contadorPiso1 += 1;
             const numero = asiento.PIS_ASI === 2 ? contadorPiso2 : contadorPiso1;
             const ocupado = Boolean(asiento.ID_BOL);
-            const recargoTipo = Number(asiento.PRE_TIP) || 0;
-            const precioAutomatico = tarifaBase > 0
-                ? tarifaBase + recargoTipo
-                : (recargoTipo > 0 ? recargoTipo : 5.00);
+            const rate = fare.quote(tarifaBase, asiento.ID_TIP_PER);
+            const recargoTipo = rate.surcharge;
+            const precioAutomatico = rate.total;
 
             return {
                 ID_ASI: asiento.ID_ASI,
@@ -644,7 +644,7 @@ async function crearBoletoVentanilla(req, res) {
                 SELECT H.ID_HOJ, H.EST_VIA_HOJ, H.ID_BUS_PER,
                        F.CIU_ORI_FRE, F.CIU_DES_FRE,
                        ${esquema.TIENE_TARIFA_FRE ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : ''}
-                       A.ID_ASI, A.PIS_ASI, T.NOM_TIP, T.PRE_TIP
+                       A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER, T.NOM_TIP, T.PRE_TIP
                 FROM dbo.HOJAS_RUTAS H
                 INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
                 INNER JOIN dbo.ASIENTOS_BUS A ON A.ID_BUS_PER = ${cc.effectiveBus()}
@@ -664,21 +664,7 @@ async function crearBoletoVentanilla(req, res) {
             return res.status(400).json({ success: false, message: 'La hoja de ruta no se encuentra disponible para venta.' });
         }
 
-        const tarifaBase = Number(datosHoja.TAR_BAS_FRE) > 0 ? Number(datosHoja.TAR_BAS_FRE) : 0;
-        const recargoTipo = Number(datosHoja.PRE_TIP) || 0;
-        const precioBaseCalculado = tarifaBase > 0 ? tarifaBase + recargoTipo : (recargoTipo > 0 ? recargoTipo : 5.00);
-        const tipoDescuentoTexto = texto(TIP_DES_BOL) || datosHoja.NOM_TIP || 'NORMAL';
-        const aplicaMitad = /NINO|MENOR|TERCERA|MAYOR|DISCAPACIDAD|50/i.test(tipoDescuentoTexto);
-        const precioAutomatico = Math.round((aplicaMitad ? precioBaseCalculado * 0.5 : precioBaseCalculado) * 100) / 100;
-
-        const precioEnviado = Number(PRE_FIN_BOL);
-        const precio = Number.isFinite(precioEnviado) && precioEnviado > 0
-            ? Math.round(precioEnviado * 100) / 100
-            : precioAutomatico;
-
-        if (!Number.isFinite(precio) || precio <= 0) {
-            return res.status(400).json({ success: false, message: 'Precio del boleto inválido.' });
-        }
+        const tipoDescuentoTexto = texto(TIP_DES_BOL) || 'NORMAL';
 
         let idPasajero = idUsuarioFin || null;
         if (!idPasajero) {
@@ -710,6 +696,12 @@ async function crearBoletoVentanilla(req, res) {
         await cc.sale(transaccion, idHoja);
         await require('../services/workerSchedule').reserve(transaccion, idPasajero, idHoja);
 
+        const current = await transaccion.request().input('hoja',sql.VarChar(5),idHoja).input('asiento',sql.VarChar(5),idAsiento).query(`
+            SELECT F.TAR_BAS_FRE,A.ID_TIP_PER FROM HOJAS_RUTAS H JOIN FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
+            JOIN ASIENTOS_BUS A ON A.ID_BUS_PER=${cc.effectiveBus()} WHERE H.ID_HOJ=@hoja AND A.ID_ASI=@asiento`);
+        const rate = current.recordset[0];
+        const precio = fare.quote(rate?.TAR_BAS_FRE,rate?.ID_TIP_PER,tipoDescuentoTexto).total;
+        fare.confirmQuote(PRE_FIN_BOL,precio);
         const ocupados = await new sql.Request(transaccion)
             .input('asiento', sql.VarChar(5), idAsiento)
             .input('hoja', sql.VarChar(5), idHoja)
