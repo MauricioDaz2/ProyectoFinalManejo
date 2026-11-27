@@ -30,7 +30,14 @@
   const finFrecuencia = document.getElementById('finFrecuencia');
   const estadoFrecuencia = document.getElementById('estadoFrecuencia');
   const horaFrecuencia = document.getElementById('horaFrecuencia');
+  const horaLlegadaFrecuencia = document.getElementById('horaLlegadaFrecuencia');
   const tarifaBaseFrecuencia = document.getElementById('tarifaBaseFrecuencia');
+  const tipoTrayectoFrecuencia = document.getElementById('tipoTrayectoFrecuencia');
+  const seccionParadasFrecuencia = document.getElementById('seccionParadasFrecuencia');
+  const paradaIntermediaCiudad = document.getElementById('paradaIntermediaCiudad');
+  const paradaIntermediaComercial = document.getElementById('paradaIntermediaComercial');
+  const btnAgregarParadaFrecuencia = document.getElementById('btnAgregarParadaFrecuencia');
+  const listaParadasFrecuencia = document.getElementById('listaParadasFrecuencia');
   const btnGuardarFrecuencia = document.getElementById('btnGuardarFrecuencia');
   const categoriaFrecuencia = document.getElementById('categoriaFrecuencia');
   const campoCategoriaFrecuencia = document.getElementById('campoCategoriaFrecuencia') || categoriaFrecuencia.closest('.field');
@@ -57,12 +64,15 @@
   let hojas = [];
   let destacadas = { disponible: false, limite: 0, usadas: 0 };
   let frecuenciaEnEdicion = null;
+  let paradasEnEdicion = [];
   let categoriasOperativas = [];
   let categoriasDisponibles = false;
   let ubicaciones = [];
   let cargaUbicaciones = null;
 
-  const permitido = (permiso) => usuario.accesoConfigurado !== true || usuario.principal || usuario.permisos?.includes(permiso);
+  const permitido = (permiso) => usuario.rolId === 'R003'
+    ? ['rutas', 'salidas', 'ventanilla'].includes(permiso)
+    : (usuario.accesoConfigurado !== true || usuario.principal || usuario.permisos?.includes(permiso));
   const normalizarTexto = (valor) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   const claveCiudad = (valor) => String(valor || '').trim().toUpperCase();
 
@@ -349,6 +359,108 @@
     actualizarSelectCategorias(frecuenciaEnEdicion?.ID_CAT_OP || '');
   }
 
+  function renderSelectorParadasIntermedias() {
+    if (!paradaIntermediaCiudad) return;
+    const opciones = [new Option('Selecciona una ciudad / cantón…', '')];
+    if (typeof document.createElement === 'function' && ubicaciones.length) {
+      for (const grupo of ubicaciones) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = grupo.provincia;
+        for (const c of grupo.ciudades || []) {
+          optgroup.appendChild(new Option(c.nombre, claveCiudad(c.valor)));
+        }
+        opciones.push(optgroup);
+      }
+    } else {
+      for (const c of todasLasCiudades()) {
+        opciones.push(new Option(`${c.nombre} (${c.provincia})`, c.valor));
+      }
+    }
+    paradaIntermediaCiudad.replaceChildren(...opciones);
+  }
+
+  function actualizarVisibilidadParadas() {
+    if (!seccionParadasFrecuencia || !tipoTrayectoFrecuencia) return;
+    const esDirecta = tipoTrayectoFrecuencia.value !== '0';
+    seccionParadasFrecuencia.hidden = esDirecta;
+  }
+
+  function renderListaParadasIntermedias() {
+    if (!listaParadasFrecuencia) return;
+    if (!paradasEnEdicion.length) {
+      listaParadasFrecuencia.innerHTML = `<li class="stops-empty muted">Aún no has agregado paradas intermedias para esta frecuencia.</li>`;
+      return;
+    }
+    listaParadasFrecuencia.innerHTML = paradasEnEdicion.map((parada, idx) => {
+      const ciudadInfo = encontrarCiudad(parada.NOMBRE);
+      const etiqueta = ciudadInfo ? `${ciudadInfo.nombre} (${ciudadInfo.provincia})` : parada.NOMBRE;
+      const tipoBadge = parada.COMERCIAL !== false ? 'Comercial' : 'Técnica';
+      return `
+        <li class="stop-item" data-index="${idx}">
+          <span class="stop-order">#${idx + 1}</span>
+          <div class="stop-main">
+            <strong>${App.escapar(etiqueta)}</strong>
+            <span class="badge ${parada.COMERCIAL !== false ? 'badge-info' : 'badge-neutral'}">${tipoBadge}</span>
+          </div>
+          <div class="stop-actions">
+            <button class="btn btn-secondary btn-sm" type="button" data-parada-accion="subir" data-index="${idx}" ${idx === 0 ? 'disabled' : ''} title="Subir parada">↑</button>
+            <button class="btn btn-secondary btn-sm" type="button" data-parada-accion="bajar" data-index="${idx}" ${idx === paradasEnEdicion.length - 1 ? 'disabled' : ''} title="Bajar parada">↓</button>
+            <button class="btn btn-danger-soft btn-sm" type="button" data-parada-accion="quitar" data-index="${idx}" title="Quitar parada">Quitar</button>
+          </div>
+        </li>`;
+    }).join('');
+  }
+
+  function agregarParadaIntermedia() {
+    if (!paradaIntermediaCiudad) return;
+    const nombre = claveCiudad(paradaIntermediaCiudad.value).slice(0, 20);
+    const origen = claveCiudad(lados.origen.ciudad.value);
+    const destino = claveCiudad(lados.destino.ciudad.value);
+    if (!nombre) {
+      App.aviso('Selecciona una ciudad o parada intermedia para agregar.', 'error');
+      return;
+    }
+    if (nombre === origen || nombre === destino) {
+      App.aviso('La parada intermedia no puede coincidir con la ciudad de origen ni con la de destino.', 'error');
+      return;
+    }
+    if (paradasEnEdicion.some((p) => p.NOMBRE === nombre)) {
+      App.aviso('Esa parada intermedia ya está incluida en el recorrido.', 'error');
+      return;
+    }
+    paradasEnEdicion.push({
+      ORDEN: paradasEnEdicion.length + 1,
+      NOMBRE: nombre,
+      COMERCIAL: paradaIntermediaComercial ? Boolean(paradaIntermediaComercial.checked) : true
+    });
+    paradaIntermediaCiudad.value = '';
+    if (paradaIntermediaComercial) paradaIntermediaComercial.checked = true;
+    renderListaParadasIntermedias();
+  }
+
+  tipoTrayectoFrecuencia?.addEventListener('change', actualizarVisibilidadParadas);
+  btnAgregarParadaFrecuencia?.addEventListener('click', agregarParadaIntermedia);
+  listaParadasFrecuencia?.addEventListener('click', (evento) => {
+    const btn = evento.target.closest('button[data-parada-accion]');
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    const accion = btn.dataset.paradaAccion;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= paradasEnEdicion.length) return;
+    if (accion === 'subir' && idx > 0) {
+      const temp = paradasEnEdicion[idx - 1];
+      paradasEnEdicion[idx - 1] = paradasEnEdicion[idx];
+      paradasEnEdicion[idx] = temp;
+    } else if (accion === 'bajar' && idx < paradasEnEdicion.length - 1) {
+      const temp = paradasEnEdicion[idx + 1];
+      paradasEnEdicion[idx + 1] = paradasEnEdicion[idx];
+      paradasEnEdicion[idx] = temp;
+    } else if (accion === 'quitar') {
+      paradasEnEdicion.splice(idx, 1);
+    }
+    paradasEnEdicion = paradasEnEdicion.map((p, i) => ({ ...p, ORDEN: i + 1 }));
+    renderListaParadasIntermedias();
+  });
+
   function poblarFiltroFrecuenciasHojas() {
     if (!filtroFrecuenciaHoja) return;
     const previa = filtroFrecuenciaHoja.value;
@@ -423,15 +535,25 @@
         : (f.EST_VIGENCIA === 'PENDIENTE' ? 'badge-info' : 'badge-neutral');
       const totalHojas = Number(f.TOTAL_HOJAS) || 0;
 
+      const horaSal = String(f.HORA_SAL_FRE || '08:00').slice(0, 5);
+      const horaLle = f.HORA_LLE_FRE ? String(f.HORA_LLE_FRE).slice(0, 5) : '';
+      const horarioLabel = horaLle ? `${horaSal} → ${horaLle}` : horaSal;
+      const listaParadas = Array.isArray(f.PARADAS) ? f.PARADAS : [];
+      const esDirecta = f.ES_DIRECTA !== undefined ? Boolean(f.ES_DIRECTA) && listaParadas.length === 0 : listaParadas.length === 0;
+      const resumenParadas = esDirecta
+        ? '<span class="muted block-sub">Directo</span>'
+        : `<span class="muted block-sub">${listaParadas.length} parada${listaParadas.length === 1 ? '' : 's'}: ${App.escapar(listaParadas.map((p) => p.NOMBRE).join(' · '))}</span>`;
+
       return `
         <tr data-id="${App.escapar(f.ID_FRE)}">
-          <td class="nowrap"><strong>${App.escapar(String(f.HORA_SAL_FRE || "08:00").slice(0, 5))}</strong><span class="muted block-sub">$${Number(f.TAR_BAS_FRE ?? 5).toFixed(2)} base</span></td>
+          <td class="nowrap"><strong>${App.escapar(horarioLabel)}</strong><span class="muted block-sub">$${Number(f.TAR_BAS_FRE ?? 5).toFixed(2)} base</span></td>
           <td>
             <div class="cell-route">
               <span>${App.escapar(f.CIU_ORI_FRE)}</span>
               <span class="arrow">→</span>
               <span>${App.escapar(f.CIU_DES_FRE)}</span>
             </div>
+            ${resumenParadas}
             ${esDestacada(f) ? '<span class="badge badge-destacada">★ Destacada</span>' : ''}
           </td>
           <td class="mono">${App.escapar(f.NUM_RES_FRE || '—')}</td>
@@ -596,6 +718,8 @@
       await cargarUbicaciones();
       renderLado('origen', frecuencia?.CIU_ORI_FRE || '');
       renderLado('destino', frecuencia?.CIU_DES_FRE || '');
+      renderSelectorParadasIntermedias();
+      renderListaParadasIntermedias();
       actualizarEstadoRuta();
     } catch (error) {
       estadoRutaFrecuencia.textContent = error.message;
@@ -605,13 +729,18 @@
   async function abrirNuevaFrecuencia() {
     limpiarAviso();
     frecuenciaEnEdicion = null;
+    paradasEnEdicion = [];
     formFrecuencia.reset();
     tituloModalFrecuencia.textContent = 'Nueva frecuencia';
     inicioFrecuencia.value = App.hoyISO();
     finFrecuencia.value = '';
     estadoFrecuencia.value = '1';
     if (horaFrecuencia) horaFrecuencia.value = '08:00';
+    if (horaLlegadaFrecuencia) horaLlegadaFrecuencia.value = '10:00';
     if (tarifaBaseFrecuencia) tarifaBaseFrecuencia.value = '5.00';
+    if (tipoTrayectoFrecuencia) tipoTrayectoFrecuencia.value = '1';
+    actualizarVisibilidadParadas();
+    renderListaParadasIntermedias();
     numeroResolucionFrecuencia.value = '';
     actualizarSelectCategorias('');
     App.abrirModal('modalFrecuencia');
@@ -623,13 +752,24 @@
     if (!frecuencia) return;
     limpiarAviso();
     frecuenciaEnEdicion = frecuencia;
+    const paradasExistentes = Array.isArray(frecuencia.PARADAS) ? frecuencia.PARADAS : [];
+    paradasEnEdicion = paradasExistentes.map((p, idx) => ({
+      ORDEN: idx + 1,
+      NOMBRE: claveCiudad(p.NOMBRE),
+      COMERCIAL: p.COMERCIAL !== false
+    }));
+    const esDirecta = paradasEnEdicion.length === 0 && (frecuencia.ES_DIRECTA === undefined ? true : Boolean(frecuencia.ES_DIRECTA));
     tituloModalFrecuencia.textContent = `Editar frecuencia ${frecuencia.ID_FRE}`;
     numeroResolucionFrecuencia.value = frecuencia.NUM_RES_FRE || '';
     inicioFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_INI_FRE);
     finFrecuencia.value = App.fechaInput(frecuencia.FEC_HOR_FIN_FRE);
     estadoFrecuencia.value = frecuencia.EST_RES || '1';
     if (horaFrecuencia) horaFrecuencia.value = String(frecuencia.HORA_SAL_FRE || '08:00').slice(0, 5);
+    if (horaLlegadaFrecuencia) horaLlegadaFrecuencia.value = frecuencia.HORA_LLE_FRE ? String(frecuencia.HORA_LLE_FRE).slice(0, 5) : '';
     if (tarifaBaseFrecuencia) tarifaBaseFrecuencia.value = Number(frecuencia.TAR_BAS_FRE ?? 5).toFixed(2);
+    if (tipoTrayectoFrecuencia) tipoTrayectoFrecuencia.value = esDirecta ? '1' : '0';
+    actualizarVisibilidadParadas();
+    renderListaParadasIntermedias();
     actualizarSelectCategorias(frecuencia.ID_CAT_OP || '');
     App.abrirModal('modalFrecuencia');
     await prepararSelectorUbicaciones(frecuencia);
@@ -658,6 +798,16 @@
       return;
     }
 
+    const esDirecta = !tipoTrayectoFrecuencia || tipoTrayectoFrecuencia.value !== '0';
+    if (!esDirecta && paradasEnEdicion.length === 0) {
+      App.aviso('Agrega al menos una parada intermedia o cambia la modalidad a Directo.', 'error');
+      return;
+    }
+    if (!esDirecta && paradasEnEdicion.some((p) => p.NOMBRE === origen || p.NOMBRE === destino)) {
+      App.aviso('Las paradas intermedias no pueden repetir la ciudad de origen ni la de destino.', 'error');
+      return;
+    }
+
     const cuerpo = {
       CIU_ORI_FRE: origen,
       CIU_DES_FRE: destino,
@@ -666,7 +816,14 @@
       EST_RES: estadoFrecuencia.value,
       NUM_RES_FRE: numRes,
       HORA_SAL_FRE: horaFrecuencia?.value || '08:00',
-      TAR_BAS_FRE: Number(tarifaBaseFrecuencia?.value || 5)
+      HORA_LLE_FRE: horaLlegadaFrecuencia?.value || null,
+      TAR_BAS_FRE: Number(tarifaBaseFrecuencia?.value || 5),
+      ES_DIRECTA: esDirecta,
+      PARADAS: esDirecta ? [] : paradasEnEdicion.map((p, idx) => ({
+        ORDEN: idx + 1,
+        NOMBRE: p.NOMBRE,
+        COMERCIAL: p.COMERCIAL !== false
+      }))
     };
 
     App.textoBoton(btnGuardarFrecuencia, 'Guardando…');

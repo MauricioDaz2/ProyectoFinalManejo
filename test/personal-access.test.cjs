@@ -178,7 +178,7 @@ test('personal, permisos y perfiles: flujo HTTP con persistencia aislada', async
     state.statesInstalled=false;assert.equal((await request('/admin/cooperativas/CP003/estado',{method:'PATCH',body:change})).status,503);assert.equal(state.companies.CP003.EST_COP,'1');state.statesInstalled=true;
     assert.equal((await request('/admin/cooperativas/CP003/estado',{method:'PATCH',body:{...change,motivo:''}})).status,400);
     assert.equal((await request('/admin/cooperativas/CP003/estado',{method:'PATCH',body:change})).status,200);assert.equal(state.companies.CP003.EST_COP,'S');assert.equal((await request('/auth/me',{user:'MAIN2'})).status,401);
-    const reserve={idHoja:'SHEET',cedulaTitular:'FINAL',metodoPago:'EFECTIVO',idAsientos:JSON.stringify(['ASI01']),pasajeros:'[]'};
+    const reserve={idHoja:'SHEET',cedulaTitular:'FINAL',metodoPago:'TRANSFERENCIA',idAsientos:JSON.stringify(['ASI01']),pasajeros:'[]'};
     assert.equal((await request('/usuario/reservas',{user:'FINAL',method:'POST',body:reserve})).status,409);
     const historic=await request('/usuario/reservas/mis-boletos/FINAL',{user:'FINAL'});assert.equal(historic.status,200);assert.equal((await historic.json()).boletos[0].ID_BOL,'OLD01');assert.equal((await request('/usuario/reservas/mis-boletos/OTHER',{user:'FINAL'})).status,403);
     data=await (await request('/admin/cooperativas/CP003')).json();assert.equal(data.cooperativa.MOT_SUS_COP,change.motivo);

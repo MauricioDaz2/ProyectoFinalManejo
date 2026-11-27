@@ -48,6 +48,7 @@ function cooperativaSolicitada(req) {
 }
 
 function manejarError(res, contexto, error) {
+    if (error.status || error.number === 51701) return res.status(error.status || 400).json({ success: false, message: error.message });
     const control = cc.respond(res, error);
     if (control) return control;
     console.error(`Error en ${contexto}:`, error);
@@ -114,11 +115,13 @@ async function columnasEsquemaExtendidas(gestor) {
             SELECT
                 CASE WHEN COL_LENGTH('dbo.BUSES','PLANTILLA_JSON') IS NOT NULL THEN 1 ELSE 0 END AS BUS_PLANTILLA,
                 CASE WHEN COL_LENGTH('dbo.ASIENTOS_BUS','FIL_ASI') IS NOT NULL THEN 1 ELSE 0 END AS ASI_ESPACIAL,
-                CASE WHEN COL_LENGTH('dbo.FRECUENCIAS','HORA_SAL_FRE') IS NOT NULL THEN 1 ELSE 0 END AS FRE_HORA_TARIFA
+                CASE WHEN COL_LENGTH('dbo.FRECUENCIAS','HORA_SAL_FRE') IS NOT NULL THEN 1 ELSE 0 END AS FRE_HORA_TARIFA,
+                CASE WHEN COL_LENGTH('dbo.FRECUENCIAS','HORA_LLE_FRE') IS NOT NULL AND COL_LENGTH('dbo.FRECUENCIAS','ES_DIRECTA') IS NOT NULL THEN 1 ELSE 0 END AS FRE_LLEGADA_PARADAS,
+                CASE WHEN OBJECT_ID('dbo.FRECUENCIA_PARADAS','U') IS NOT NULL THEN 1 ELSE 0 END AS TABLA_FRE_PARADAS
         `);
-        return row || { BUS_PLANTILLA: 0, ASI_ESPACIAL: 0, FRE_HORA_TARIFA: 0 };
+        return row || { BUS_PLANTILLA: 0, ASI_ESPACIAL: 0, FRE_HORA_TARIFA: 0, FRE_LLEGADA_PARADAS: 0, TABLA_FRE_PARADAS: 0 };
     } catch {
-        return { BUS_PLANTILLA: 0, ASI_ESPACIAL: 0, FRE_HORA_TARIFA: 0 };
+        return { BUS_PLANTILLA: 0, ASI_ESPACIAL: 0, FRE_HORA_TARIFA: 0, FRE_LLEGADA_PARADAS: 0, TABLA_FRE_PARADAS: 0 };
     }
 }
 
@@ -455,6 +458,7 @@ async function crearBus(req, res) {
             `);
         }
 
+        await require('../services/busTemplates').updateCrew(transaccion, idBus, datos.ID_COP_PER, req.body);
         const totalAsientos = await crearAsientos(transaccion, idBus, datos.ASIENTOS_P1, datos.ASIENTOS_P2, datos.PLANTILLA);
         await transaccion.commit();
 
@@ -560,6 +564,7 @@ async function actualizarBus(req, res) {
             `);
         }
 
+        await require('../services/busTemplates').updateCrew(transaccion, id, datos.ID_COP_PER, req.body);
         if (configuraAsientos || cambiaPisos) {
             let piso1 = configuraAsientos ? datos.ASIENTOS_P1 : busActual.ASIENTOS_P1 ?? 20;
             let piso2 = datos.NUM_PIS === 2
@@ -854,8 +859,45 @@ function normalizarTarifa(valor) {
     return Number.isFinite(num) && num > 0 && num <= 9999 ? Math.round(num * 100) / 100 : NaN;
 }
 
+function normalizarParadasIntermedias(raw) {
+    if (raw === undefined || raw === null) return null;
+    const lista = Array.isArray(raw)
+        ? raw
+        : (typeof raw === 'string' && raw.trim()
+            ? raw.split(',').map((item) => item.trim()).filter(Boolean)
+            : []);
+    return lista.map((item, indice) => {
+        if (typeof item === 'string') {
+            return { ORDEN: indice + 1, NOMBRE: codigo(item), COMERCIAL: true };
+        }
+        const obj = item && typeof item === 'object' ? item : {};
+        const nombre = codigo(obj.NOMBRE ?? obj.nombre ?? obj.ciudad ?? '');
+        const comercial = obj.COMERCIAL === undefined && obj.comercial === undefined
+            ? true
+            : !(obj.COMERCIAL === false || obj.COMERCIAL === 0 || obj.COMERCIAL === '0' || obj.comercial === false || obj.comercial === 0 || obj.comercial === '0');
+        return { ORDEN: indice + 1, NOMBRE: nombre, COMERCIAL: comercial };
+    }).filter((p) => p.NOMBRE);
+}
+
 function normalizarFrecuencia(body, id = null) {
     const datos = body && typeof body === 'object' ? body : {};
+    const tieneCampoParadas = datos.PARADAS !== undefined || datos.paradas !== undefined;
+    const rawDirecta = datos.ES_DIRECTA ?? datos.esDirecta ?? datos.TIPO_TRAYECTO ?? datos.tipoTrayecto;
+    const tieneCampoDirecta = rawDirecta !== undefined && rawDirecta !== null && rawDirecta !== '';
+    const paradasNormalizadas = normalizarParadasIntermedias(datos.PARADAS ?? datos.paradas);
+
+    let modoDirecto = true;
+    if (tieneCampoDirecta) {
+        const val = String(rawDirecta).trim().toUpperCase();
+        modoDirecto = val === '1' || val === 'TRUE' || val === 'DIRECTO' || val === 'DIRECTA';
+    } else if (Array.isArray(paradasNormalizadas)) {
+        modoDirecto = paradasNormalizadas.length === 0;
+    }
+
+    const paradas = (tieneCampoDirecta && modoDirecto && (!Array.isArray(paradasNormalizadas) || paradasNormalizadas.length === 0))
+        ? []
+        : (tieneCampoDirecta && modoDirecto ? [] : (paradasNormalizadas || []));
+
     return {
         ID_FRE: id === null ? codigo(datos.ID_FRE) : codigo(id),
         CIU_ORI_FRE: codigo(datos.CIU_ORI_FRE),
@@ -863,7 +905,12 @@ function normalizarFrecuencia(body, id = null) {
         FEC_HOR_INI_FRE: fecha(datos.FEC_HOR_INI_FRE),
         FEC_HOR_FIN_FRE: fecha(datos.FEC_HOR_FIN_FRE),
         HORA_SAL_FRE: normalizarHora(datos.HORA_SAL_FRE ?? datos.hora),
+        HORA_LLE_FRE: normalizarHora(datos.HORA_LLE_FRE ?? datos.horaLlegada),
         TAR_BAS_FRE: normalizarTarifa(datos.TAR_BAS_FRE ?? datos.tarifaBase),
+        ES_DIRECTA: paradas.length === 0 && modoDirecto,
+        MODO_EXPLICITO_PARADAS: tieneCampoDirecta && !modoDirecto,
+        ACTUALIZAR_PARADAS: tieneCampoParadas || tieneCampoDirecta,
+        PARADAS: paradas,
         EST_RES: datos.EST_RES === undefined ? '1' : String(datos.EST_RES),
         NUM_RES_FRE: texto(datos.NUM_RES_FRE)
     };
@@ -891,8 +938,31 @@ function validarFrecuencia(datos) {
     if (datos.HORA_SAL_FRE === '') {
         return 'La hora de salida debe tener el formato HH:MM (ej. 08:30).';
     }
+    if (datos.HORA_LLE_FRE === '') {
+        return 'La hora estimada de llegada debe tener el formato HH:MM (ej. 10:30).';
+    }
     if (Number.isNaN(datos.TAR_BAS_FRE)) {
         return 'La tarifa base debe ser un valor mayor a $0.00.';
+    }
+    if (datos.MODO_EXPLICITO_PARADAS && (!Array.isArray(datos.PARADAS) || datos.PARADAS.length === 0)) {
+        return 'Debes agregar al menos una parada intermedia o seleccionar modalidad Directo.';
+    }
+    if (Array.isArray(datos.PARADAS) && datos.PARADAS.length > 0) {
+        if (datos.PARADAS.length > 15) {
+            return 'Una frecuencia puede tener máximo 15 paradas intermedias.';
+        }
+        for (const parada of datos.PARADAS) {
+            if (!parada.NOMBRE || parada.NOMBRE.length > 20) {
+                return 'Cada parada intermedia debe tener un nombre válido de máximo 20 caracteres.';
+            }
+            if (parada.NOMBRE === datos.CIU_ORI_FRE || parada.NOMBRE === datos.CIU_DES_FRE) {
+                return 'Las paradas intermedias no pueden coincidir con la ciudad de origen ni con la de destino.';
+            }
+        }
+        const unicas = new Set(datos.PARADAS.map((p) => p.NOMBRE));
+        if (unicas.size !== datos.PARADAS.length) {
+            return 'No se permiten paradas intermedias duplicadas en la misma frecuencia.';
+        }
     }
     if (!ESTADOS_FRECUENCIA.includes(datos.EST_RES)) {
         return 'El estado de la frecuencia debe ser 1 (activa) o 0 (inactiva).';
@@ -901,6 +971,106 @@ function validarFrecuencia(datos) {
         return 'El número de resolución ANT es obligatorio y debe tener máximo 50 caracteres.';
     }
     return null;
+}
+
+function extraerParadasIntermedias(filas, origen, destino) {
+    if (!Array.isArray(filas) || filas.length === 0) return [];
+    const ori = codigo(origen);
+    const des = codigo(destino);
+    const ordenadas = [...filas].sort((a, b) => Number(a.ORDEN) - Number(b.ORDEN));
+    const intermedias = ordenadas.filter((fila, idx) => {
+        const nom = codigo(fila.NOMBRE);
+        if (idx === 0 && Number(fila.ORDEN) === 0 && nom === ori) return false;
+        if (idx === ordenadas.length - 1 && nom === des && ordenadas.length >= 2) return false;
+        return nom !== ori && nom !== des;
+    });
+    return intermedias.map((fila, idx) => ({
+        ORDEN: idx + 1,
+        NOMBRE: codigo(fila.NOMBRE),
+        COMERCIAL: !(fila.COMERCIAL === false || fila.COMERCIAL === 0 || fila.COMERCIAL === '0')
+    }));
+}
+
+async function adjuntarParadasAFrecuencias(gestor, frecuencias, cooperativa, esquema) {
+    if (!Array.isArray(frecuencias) || frecuencias.length === 0) return [];
+    let porFrecuencia = new Map();
+    if (esquema?.TABLA_FRE_PARADAS) {
+        try {
+            const req = new sql.Request(gestor);
+            let resParadas;
+            if (cooperativa) {
+                resParadas = await req
+                    .input('cooperativa', sql.VarChar(5), cooperativa)
+                    .query(`
+                        SELECT FP.ID_FRE, FP.ORDEN, FP.NOMBRE, FP.COMERCIAL
+                        FROM dbo.FRECUENCIA_PARADAS FP
+                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = FP.ID_FRE
+                        WHERE F.ID_COP_PER = @cooperativa
+                        ORDER BY FP.ID_FRE, FP.ORDEN
+                    `);
+            } else {
+                resParadas = await req
+                    .input('idFre', sql.VarChar(5), frecuencias[0].ID_FRE)
+                    .query(`
+                        SELECT ID_FRE, ORDEN, NOMBRE, COMERCIAL
+                        FROM dbo.FRECUENCIA_PARADAS
+                        WHERE ID_FRE = @idFre
+                        ORDER BY ORDEN
+                    `);
+            }
+            for (const row of resParadas.recordset || []) {
+                if (!porFrecuencia.has(row.ID_FRE)) porFrecuencia.set(row.ID_FRE, []);
+                porFrecuencia.get(row.ID_FRE).push(row);
+            }
+        } catch {
+            porFrecuencia = new Map();
+        }
+    }
+
+    return frecuencias.map((f) => {
+        const filas = porFrecuencia.get(f.ID_FRE) || [];
+        const intermedias = extraerParadasIntermedias(filas, f.CIU_ORI_FRE, f.CIU_DES_FRE);
+        const esDirecta = intermedias.length > 0
+            ? false
+            : (f.ES_DIRECTA === undefined || f.ES_DIRECTA === null ? true : Boolean(f.ES_DIRECTA));
+        return {
+            ...f,
+            ES_DIRECTA: esDirecta,
+            PARADAS: intermedias,
+            TOTAL_PARADAS: intermedias.length
+        };
+    });
+}
+
+async function sincronizarParadasFrecuencia(gestor, idFrecuencia, origen, destino, paradas, esquema) {
+    if (!esquema?.TABLA_FRE_PARADAS) return;
+    await new sql.Request(gestor)
+        .input('id', sql.VarChar(5), idFrecuencia)
+        .query('DELETE FROM dbo.FRECUENCIA_PARADAS WHERE ID_FRE = @id');
+
+    if (!Array.isArray(paradas) || paradas.length === 0) return;
+
+    const secuencia = [
+        { ORDEN: 0, NOMBRE: codigo(origen).slice(0, 20), COMERCIAL: true },
+        ...paradas.map((p, idx) => ({
+            ORDEN: idx + 1,
+            NOMBRE: codigo(p.NOMBRE).slice(0, 20),
+            COMERCIAL: p.COMERCIAL !== false
+        })),
+        { ORDEN: paradas.length + 1, NOMBRE: codigo(destino).slice(0, 20), COMERCIAL: true }
+    ];
+
+    for (const item of secuencia) {
+        await new sql.Request(gestor)
+            .input('idFre', sql.VarChar(5), idFrecuencia)
+            .input('orden', sql.Int, item.ORDEN)
+            .input('nombre', sql.VarChar(20), item.NOMBRE)
+            .input('comercial', sql.Bit, item.COMERCIAL ? 1 : 0)
+            .query(`
+                INSERT INTO dbo.FRECUENCIA_PARADAS (ID_FRE, ORDEN, NOMBRE, COMERCIAL)
+                VALUES (@idFre, @orden, @nombre, @comercial)
+            `);
+    }
 }
 
 function catalogoTerritorial(req, res) {
@@ -943,6 +1113,7 @@ async function listarFrecuencias(req, res) {
                        F.FEC_HOR_FIN_FRE, F.EST_RES, F.ID_COP_PER, F.NUM_RES_FRE,
                        ${esquema.FRE_HORA_TARIFA ? 'F.HORA_SAL_FRE, F.TAR_BAS_FRE,' : ''}
                        ${destacadas.disponible ? 'F.ES_DESTACADA,' : ''}
+                       ${esquema.FRE_LLEGADA_PARADAS ? 'F.HORA_LLE_FRE, F.ES_DIRECTA,' : ''}
                        ${categories.enabled() ? 'F.ID_CAT_OP,CAT.NOM_CAT,' : ''}
                        CASE
                            WHEN ISNULL(F.EST_RES, '0') <> '1' THEN 'INACTIVA'
@@ -961,7 +1132,8 @@ async function listarFrecuencias(req, res) {
                 ORDER BY F.CIU_ORI_FRE, F.CIU_DES_FRE, F.FEC_HOR_INI_FRE
             `);
 
-        return res.status(200).json({ success: true, total: resultado.recordset.length, frecuencias: resultado.recordset, destacadas });
+        const frecuencias = await adjuntarParadasAFrecuencias(pool, resultado.recordset, cooperativa, esquema);
+        return res.status(200).json({ success: true, total: frecuencias.length, frecuencias, destacadas });
     } catch (error) {
         return manejarError(res, 'listado de frecuencias', error);
     }
@@ -986,6 +1158,7 @@ async function guardarFrecuencia(req, res, editar) {
         const identificador = datos.ID_FRE || await siguienteCodigo(db.request(), 'FRECUENCIAS', 'ID_FRE', 'F');
         const esquema = await columnasEsquemaExtendidas(db);
         const conHora = Boolean(esquema.FRE_HORA_TARIFA);
+        const conLlegadaParadas = Boolean(esquema.FRE_LLEGADA_PARADAS);
         const solicitud = db.request()
             .input('id', sql.VarChar(5), identificador)
             .input('origen', sql.VarChar(15), datos.CIU_ORI_FRE)
@@ -1000,6 +1173,11 @@ async function guardarFrecuencia(req, res, editar) {
                 .input('hora', sql.VarChar(5), datos.HORA_SAL_FRE || '08:00')
                 .input('tarifa', sql.Decimal(10, 2), datos.TAR_BAS_FRE ?? 5.00);
         }
+        if (conLlegadaParadas) {
+            solicitud
+                .input('horaLlegada', sql.VarChar(5), datos.HORA_LLE_FRE || null)
+                .input('esDirecta', sql.Bit, datos.ES_DIRECTA ? 1 : 0);
+        }
         const resultado = await solicitud
             .query(`
                 DECLARE @cambios TABLE (ID_FRE varchar(5));
@@ -1009,19 +1187,26 @@ async function guardarFrecuencia(req, res, editar) {
                         FEC_HOR_INI_FRE=@inicio, FEC_HOR_FIN_FRE=@fin,
                         EST_RES=@estado, NUM_RES_FRE=@numRes
                         ${conHora ? ', HORA_SAL_FRE=@hora, TAR_BAS_FRE=@tarifa' : ''}
+                        ${conLlegadaParadas ? ', HORA_LLE_FRE=@horaLlegada, ES_DIRECTA=@esDirecta' : ''}
                     OUTPUT INSERTED.ID_FRE INTO @cambios
                     WHERE ID_FRE=@id AND ID_COP_PER=@empresa;
                 ` : `
-                    INSERT dbo.FRECUENCIAS (ID_FRE, CIU_ORI_FRE, CIU_DES_FRE, FEC_HOR_INI_FRE, FEC_HOR_FIN_FRE, EST_RES, ID_COP_PER, NUM_RES_FRE${conHora ? ', HORA_SAL_FRE, TAR_BAS_FRE' : ''})
+                    INSERT dbo.FRECUENCIAS (ID_FRE, CIU_ORI_FRE, CIU_DES_FRE, FEC_HOR_INI_FRE, FEC_HOR_FIN_FRE, EST_RES, ID_COP_PER, NUM_RES_FRE${conHora ? ', HORA_SAL_FRE, TAR_BAS_FRE' : ''}${conLlegadaParadas ? ', HORA_LLE_FRE, ES_DIRECTA' : ''})
                     OUTPUT INSERTED.ID_FRE INTO @cambios
-                    VALUES (@id, @origen, @destino, @inicio, @fin, @estado, @empresa, @numRes${conHora ? ', @hora, @tarifa' : ''});
+                    VALUES (@id, @origen, @destino, @inicio, @fin, @estado, @empresa, @numRes${conHora ? ', @hora, @tarifa' : ''}${conLlegadaParadas ? ', @horaLlegada, @esDirecta' : ''});
                 `}
                 SELECT f.* FROM dbo.FRECUENCIAS f JOIN @cambios a ON a.ID_FRE=f.ID_FRE;
             `);
+
+        if (!editar || datos.ACTUALIZAR_PARADAS) {
+            await sincronizarParadasFrecuencia(db, identificador, datos.CIU_ORI_FRE, datos.CIU_DES_FRE, datos.ES_DIRECTA ? [] : datos.PARADAS, esquema);
+        }
+
+        const [frecuenciaEnriquecida] = await adjuntarParadasAFrecuencias(db, resultado.recordset, null, esquema);
         return res.status(editar ? 200 : 201).json({
             success: true,
             message: editar ? 'Frecuencia actualizada correctamente.' : 'Frecuencia registrada correctamente.',
-            frecuencia: resultado.recordset[0]
+            frecuencia: frecuenciaEnriquecida || resultado.recordset[0]
         });
     } catch (error) {
         return manejarError(res, 'guardado de frecuencia', error);
@@ -1030,6 +1215,100 @@ async function guardarFrecuencia(req, res, editar) {
 
 const crearFrecuencia = (req, res) => guardarFrecuencia(req, res, false);
 const actualizarFrecuencia = (req, res) => guardarFrecuencia(req, res, true);
+
+async function obtenerParadasFrecuencia(req, res) {
+    const id = codigo(req.params.id);
+    const empresa = cooperativaSolicitada(req);
+    if (!CODIGO_RE.test(id)) {
+        return res.status(400).json({ success: false, message: 'Código de frecuencia inválido.' });
+    }
+    try {
+        const pool = await conectarBD();
+        const esquema = await columnasEsquemaExtendidas(pool);
+        const frec = await pool.request()
+            .input('id', sql.VarChar(5), id)
+            .input('empresa', sql.VarChar(5), empresa)
+            .query(`
+                SELECT ID_FRE, CIU_ORI_FRE, CIU_DES_FRE
+                       ${esquema.FRE_LLEGADA_PARADAS ? ', HORA_LLE_FRE, ES_DIRECTA' : ''}
+                FROM dbo.FRECUENCIAS
+                WHERE ID_FRE = @id AND (@empresa IS NULL OR ID_COP_PER = @empresa)
+            `);
+        if (!frec.recordset[0]) {
+            return res.status(404).json({ success: false, message: 'Frecuencia no encontrada.' });
+        }
+        const [detalle] = await adjuntarParadasAFrecuencias(pool, frec.recordset, null, esquema);
+        return res.status(200).json({
+            success: true,
+            idFrecuencia: detalle.ID_FRE,
+            esDirecta: detalle.ES_DIRECTA,
+            paradas: detalle.PARADAS
+        });
+    } catch (error) {
+        return manejarError(res, 'consulta de paradas de frecuencia', error);
+    }
+}
+
+async function actualizarParadasFrecuencia(req, res) {
+    const id = codigo(req.params.id);
+    const empresa = cooperativaSolicitada(req);
+    if (!CODIGO_RE.test(id)) {
+        return res.status(400).json({ success: false, message: 'Código de frecuencia inválido.' });
+    }
+    if (!empresa) {
+        return res.status(403).json({ success: false, message: 'Cooperativa no disponible.' });
+    }
+    try {
+        const pool = await conectarBD();
+        const esquema = await columnasEsquemaExtendidas(pool);
+        const frec = await pool.request()
+            .input('id', sql.VarChar(5), id)
+            .input('empresa', sql.VarChar(5), empresa)
+            .query('SELECT ID_FRE, CIU_ORI_FRE, CIU_DES_FRE FROM dbo.FRECUENCIAS WHERE ID_FRE = @id AND ID_COP_PER = @empresa');
+        const actual = frec.recordset[0];
+        if (!actual) {
+            return res.status(404).json({ success: false, message: 'Frecuencia no encontrada.' });
+        }
+        const paradas = normalizarParadasIntermedias(req.body?.PARADAS ?? req.body?.paradas) || [];
+        const rawDirecta = req.body?.ES_DIRECTA ?? req.body?.esDirecta;
+        const esDirecta = rawDirecta !== undefined
+            ? (String(rawDirecta).trim().toUpperCase() === '1' || String(rawDirecta).trim().toUpperCase() === 'TRUE')
+            : paradas.length === 0;
+        const listaFinal = esDirecta ? [] : paradas;
+
+        if (!esDirecta && listaFinal.length === 0) {
+            return res.status(400).json({ success: false, message: 'Debes agregar al menos una parada intermedia o marcar la frecuencia como Directo.' });
+        }
+        for (const p of listaFinal) {
+            if (!p.NOMBRE || p.NOMBRE.length > 20) {
+                return res.status(400).json({ success: false, message: 'Cada parada intermedia debe tener máximo 20 caracteres.' });
+            }
+            if (p.NOMBRE === actual.CIU_ORI_FRE || p.NOMBRE === actual.CIU_DES_FRE) {
+                return res.status(400).json({ success: false, message: 'Las paradas intermedias no pueden repetir origen ni destino.' });
+            }
+        }
+        if (new Set(listaFinal.map((p) => p.NOMBRE)).size !== listaFinal.length) {
+            return res.status(400).json({ success: false, message: 'No se permiten paradas intermedias duplicadas.' });
+        }
+
+        if (esquema.FRE_LLEGADA_PARADAS) {
+            await pool.request()
+                .input('id', sql.VarChar(5), id)
+                .input('esDirecta', sql.Bit, esDirecta ? 1 : 0)
+                .query('UPDATE dbo.FRECUENCIAS SET ES_DIRECTA = @esDirecta WHERE ID_FRE = @id');
+        }
+        await sincronizarParadasFrecuencia(pool, id, actual.CIU_ORI_FRE, actual.CIU_DES_FRE, listaFinal, esquema);
+        const [detalle] = await adjuntarParadasAFrecuencias(pool, [actual], null, esquema);
+        return res.status(200).json({
+            success: true,
+            message: 'Paradas de la frecuencia actualizadas correctamente.',
+            esDirecta: detalle.ES_DIRECTA,
+            paradas: detalle.PARADAS
+        });
+    } catch (error) {
+        return manejarError(res, 'actualización de paradas de frecuencia', error);
+    }
+}
 
 async function cambiarEstadoFrecuencia(req, res) {
     const id = codigo(req.params.id);
@@ -1111,6 +1390,13 @@ async function eliminarFrecuencia(req, res) {
                 success: false,
                 message: 'No se puede eliminar la frecuencia porque tiene hojas de ruta asociadas.'
             });
+        }
+
+        const esquema = await columnasEsquemaExtendidas(pool);
+        if (esquema.TABLA_FRE_PARADAS) {
+            await pool.request()
+                .input('id', sql.VarChar(5), id)
+                .query('DELETE FROM dbo.FRECUENCIA_PARADAS WHERE ID_FRE = @id');
         }
 
         const resultado = await pool.request()
@@ -1550,6 +1836,8 @@ module.exports = {
     disponibilidadFrecuencia,
     crearFrecuencia,
     actualizarFrecuencia,
+    obtenerParadasFrecuencia,
+    actualizarParadasFrecuencia,
     cambiarEstadoFrecuencia,
     destacarFrecuencia,
     eliminarFrecuencia,

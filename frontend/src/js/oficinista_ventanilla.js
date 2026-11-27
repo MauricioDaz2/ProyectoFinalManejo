@@ -22,6 +22,8 @@
   const mapaAsientos = document.getElementById('mapaAsientosVenta');
 
   const resumenAsiento = document.getElementById('resumenAsiento');
+  const tipoTarifaVentanilla = document.getElementById('tipoTarifaVentanilla');
+  const desgloseTarifaVentanilla = document.getElementById('desgloseTarifaVentanilla');
   const precioBoleto = document.getElementById('precioBoleto');
   const metodoPago = document.getElementById('metodoPago');
   const btnEmitir = document.getElementById('btnEmitirBoleto');
@@ -40,12 +42,14 @@
   const modalBoleto = document.getElementById('modalBoleto');
   const ticketContenido = document.getElementById('ticketContenido');
   const btnImprimir = document.getElementById('btnImprimirBoleto');
+  const btnDescargarPdf = document.getElementById('btnDescargarPdfBoleto');
 
   let hojas = [];
   let hojaSeleccionada = null;
   let asientos = [];
   let asientoSeleccionado = null;
   let pasajero = null;
+  let ultimoBoletoEmitido = null;
 
   function aviso(mensaje, tipo = 'danger') {
     avisoPanel.innerHTML = `<div class="notice ${tipo}"><span aria-hidden="true">!</span><span>${App.escapar(mensaje)}</span></div>`;
@@ -60,7 +64,7 @@
       {
         etiqueta: 'Boletos emitidos hoy',
         valor: App.numero(resumen.BOLETOS_HOY),
-        pista: `${App.numero(resumen.HOJAS_HOY)} hojas de ruta`,
+        pista: `${App.numero(resumen.HOJAS_HOY)} salidas activas`,
         icono: '▣'
       },
       {
@@ -113,6 +117,8 @@
     const total = Number(hoja.TOTAL_ASIENTOS) || 0;
     const porcentaje = total > 0 ? Math.round(((Number(hoja.ASIENTOS_OCUPADOS) || 0) / total) * 100) : 0;
     const clase = porcentaje >= 100 ? 'danger' : porcentaje >= 80 ? 'warn' : '';
+    const horaSalida = hoja.HORA_SAL_FRE ? String(hoja.HORA_SAL_FRE).slice(0, 5) : '08:00';
+    const tarifaBase = Number(hoja.TAR_BAS_FRE) > 0 ? Number(hoja.TAR_BAS_FRE) : 5.00;
 
     return `
       <tr ${seleccionada ? 'style="background:var(--panel-tint);"' : ''}>
@@ -122,18 +128,18 @@
             <span class="arrow" aria-hidden="true">→</span>
             <span>${App.escapar(hoja.CIU_DES_FRE)}</span>
           </div>
-          <span class="muted mono">${App.escapar(hoja.ID_HOJ)} · ${App.escapar(hoja.NOM_COP)}</span>
+          <span class="muted">${App.escapar(hoja.NOM_COP)}</span>
         </td>
         <td>
           <div class="cell-main">
-            <strong>${App.escapar(hoja.NUM_BUS)}</strong>
-            <span>${App.escapar(hoja.PLA_BUS)}</span>
+            <strong>Unidad N° ${App.escapar(hoja.NUM_BUS)}</strong>
+            <span>Placa ${App.escapar(hoja.PLA_BUS)}</span>
           </div>
         </td>
         <td>
           <div class="cell-main">
-            <strong>${App.fecha(hoja.FEC_PRO_HOJ)}</strong>
-            <span>${App.fecha(hoja.FEC_HOR_INI_FRE)}</span>
+            <strong>Salida ${App.escapar(horaSalida)} · ${App.dinero(tarifaBase)} base</strong>
+            <span>${App.fecha(hoja.FEC_PRO_HOJ)}</span>
           </div>
         </td>
         <td style="min-width:110px;">
@@ -153,20 +159,20 @@
 
   function renderHojas() {
     subtituloHojas.textContent = App.fechaLarga(fechaInput.value || App.hoyISO());
-    contadorHojas.textContent = `${App.numero(hojas.length)} hoja${hojas.length === 1 ? '' : 's'}`;
+    contadorHojas.textContent = `${App.numero(hojas.length)} salida${hojas.length === 1 ? '' : 's'}`;
     tablaHojas.innerHTML = hojas.length > 0
       ? hojas.map(filaHoja).join('')
       : `<tr><td colspan="6"><div class="empty-state">
           <div class="empty-icon">⇄</div>
-          <h3>Sin hojas de ruta para esta fecha</h3>
-          <p>La cooperativa no tiene salidas programadas o en curso. Cambia la fecha o solicita la programación de una hoja de ruta.</p>
+          <h3>Sin salidas programadas para esta fecha</h3>
+          <p>La cooperativa no tiene salidas programadas o en curso. Cambia la fecha o solicita la programación de una salida.</p>
         </div></td></tr>`;
   }
 
   async function cargarHojas() {
     if (!cooperativa) {
       aviso('Tu usuario no tiene una cooperativa asignada. Contacta al administrador para completar tu registro.', 'danger');
-      tablaHojas.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⚠</div><h3>Sin cooperativa asignada</h3><p>No se pueden consultar las hojas de ruta.</p></div></td></tr>`;
+      tablaHojas.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⚠</div><h3>Sin cooperativa asignada</h3><p>No se pueden consultar las salidas.</p></div></td></tr>`;
       return;
     }
 
@@ -190,13 +196,73 @@
       renderHojas();
     } catch (error) {
       App.aviso(error.message, 'error');
-      tablaHojas.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">!</div><h3>No se pudieron cargar las hojas</h3><p>${App.escapar(error.message)}</p></div></td></tr>`;
+      tablaHojas.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">!</div><h3>No se pudieron cargar las salidas</h3><p>${App.escapar(error.message)}</p></div></td></tr>`;
     }
+  }
+
+  function renderBotonAsiento(asiento) {
+    const vip = /VIP|CAMA|EJECUTIV|PREMIUM/i.test(asiento.NOM_TIP || '');
+    const disc = /DISCAPACIDAD/i.test(asiento.NOM_TIP || '');
+    const ocupado = !asiento.DISPONIBLE;
+    const estiloDisc = disc && !ocupado ? 'style="background:#eff6ff;border-color:#3b82f6;color:#1d4ed8;"' : '';
+    return `<button class="seat ${vip ? 'vip' : ''} ${ocupado ? 'occupied' : ''}" type="button" ${estiloDisc}
+      data-asiento-venta="${App.escapar(asiento.ID_ASI)}"
+      ${ocupado ? 'disabled' : ''}
+      title="Asiento ${App.escapar(asiento.ETIQUETA)} · ${App.escapar(asiento.NOM_TIP || '')} · ${ocupado ? 'Ocupado' : App.dinero(asiento.PRE_TIP)}">
+      ${App.escapar(asiento.ETIQUETA)}
+      <small>${ocupado ? 'Ocupado' : `${disc ? '♿ ' : ''}${App.dinero(asiento.PRE_TIP)}`}</small>
+    </button>`;
+  }
+
+  function renderPisoDesdePlantilla(pisoPlantilla, asientosPiso) {
+    const celdas = Array.isArray(pisoPlantilla?.celdas) ? pisoPlantilla.celdas : [];
+    if (!celdas.length) return null;
+
+    let cursorAsiento = 0;
+    const porCoord = new Map();
+    for (const a of asientosPiso) {
+      if (a.FIL_ASI !== null && a.COL_ASI !== null) {
+        porCoord.set(`${a.FIL_ASI}-${a.COL_ASI}`, a);
+      }
+    }
+
+    const totalFilas = Number(pisoPlantilla.filas) || Math.max(...celdas.map((c) => Number(c.fila) || 1), 1);
+    const filasHtml = [];
+    for (let f = 1; f <= totalFilas; f += 1) {
+      const celdasFila = [];
+      for (let col = 0; col < 5; col += 1) {
+        const celda = celdas.find((c) => Number(c.fila) === f && Number(c.col) === col) || { tipoCelda: col === 2 ? 'PASILLO' : 'BLOQUEADO' };
+        const tipo = String(celda.tipoCelda || celda.rol || 'PASILLO').toUpperCase();
+        if (['ASIENTO', 'NORMAL', 'VIP', 'DISCAPACIDAD'].includes(tipo)) {
+          const asiento = porCoord.get(`${f}-${col}`) || asientosPiso[cursorAsiento];
+          cursorAsiento += 1;
+          if (asiento) {
+            celdasFila.push(renderBotonAsiento(asiento));
+          } else {
+            celdasFila.push('<span class="seat occupied" aria-hidden="true">—</span>');
+          }
+        } else if (tipo === 'PASILLO') {
+          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;border:1px dashed #e2e8f0;border-radius:8px;min-height:46px;">⇅</div>');
+        } else if (tipo === 'BANO') {
+          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;min-height:46px;">🚻 WC</div>');
+        } else if (tipo === 'ESCALERA') {
+          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;background:#fffbeb;color:#b45309;border:1px solid #fde68a;border-radius:8px;min-height:46px;">🪜 Esc.</div>');
+        } else {
+          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;background:#f8fafc;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:8px;min-height:46px;">—</div>');
+        }
+      }
+      filasHtml.push(`<div style="display:grid;grid-template-columns:repeat(5,minmax(52px,1fr));gap:6px;margin-bottom:6px;">${celdasFila.join('')}</div>`);
+    }
+    return filasHtml.join('');
   }
 
   function renderAsientos(datos) {
     asientos = datos.asientos || [];
+    if (datos.hoja && hojaSeleccionada) {
+      hojaSeleccionada = { ...hojaSeleccionada, ...datos.hoja };
+    }
     const pisos = (datos.pisos || []).filter((piso) => (piso.asientos || []).length > 0);
+    const plantilla = datos.plantilla;
 
     resumenDisponibles.textContent = `${App.numero(datos.resumen?.disponibles || 0)} disponibles`;
 
@@ -205,34 +271,28 @@
       return;
     }
 
-    mapaAsientos.innerHTML = `<div class="bus-layout">${pisos.map((piso) => `
-      <section class="bus-floor">
-        <div class="bus-floor-head">
-          <h4>${piso.piso === 1 ? 'Piso 1 · Planta baja' : 'Piso 2 · Planta alta'}</h4>
-          <span>${piso.asientos.length} asientos</span>
-        </div>
-        <div class="driver" aria-hidden="true">◉</div>
-        <div class="seat-grid">
-          ${piso.asientos.map((asiento) => {
-            const vip = /VIP|CAMA|EJECUTIV|PREMIUM/i.test(asiento.NOM_TIP || '');
-            const ocupado = !asiento.DISPONIBLE;
-            return `<button class="seat ${vip ? 'vip' : ''} ${ocupado ? 'occupied' : ''}" type="button"
-              data-asiento-venta="${App.escapar(asiento.ID_ASI)}"
-              ${ocupado ? 'disabled' : ''}
-              title="${App.escapar(asiento.ETIQUETA)} · ${App.escapar(asiento.NOM_TIP || '')} · ${ocupado ? 'Ocupado' : App.dinero(asiento.PRE_TIP)}">
-              ${App.escapar(String(asiento.NUMERO).padStart(2, '0'))}
-              <small>${ocupado ? 'Ocupado' : App.escapar((asiento.NOM_TIP || '').slice(0, 8))}</small>
-            </button>`;
-          }).join('')}
-        </div>
-      </section>`).join('')}</div>`;
+    mapaAsientos.innerHTML = `<div class="bus-layout">${pisos.map((piso) => {
+      const pisoPlantilla = plantilla?.pisos?.find((p) => Number(p.piso) === Number(piso.piso));
+      const htmlPlantilla = pisoPlantilla ? renderPisoDesdePlantilla(pisoPlantilla, piso.asientos) : null;
+      return `
+        <section class="bus-floor">
+          <div class="bus-floor-head">
+            <h4>${piso.piso === 1 ? 'Piso 1 · Planta baja' : 'Piso 2 · Planta alta'}</h4>
+            <span>${piso.asientos.length} asientos</span>
+          </div>
+          <div class="driver" aria-hidden="true">🛞 Cabina / Frente del bus</div>
+          ${htmlPlantilla || `<div class="seat-grid">${piso.asientos.map(renderBotonAsiento).join('')}</div>`}
+        </section>`;
+    }).join('')}</div>`;
   }
 
   async function cargarAsientos(hoja) {
     panelAsientos.hidden = false;
+    const hora = hoja.HORA_SAL_FRE ? String(hoja.HORA_SAL_FRE).slice(0, 5) : '08:00';
+    const tarifa = Number(hoja.TAR_BAS_FRE) > 0 ? Number(hoja.TAR_BAS_FRE) : 5.00;
     tituloAsientos.textContent = `${hoja.CIU_ORI_FRE} → ${hoja.CIU_DES_FRE}`;
-    subtituloAsientos.textContent = `Hoja ${hoja.ID_HOJ} · Bus ${hoja.NUM_BUS} (${hoja.PLA_BUS}) · ${App.fecha(hoja.FEC_PRO_HOJ)}`;
-    mapaAsientos.innerHTML = `<div class="empty-state"><div class="spinner"></div><p>Cargando asientos…</p></div>`;
+    subtituloAsientos.textContent = `Unidad N° ${hoja.NUM_BUS} (${hoja.PLA_BUS}) · Salida ${hora} · Tarifa base ${App.dinero(tarifa)} · ${App.fecha(hoja.FEC_PRO_HOJ)}`;
+    mapaAsientos.innerHTML = `<div class="empty-state"><div class="spinner"></div><p>Cargando estructura de asientos…</p></div>`;
 
     try {
       const datos = await App.api(`/oficinista/hojas/${encodeURIComponent(hoja.ID_HOJ)}/asientos`);
@@ -257,6 +317,13 @@
     asientoSeleccionado = null;
     precioBoleto.value = '';
     precioBoleto.disabled = true;
+    if (tipoTarifaVentanilla) {
+      tipoTarifaVentanilla.value = 'NORMAL';
+      tipoTarifaVentanilla.disabled = true;
+    }
+    if (desgloseTarifaVentanilla) {
+      desgloseTarifaVentanilla.textContent = 'El precio se calcula automáticamente con la tarifa base de la frecuencia y el tipo de asiento.';
+    }
     metodoPago.value = '';
     metodoPago.disabled = true;
     resumenAsiento.innerHTML = `
@@ -275,19 +342,43 @@
     });
   }
 
+  function recalcularPrecioAutomatico() {
+    if (!asientoSeleccionado) return;
+    const tarifaBase = Number(asientoSeleccionado.TARIFA_BASE ?? hojaSeleccionada?.TAR_BAS_FRE ?? 5);
+    const recargo = Number(asientoSeleccionado.RECARGO_TIP ?? 0);
+    const precioAsiento = Number(asientoSeleccionado.PRECIO_AUTOMATICO ?? asientoSeleccionado.PRE_TIP ?? (tarifaBase + recargo));
+    const modalidad = tipoTarifaVentanilla ? tipoTarifaVentanilla.value : 'NORMAL';
+    const mitad = /50|MENOR|TERCERA|DISCAPACIDAD/i.test(modalidad);
+    const finalCalculado = Math.round((mitad ? precioAsiento * 0.5 : precioAsiento) * 100) / 100;
+
+    precioBoleto.value = finalCalculado.toFixed(2);
+    if (desgloseTarifaVentanilla) {
+      const partes = [`Tarifa base ${App.dinero(tarifaBase)}`];
+      if (recargo > 0) partes.push(`recargo ${asientoSeleccionado.NOM_TIP || 'VIP'} +${App.dinero(recargo)}`);
+      if (mitad) partes.push('descuento preferencial 50%');
+      desgloseTarifaVentanilla.textContent = `${partes.join(' · ')} = ${App.dinero(finalCalculado)}`;
+    }
+    resumenAsiento.innerHTML = `
+      <div>
+        <strong>Asiento N° ${App.escapar(asientoSeleccionado.ETIQUETA)}</strong>
+        <span>${App.escapar(asientoSeleccionado.NOM_TIP || 'Normal')} · ${hojaSeleccionada ? App.escapar(hojaSeleccionada.CIU_ORI_FRE + ' → ' + hojaSeleccionada.CIU_DES_FRE) : ''}</span>
+      </div>
+      <span class="badge badge-success">${App.dinero(finalCalculado)}</span>`;
+    actualizarBotonEmitir();
+  }
+
   function seleccionarAsiento(id) {
     const asiento = asientos.find((elemento) => elemento.ID_ASI === id);
     if (!asiento || !asiento.DISPONIBLE) return;
     asientoSeleccionado = asiento;
-    precioBoleto.value = Number(asiento.PRE_TIP) || '';
     precioBoleto.disabled = false;
     metodoPago.disabled = false;
-    resumenAsiento.innerHTML = `
-      <div>
-        <strong>Asiento ${App.escapar(asiento.ETIQUETA)}</strong>
-        <span>${App.escapar(asiento.NOM_TIP || 'Normal')} · ${hojaSeleccionada ? App.escapar(hojaSeleccionada.CIU_ORI_FRE + ' → ' + hojaSeleccionada.CIU_DES_FRE) : ''}</span>
-      </div>
-      <span class="badge badge-success">${App.dinero(asiento.PRE_TIP)}</span>`;
+    if (!metodoPago.value) metodoPago.value = 'EFECTIVO';
+    if (tipoTarifaVentanilla) {
+      tipoTarifaVentanilla.disabled = false;
+      tipoTarifaVentanilla.value = /DISCAPACIDAD/i.test(asiento.NOM_TIP || '') ? 'DISCAPACIDAD_50' : 'NORMAL';
+    }
+    recalcularPrecioAutomatico();
     marcarAsientoSeleccionado();
     actualizarBotonEmitir();
   }
@@ -441,18 +532,21 @@
   }
 
   function renderTicket(boleto) {
-    const asiento = boleto.ASIENTO?.ETIQUETA || boleto.ETIQUETA_ASIENTO || boleto.ID_ASI_PER || '—';
-    const pasajeroNombre = boleto.PASAJERO || 'Pasajero sin registro';
+    ultimoBoletoEmitido = boleto || null;
+    if (btnDescargarPdf) btnDescargarPdf.disabled = !boleto?.ID_BOL;
+    const asiento = boleto.ASIENTO?.ETIQUETA || boleto.ETIQUETA_ASIENTO || asientoSeleccionado?.ETIQUETA || '—';
+    const pasajeroNombre = boleto.PASAJERO || 'Pasajero en ventanilla';
     const cedula = boleto.CEDULA_PASAJERO || '—';
     const bus = boleto.HOJA?.BUS || {};
     const frecuencia = boleto.HOJA?.FRECUENCIA || {};
+    const horaSalida = frecuencia.HORA_SAL_FRE || boleto.HORA_SAL_FRE || hojaSeleccionada?.HORA_SAL_FRE || '08:00';
 
     ticketContenido.innerHTML = `
       <article class="ticket">
         <header class="ticket-head">
           <div>
             <strong>Transporte UTA</strong>
-            <span>Boleto de viaje</span>
+            <span>Boleto de viaje en ventanilla</span>
           </div>
           <div class="text-right">
             <strong>${App.dinero(boleto.PRE_FIN_BOL)}</strong>
@@ -472,13 +566,13 @@
             </div>
           </div>
           <div class="ticket-grid">
-            <div><span>Boleto</span><strong class="mono">${App.escapar(boleto.ID_BOL)}</strong></div>
-            <div><span>Asiento</span><strong>${App.escapar(asiento)}</strong></div>
+            <div><span>Asiento N°</span><strong>${App.escapar(asiento)}</strong></div>
+            <div><span>Tarifa / Tipo</span><strong>${App.escapar(boleto.TIP_DES_BOL || boleto.ASIENTO?.TIPO || 'NORMAL')}</strong></div>
             <div><span>Pasajero</span><strong>${App.escapar(pasajeroNombre)}</strong></div>
             <div><span>Cédula</span><strong>${App.escapar(cedula)}</strong></div>
-            <div><span>Bus / Placa</span><strong>${App.escapar(`${bus.NUM_BUS || '—'} · ${bus.PLA_BUS || '—'}`)}</strong></div>
-            <div><span>Fecha de compra</span><strong>${App.fecha(boleto.FEC_COM_BOL)}</strong></div>
-            <div><span>Hoja de ruta</span><strong class="mono">${App.escapar(boleto.ID_HOJ_PER || '—')}</strong></div>
+            <div><span>Unidad / Placa</span><strong>${App.escapar(`Bus ${bus.NUM_BUS || hojaSeleccionada?.NUM_BUS || '—'} · ${bus.PLA_BUS || hojaSeleccionada?.PLA_BUS || '—'}`)}</strong></div>
+            <div><span>Hora de salida</span><strong>${App.escapar(horaSalida)}</strong></div>
+            <div><span>Fecha de viaje</span><strong>${App.fecha(boleto.HOJA?.FEC_PRO_HOJ || boleto.FEC_COM_BOL)}</strong></div>
             <div><span>Estado</span><strong>${App.escapar(boleto.EST_BOL || 'EMITIDO')}</strong></div>
           </div>
         </div>
@@ -494,7 +588,7 @@
 
   async function emitirBoleto() {
     if (!hojaSeleccionada || !asientoSeleccionado) {
-      App.aviso('Selecciona una hoja de ruta y un asiento disponible.', 'error');
+      App.aviso('Selecciona una salida y un asiento disponible.', 'error');
       return;
     }
 
@@ -514,6 +608,11 @@
       return;
     }
 
+    const modalidad = tipoTarifaVentanilla ? tipoTarifaVentanilla.value : 'NORMAL';
+    const etiquetaDescuento = modalidad === 'NORMAL'
+      ? (asientoSeleccionado.NOM_TIP || 'NORMAL')
+      : modalidad;
+
     App.textoBoton(btnEmitir, 'Emitiendo…');
     try {
       const datos = await App.api('/oficinista/boletos/ventanilla', {
@@ -525,7 +624,7 @@
           ID_USU_FIN: pasajero?.ID_USU || undefined,
           PRE_FIN_BOL: precio,
           MET_PAG_BOL: metodoPago.value,
-          TIP_DES_BOL: asientoSeleccionado.NOM_TIP || 'NORMAL',
+          TIP_DES_BOL: etiquetaDescuento,
           ORI_TRA_BOL: hojaSeleccionada.CIU_ORI_FRE,
           DES_TRA_BOL: hojaSeleccionada.CIU_DES_FRE
         }
@@ -601,6 +700,9 @@
     actualizarBotonEmitir();
   });
   btnRegistrarPasajero.addEventListener('click', registrarPasajero);
+  if (tipoTarifaVentanilla) {
+    tipoTarifaVentanilla.addEventListener('change', recalcularPrecioAutomatico);
+  }
   precioBoleto.addEventListener('input', actualizarBotonEmitir);
   metodoPago.addEventListener('change', actualizarBotonEmitir);
   btnEmitir.addEventListener('click', emitirBoleto);
@@ -611,13 +713,48 @@
     limpiarSeleccionAsiento();
     recargarTodo();
   });
+  async function descargarPdfEmitido() {
+    const codigo = ultimoBoletoEmitido?.ID_BOL;
+    if (!codigo) {
+      App.aviso('No hay un boleto emitido seleccionado para descargar.', 'warning');
+      return;
+    }
+    App.textoBoton(btnDescargarPdf, 'Generando PDF…');
+    try {
+      const urlApi = `${App.API_URL}/oficinista/boletos/${encodeURIComponent(codigo)}/pdf`;
+      const respuesta = await fetch(urlApi, {
+        method: 'GET',
+        headers: { Accept: 'application/pdf' }
+      });
+      if (!respuesta.ok) {
+        const err = await respuesta.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo descargar el PDF del boleto.');
+      }
+      const blob = await respuesta.blob();
+      const objetoUrl = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = objetoUrl;
+      enlace.download = `boleto-${codigo}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objetoUrl), 1500);
+      App.aviso(`Boleto ${codigo} descargado en PDF.`, 'success');
+    } catch (error) {
+      App.aviso(error.message, 'error');
+    } finally {
+      App.restaurarBoton(btnDescargarPdf);
+    }
+  }
+
   btnImprimir.addEventListener('click', () => window.print());
+  btnDescargarPdf?.addEventListener('click', descargarPdfEmitido);
 
   fechaInput.value = App.hoyISO();
   marcadorInicial();
   recargarTodo();
 
   function marcadorInicial() {
-    tablaHojas.innerHTML = `<tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando hojas de ruta…</td></tr>`;
+    tablaHojas.innerHTML = `<tr class="loading-row"><td colspan="6"><span class="spinner"></span>Cargando salidas programadas…</td></tr>`;
   }
 })();

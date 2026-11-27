@@ -113,22 +113,27 @@ async function event(user,id,body) {
 }
 async function assign(user,body) {
  canAssign(user);
+ return transaction(async db=>{
+  await cc.lock(db);
+  await verifyScheduler(db,user);
+  return assignInTransaction(db,user,body);
+ });
+}
+async function assignInTransaction(db,user,body) {
+ canAssign(user);
  const {idBus,idFre,idUsuCho,idUsuCon,salida,llegada}=body||{};code(idBus);code(idFre);
  const observation=typeof body.obs==='string'?body.obs.trim():'';if(observation.length>50)throw fail(400,'La observación admite hasta 50 caracteres.');
  if(!/^[A-Z0-9]{5,10}$/.test(idUsuCho||'')||!/^[A-Z0-9]{5,10}$/.test(idUsuCon||''))throw fail(400,'Selecciona chofer y controlador.');
  const utc=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
  const start=new Date(salida),end=new Date(llegada);if(!utc.test(salida||'')||!utc.test(llegada||'')||!Number.isFinite(+start)||!Number.isFinite(+end)||end<=start||start.toISOString().slice(0,19)!==salida.slice(0,19)||end.toISOString().slice(0,19)!==llegada.slice(0,19))throw fail(400,'Indica salida y llegada previstas completas y coherentes.');
-  return transaction(async db=>{
-   await cc.lock(db);
   await schedule.lock(db,[idUsuCho,idUsuCon]);
-   await verifyScheduler(db,user);
   const query=req(db).input('bus',sql.VarChar(5),idBus).input('frequency',sql.VarChar(5),idFre).input('driver',sql.VarChar(10),idUsuCho).input('controller',sql.VarChar(10),idUsuCon);
   const h=(await query.query(`SELECT B.ID_BUS,B.EST_BUS,B.ID_COP_PER BUS_COP,F.ID_COP_PER RUTA_COP,C.EST_COP,F.EST_RES,F.FEC_HOR_INI_FRE,F.FEC_HOR_FIN_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE,F.ID_FRE ID_FRE_PER,
    D.EST_USU CHO_EST,D.ID_ROL_PER CHO_ROL,D.ID_COP_PER CHO_COP,U.EST_USU CON_EST,U.ID_ROL_PER CON_ROL,U.ID_COP_PER CON_COP
    FROM dbo.BUSES B WITH(UPDLOCK,HOLDLOCK) JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER
    JOIN dbo.FRECUENCIAS F ON F.ID_FRE=@frequency
    JOIN dbo.USUARIOS D WITH(UPDLOCK,HOLDLOCK) ON D.ID_USU=@driver JOIN dbo.USUARIOS U WITH(UPDLOCK,HOLDLOCK) ON U.ID_USU=@controller WHERE B.ID_BUS=@bus`)).recordset[0];
-   if(!h||(user.rolId==='R002'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
+   if(!h||(user.rolId!=='R001'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
    const day=localDay(start);
    await cc.scheduled(db,idFre,day,localDay(new Date(+end-1)));
    await categories.compatible(db,idFre,idBus);
@@ -138,22 +143,21 @@ async function assign(user,body) {
   const used=new Set((await req(db).query('SELECT ID_HOJ FROM dbo.HOJAS_RUTAS WITH(UPDLOCK,HOLDLOCK)')).recordset.map(r=>r.ID_HOJ));let id;for(let i=1;i<=9999;i++){const candidate='H'+String(i).padStart(4,'0');if(!used.has(candidate)){id=candidate;break;}}if(!id)throw fail(409,'No hay códigos de hoja disponibles.');
   await req(db).input('id',sql.VarChar(5),id).input('date',sql.Date,day).input('bus',sql.VarChar(5),idBus).input('frequency',sql.VarChar(5),idFre).input('driver',sql.VarChar(10),idUsuCho).input('controller',sql.VarChar(10),idUsuCon).input('start',sql.DateTime2,start).input('end',sql.DateTime2,end).input('route',sql.NVarChar(sql.MAX),JSON.stringify(route)).input('observation',sql.VarChar(50),observation||null).query("INSERT INTO dbo.HOJAS_RUTAS(ID_HOJ,FEC_PRO_HOJ,EST_VIA_HOJ,ID_BUS_PER,ID_FRE_PER,ID_USU_CHO,ID_USU_CON,SALIDA_PLAN_UTC,LLEGADA_PLAN_UTC,PARADA_ACTUAL,EST_MOV,RECORRIDO_JSON,OBS_HOJ) VALUES(@id,@date,'PROGRAMADO',@bus,@frequency,@driver,@controller,@start,@end,0,'DETENIDO',@route,@observation)");
   return {idHoja:id,message:'Viaje programado.'};
- });
 }
 async function assignmentOptions(user) {
  if(user.rolId!=='R001'&&!require('../security/permissions').can(user,'rutas'))throw fail(403,'No tienes permiso para organizar salidas.');
  const db=await conectarBD();await ready(db);
  const scoped=()=>req(db).input('company',sql.VarChar(5),user.rolId==='R001'?null:user.cooperativaId);
- const buses=(await scoped().query("SELECT B.ID_BUS,B.NUM_BUS,B.PLA_BUS FROM dbo.BUSES B JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER WHERE C.EST_COP='1' AND UPPER(B.EST_BUS) IN ('ACTIVO','1') AND (@company IS NULL OR B.ID_COP_PER=@company) ORDER BY B.NUM_BUS")).recordset;
+ const buses=(await scoped().query("SELECT B.* FROM dbo.BUSES B JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER WHERE C.EST_COP='1' AND UPPER(B.EST_BUS) IN ('ACTIVO','1') AND (@company IS NULL OR B.ID_COP_PER=@company) ORDER BY B.NUM_BUS")).recordset;
   const frecuencias=(await scoped().query(`SELECT F.ID_FRE,F.CIU_ORI_FRE,F.CIU_DES_FRE FROM dbo.FRECUENCIAS F JOIN dbo.COOPERATIVAS C ON C.ID_COP=F.ID_COP_PER
     WHERE C.EST_COP='1' AND F.EST_RES='1' AND (@company IS NULL OR F.ID_COP_PER=@company)
     ORDER BY F.CIU_ORI_FRE,F.CIU_DES_FRE`)).recordset;
  const personal=(await scoped().query("SELECT U.ID_USU,U.NOM_USU,U.APE_USU,U.ID_ROL_PER FROM dbo.USUARIOS U JOIN dbo.COOPERATIVAS C ON C.ID_COP=U.ID_COP_PER WHERE U.EST_USU='1' AND C.EST_COP='1' AND U.ID_ROL_PER IN ('R004','R006') AND (@company IS NULL OR U.ID_COP_PER=@company) ORDER BY U.NOM_USU,U.APE_USU")).recordset;
-  return {buses,frecuencias,personal,lotesDisponibles:categories.enabled()};
+  return {buses:buses.map(({ID_BUS,NUM_BUS,PLA_BUS,ID_CHO_1,ID_CHO_2,ID_CON_DEF})=>({ID_BUS,NUM_BUS,PLA_BUS,ID_CHO_1,ID_CHO_2,ID_CON_DEF})),frecuencias,personal,lotesDisponibles:categories.enabled()};
 }
 async function protectOperationalSheet(id) {
  const db=await conectarBD(),available=await installed(db);
  const h=(await req(db).input('sheet',sql.VarChar(5),id).query(`SELECT EST_VIA_HOJ,${available?'ID_USU_CHO,SALIDA_PLAN_UTC':'NULL AS ID_USU_CHO,NULL AS SALIDA_PLAN_UTC'} FROM dbo.HOJAS_RUTAS WHERE ID_HOJ=@sheet`)).recordset[0];
  if(h&&(h.ID_USU_CHO||h.SALIDA_PLAN_UTC||!['PROGRAMADO','PROGRAMADA'].includes(norm(h.EST_VIA_HOJ))))throw fail(409,'No se puede alterar esta salida desde el formulario antiguo. El recorrido operativo conserva sus asignaciones e historial.');
 }
-module.exports={installed,journal,detail,event,assign,sheet,transaction,assignmentOptions,protectOperationalSheet,canAssign,verifyScheduler,stops,localDay};
+module.exports={installed,journal,detail,event,assign,assignInTransaction,sheet,sheets,actor,transaction,assignmentOptions,protectOperationalSheet,canAssign,verifyScheduler,stops,localDay};
