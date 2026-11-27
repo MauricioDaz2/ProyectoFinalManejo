@@ -26,6 +26,21 @@ app.get('/api/health', (req, res) => {
 });
 
 
+app.get('/api/comprobantes/:file', requireSession, async(req,res,next)=>{
+    if (req.auth.rolId === 'R002' && !require('./security/permissions').can(req.auth, 'ventanilla')) return res.sendStatus(403);
+    const file=req.params.file;
+    if(!/^[a-f0-9-]{36}\.(pdf|jpg|png|webp)$/.test(file))return res.sendStatus(404);
+    try{
+        const {conectarBD,sql}=require('./config/db');
+        const pool=await conectarBD();
+        const allowed=await pool.request().input('url',sql.VarChar(500),'/api/comprobantes/'+file)
+            .input('owner',sql.VarChar(10),req.auth.id).input('role',sql.VarChar(5),req.auth.rolId)
+            .input('coop',sql.VarChar(5),req.auth.cooperativaId||null)
+            .query("SELECT TOP 1 1 AS permitido FROM BOLETOS B JOIN HOJAS_RUTAS H ON H.ID_HOJ=B.ID_HOJ_PER JOIN FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER WHERE B.COM_PAG_URL=@url AND (B.ID_USU_FIN=@owner OR @role='R001' OR (@role IN ('R002','R003') AND F.ID_COP_PER=@coop))");
+        if(!allowed.recordset.length)return res.sendStatus(404);
+        res.set({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"}).sendFile(file,{root:path.join(__dirname,'../private_media/comprobantes')});
+    }catch(error){next(error);}
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/operacion', require('./routes/tripOperationRoutes'));
 app.use('/api/mi-perfil', require('./routes/userProfileRoutes'));

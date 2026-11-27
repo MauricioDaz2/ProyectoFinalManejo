@@ -60,7 +60,7 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
 
       if (q.includes('WHERE U.ID_USU = @id')) return result(users[p.id] ? [users[p.id]] : []);
       if (q.includes('AS RESERVAS_DISPONIBLES')) {
-        return result([{ RESERVAS_DISPONIBLES: 1, TEMPORIZADOR_DISPONIBLE: 1, TARIFA_FRECUENCIA_DISPONIBLE: 1 }]);
+        return result([{ RESERVAS_DISPONIBLES: 1, NOMBRE_DISPONIBLE: 1, TEMPORIZADOR_DISPONIBLE: 1, TARIFA_FRECUENCIA_DISPONIBLE: 1 }]);
       }
       if (q.includes('AS TIENE_EXP')) return result([{ TIENE_EXP: 1 }]);
       if (q.includes('AS TIENE_TEMP')) {
@@ -76,6 +76,17 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
           }
         }
         return result(vencidos);
+      }
+      if (q.startsWith('SELECT DATEADD(minute,5')) return result([{deadline:new Date(Date.now()+300000)}]);
+      if (q.startsWith('SELECT TOP 1 ID_BOL FROM BOLETOS')) return result(s.tickets.filter(b => b.ID_USU_FIN===p.owner && b.ID_HOJ_PER===p.sheet && b.EST_BOL==='RESERVADO' && b.FEC_EXP_RES_UTC>Date.now()));
+      if (q.startsWith('SELECT ID_ASI_PER AS asiento')) return result(s.tickets.filter(b => b.ID_USU_FIN===p.owner && b.ID_HOJ_PER===p.sheet && b.EST_BOL==='RESERVADO' && b.FEC_EXP_RES_UTC>Date.now()).map(b=>({asiento:b.ID_ASI_PER,boleto:b.ID_BOL,vence:b.FEC_EXP_RES_UTC})));
+      if (q.startsWith('SELECT ID_BOL AS ticket')) return result(s.tickets.filter(b => b.ID_USU_FIN===p.owner && b.ID_HOJ_PER===p.sheet && b.EST_BOL==='RESERVADO' && b.FEC_EXP_RES_UTC>Date.now()).map(b=>({ticket:b.ID_BOL})));
+      if (q.startsWith('SELECT PRE_FIN_BOL')) return result(s.tickets.filter(b => b.ID_BOL===p.id && b.ID_USU_FIN===p.owner && b.ID_HOJ_PER===p.sheet && b.ID_ASI_PER===p.seat && !b.COM_PAG_URL && b.FEC_EXP_RES_UTC>Date.now()));
+      if (q.startsWith('SELECT ID_USU,ID_ROL_PER')) return result();
+      if (q.startsWith('UPDATE dbo.BOLETOS SET NOM_PAS_BOL')) {
+        const ticket=s.tickets.find(b=>b.ID_BOL===p.id);
+        Object.assign(ticket,{COM_PAG_URL:p.url,PRE_FIN_BOL:p.price,MET_PAG_BOL:p.method,NOM_PAS_BOL:p.nombre,CED_PAS_BOL:p.document,EST_REV_PAG:'EN_REVISION',FEC_EXP_RES_UTC:null});
+        return {rowsAffected:[1]};
       }
       if (q.startsWith('SELECT C.EST_COP')) return result([{ EST_COP: '1' }]);
       if (q.startsWith('SELECT H.ID_HOJ, F.CIU_ORI_FRE')) {
@@ -118,7 +129,7 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
       }
       if (q.startsWith('UPDATE BOLETOS') && q.includes("SET EST_BOL = 'VENCIDO'")) {
         const tk = s.tickets.find((b) => b.ID_BOL === p.idBoleto);
-        if (tk) { tk.EST_BOL = 'VENCIDO'; tk.EST_REV_PAG = 'EXPIRADO'; }
+        if (tk && !tk.COM_PAG_URL && tk.FEC_EXP_RES_UTC <= Date.now()) { tk.EST_BOL = 'VENCIDO'; tk.EST_REV_PAG = 'EXPIRADO'; }
         return result();
       }
       if (q.includes('SELECT H.ID_HOJ,H.ID_USU_CON FROM dbo.BOLETOS T')) {
@@ -128,8 +139,8 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
       if (q.includes('SELECT H.ID_USU_CON,H.ID_BUS_PER,B.ID_BUS AS BUS_OPERATIVO')) {
         return result([{ ID_USU_CON: 'CON01', ID_BUS_PER: 'B0001', BUS_OPERATIVO: 'B0001' }]);
       }
-      if (q.includes("UPPER(LTRIM(RTRIM(ISNULL(BOL.MET_PAG_BOL, '')))) = 'TRANSFERENCIA'")) {
-        return result(s.tickets.filter((b) => b.MET_PAG_BOL === 'TRANSFERENCIA' && ['RESERVADO', 'PENDIENTE'].includes(b.EST_BOL)).map((b) => ({
+      if (q.includes("UPPER(LTRIM(RTRIM(ISNULL(BOL.MET_PAG_BOL, '')))) IN ('TRANSFERENCIA','DEPOSITO')")) {
+        return result(s.tickets.filter((b) => b.COM_PAG_URL && ['TRANSFERENCIA','DEPOSITO'].includes(b.MET_PAG_BOL) && ['RESERVADO', 'PENDIENTE'].includes(b.EST_BOL)).map((b) => ({
           ...b,
           PIS_ASI: 1,
           NUMERO_ASIENTO: 1,
@@ -196,9 +207,9 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
     headers: {
       Cookie: `transporte_sid=${tokens[user]}`,
       'X-Transport-Client': '1',
-      'Content-Type': 'application/json'
+      ...(body instanceof FormData ? {} : {'Content-Type':'application/json'})
     },
-    ...(body ? { body: JSON.stringify(body) } : {})
+    ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {})
   });
 
   // 1. El pasajero NO puede reservar en EFECTIVO por internet
@@ -214,13 +225,7 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
   assert.equal(bodyEfectivo.code, 'EFECTIVO_SOLO_VENTANILLA');
 
   // 2. Reserva por TRANSFERENCIA inicia temporizador de 5 minutos (300 s) y calcula tarifa desde TAR_BAS_FRE ($7.50) + recargo VIP ($3.00)
-  const resTransferencia = await api('/usuario/reservas', 'PAS01', 'POST', {
-    idHoja: 'H0001',
-    cedulaTitular: 'PAS01',
-    metodoPago: 'TRANSFERENCIA',
-    idAsientos: JSON.stringify(['A0001', 'A0002']),
-    pasajeros: JSON.stringify([{ tipo: 'ADULTO' }, { tipo: 'ADULTO' }])
-  });
+  const resTransferencia = await api('/usuario/reservas/bloqueos','PAS01','POST',{idHoja:'H0001',asientos:['A0001','A0002']});
   assert.equal(resTransferencia.status, 201);
   const dataTrans = await resTransferencia.json();
   assert.equal(dataTrans.requiereComprobante, true);
@@ -228,6 +233,32 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
   assert.equal(dataTrans.reservas.length, 2);
   assert.equal(dataTrans.reservas[0].precio, 7.50);
   assert.equal(dataTrans.reservas[1].precio, 10.50);
+
+  const ids = dataTrans.reservas.map(r=>r.idBoleto);
+  const restore = await (await api('/usuario/reservas/H0001/bloqueos','PAS01')).json();
+  assert.equal(restore.bloqueos.length,2);
+  assert.equal(restore.bloqueos[0].vence,dataTrans.expiraEnUtc);
+  for (const method of ['TRANSFERENCIA','DEPOSITO']) {
+    assert.equal((await api('/usuario/reservas','PAS01','POST',{idBoletos:ids,metodoPago:method})).status,400);
+  }
+  const form = new FormData();
+  form.set('idHoja','H0001');
+  form.set('idBoletos',JSON.stringify(ids));
+  form.set('metodoPago','DEPOSITO');
+  form.set('pasajeros',JSON.stringify(['A0001','A0002'].map((asiento,i)=>({asiento,nombre:'Pasajero '+i,documento:'extranjero',cedula:'TEST0'+i,tipo:i?'NINO':'ADULTO'}))));
+  form.set('comprobante',new Blob(['incorrecto'],{type:'application/pdf'}),'prueba.pdf');
+  assert.equal((await api('/usuario/reservas','PAS01','POST',form)).status,400);
+  form.set('comprobante',new Blob(['%PDF-1.4\n%%EOF'],{type:'application/pdf'}),'prueba.pdf');
+  const confirm = await api('/usuario/reservas','PAS01','POST',form);
+  assert.equal(confirm.status,200,await confirm.clone().text());
+  const proof = require('node:path').basename(state.tickets[0].COM_PAG_URL);
+  t.after(()=>fs.promises.unlink(require('node:path').join('backend/private_media/comprobantes',proof)));
+  assert.deepEqual(state.tickets.map(b=>b.CED_PAS_BOL),['TEST00','TEST01']);
+  assert.equal(state.tickets[1].PRE_FIN_BOL,5.25);
+  assert.ok(state.tickets.every(b=>b.EST_BOL==='RESERVADO' && b.FEC_EXP_RES_UTC===null));
+  assert.equal((await api('/usuario/reservas','PAS01','POST',form)).status,409);
+  await api('/usuario/reservas/expirar','PAS01','POST',{idBoletos:ids});
+  assert.ok(state.tickets.every(b=>b.EST_BOL==='RESERVADO'));
 
   // 3. El Oficinista consulta la bandeja de transferencias pendientes y aprueba una / rechaza la otra
   const bandejaResp = await api('/oficinista/boletos/pendientes-transferencia', 'OFI01');
@@ -251,16 +282,14 @@ test('RFC-000080: backend rechaza Efectivo en reservas web, retiene asientos por
   assert.equal(rechazado.boleto.EST_REV_PAG, 'RECHAZADO');
 
   // 4. El asiento rechazado (A0002) vuelve a estar libre para una nueva reserva, y al expirar los 5 minutos se libera automáticamente
-  const resNueva = await api('/usuario/reservas', 'PAS01', 'POST', {
-    idHoja: 'H0001',
-    cedulaTitular: 'PAS01',
-    metodoPago: 'TRANSFERENCIA',
-    idAsientos: JSON.stringify(['A0002']),
-    pasajeros: JSON.stringify([{ tipo: 'NINO' }])
-  });
+  const resNueva = await api('/usuario/reservas/bloqueos','PAS01','POST',{idHoja:'H0001',asientos:['A0002']});
   assert.equal(resNueva.status, 201);
   const dataNueva = await resNueva.json();
-  assert.equal(dataNueva.reservas[0].precio, 5.25); // 50% de $10.50
+  assert.equal(dataNueva.reservas[0].precio, 10.50);
+  state.tickets.find(b=>b.ID_BOL===dataNueva.reservas[0].idBoleto).FEC_EXP_RES_UTC=new Date(Date.now()-1000);
+  form.set('idBoletos',JSON.stringify([dataNueva.reservas[0].idBoleto]));
+  form.set('pasajeros',JSON.stringify([{asiento:'A0002',nombre:'Prueba',documento:'extranjero',cedula:'TEST01',tipo:'NINO'}]));
+  assert.equal((await api('/usuario/reservas','PAS01','POST',form)).status,409);
 
   const expResp = await api('/usuario/reservas/expirar', 'PAS01', 'POST', {
     idBoletos: [dataNueva.reservas[0].idBoleto]

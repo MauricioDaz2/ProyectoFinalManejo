@@ -63,6 +63,7 @@ async function columnasExtendidasOficinista(gestor) {
     try {
         const res = await new sql.Request(gestor).query(`
             SELECT
+                CASE WHEN COL_LENGTH('dbo.BOLETOS','NOM_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_PASAJERO,
                 CASE WHEN COL_LENGTH('dbo.BOLETOS', 'FEC_EXP_RES_UTC') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_TEMP,
                 CASE WHEN COL_LENGTH('dbo.BOLETOS', 'BAN_ORI_BOL') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_BANCO,
                 CASE WHEN COL_LENGTH('dbo.FRECUENCIAS', 'TAR_BAS_FRE') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_TARIFA_FRE,
@@ -145,6 +146,7 @@ function construirSelectBoleto(esquema = {}) {
                BOL.PRE_FIN_BOL, BOL.MET_PAG_BOL, BOL.COM_PAG_URL, BOL.EST_BOL,
                BOL.COD_QR_BOL, BOL.FEC_COM_BOL, BOL.FEC_USO_BOL,
                BOL.ID_HOJ_PER, BOL.ID_ASI_PER, BOL.ID_USU_FIN, BOL.ID_USU_OFI, BOL.ID_USU_CON,
+               ${esquema.TIENE_PASAJERO ? 'BOL.NOM_PAS_BOL, BOL.CED_PAS_BOL,' : ''}
                ${esquema.TIENE_BANCO ? 'BOL.BAN_ORI_BOL,' : ''}
                ${esquema.TIENE_TEMP ? `
                    BOL.FEC_EXP_RES_UTC, BOL.EST_REV_PAG, BOL.FEC_REV_PAG_UTC,
@@ -211,8 +213,8 @@ function formatearBoleto(fila) {
         HORA_SAL_FRE: horaSalida,
         TAR_BAS_FRE: tarifaBase,
         ID_USU_FIN: fila.ID_USU_FIN,
-        PASAJERO: fila.NOM_USU ? `${fila.NOM_USU} ${fila.APE_USU}`.trim() : null,
-        CEDULA_PASAJERO: fila.COR_USU || null,
+        PASAJERO: fila.NOM_PAS_BOL || (fila.NOM_USU ? `${fila.NOM_USU} ${fila.APE_USU}`.trim() : null),
+        CEDULA_PASAJERO: fila.CED_PAS_BOL || fila.COR_USU || null,
         TELEFONO_PASAJERO: fila.TEL_USU || null,
         OFICINISTA: fila.NOM_OFICINISTA ? `${fila.NOM_OFICINISTA} ${fila.APE_OFICINISTA}`.trim() : null,
         CONTROLADOR: fila.NOM_CONTROLADOR ? `${fila.NOM_CONTROLADOR} ${fila.APE_CONTROLADOR}`.trim() : null,
@@ -796,7 +798,7 @@ async function listarPendientesTransferencia(req, res) {
             .input('cooperativa', sql.VarChar(5), cooperativa || null)
             .query(`
                 ${construirSelectBoleto(esquema)}
-                WHERE UPPER(LTRIM(RTRIM(ISNULL(BOL.MET_PAG_BOL, '')))) = 'TRANSFERENCIA'
+                WHERE UPPER(LTRIM(RTRIM(ISNULL(BOL.MET_PAG_BOL, '')))) IN ('TRANSFERENCIA','DEPOSITO') AND BOL.COM_PAG_URL IS NOT NULL
                   AND UPPER(LTRIM(RTRIM(ISNULL(BOL.EST_BOL, '')))) IN ('RESERVADO', 'PENDIENTE')
                   AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
                 ORDER BY
@@ -838,7 +840,7 @@ async function revisarTransferenciaBoleto(req, res) {
         });
     }
 
-    const idOficinista = codigo(req.body?.ID_USU_OFI ?? req.auth?.id);
+    const idOficinista = codigo(req.auth?.id);
 
     let transaccion;
     try {
@@ -851,10 +853,15 @@ async function revisarTransferenciaBoleto(req, res) {
 
         const actual = await new sql.Request(transaccion)
             .input('id', sql.VarChar(5), id)
+            .input('coop', sql.VarChar(5), req.scopeCompany || null)
             .query(`
                 SELECT ID_BOL, EST_BOL, MET_PAG_BOL, COM_PAG_URL
                 FROM dbo.BOLETOS WITH (UPDLOCK, HOLDLOCK)
-                WHERE ID_BOL = @id
+                WHERE ID_BOL = @id AND MET_PAG_BOL IN ('TRANSFERENCIA','DEPOSITO')
+                  AND (@coop IS NULL OR EXISTS (
+                      SELECT 1 FROM HOJAS_RUTAS H JOIN FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
+                      WHERE H.ID_HOJ=BOLETOS.ID_HOJ_PER AND F.ID_COP_PER=@coop
+                  ))
             `);
 
         if (actual.recordset.length === 0) {
@@ -864,6 +871,7 @@ async function revisarTransferenciaBoleto(req, res) {
 
         const fila = actual.recordset[0];
         const estActual = codigo(fila.EST_BOL);
+        if (!fila.COM_PAG_URL && nuevoEstado === 'PAGADO') { await transaccion.rollback(); return res.status(409).json({success:false,message:'Falta el comprobante.'}); }
         if (!['RESERVADO', 'PENDIENTE'].includes(estActual)) {
             await transaccion.rollback();
             return res.status(409).json({
@@ -923,7 +931,7 @@ async function buscarBoletos(req, res) {
     const busqueda = texto(req.query.q);
     const cooperativa = cooperativaValida(req.scopeCompany);
 
-    if (!busqueda || busqueda.length > 100) {
+    if (!busqueda || busqueda.length > 500) {
         return res.status(400).json({
             success: false,
             message: 'Ingresa un código QR o cédula del pasajero para buscar.'
@@ -950,8 +958,9 @@ async function buscarBoletos(req, res) {
                 WHERE (
                         BOL.ID_BOL = @valor
                      OR BOL.COD_QR_BOL = @valor
-                     OR PASAJERO.COR_USU = @documento
-                     OR PASAJERO.ID_USU = @documento
+                     OR ${esquema.TIENE_PASAJERO
+                         ? '(BOL.CED_PAS_BOL = @valor OR (BOL.NOM_PAS_BOL IS NULL AND (PASAJERO.COR_USU = @documento OR PASAJERO.ID_USU = @documento)))'
+                         : '(PASAJERO.COR_USU = @documento OR PASAJERO.ID_USU = @documento)'}
                 )
                   AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
                 ORDER BY
@@ -1068,7 +1077,7 @@ async function cambiarEstadoBoleto(req, res) {
         const actual = await new sql.Request(transaccion)
             .input('id', sql.VarChar(5), id)
             .query(`
-                SELECT ID_BOL, EST_BOL, FEC_USO_BOL
+                SELECT ID_BOL, EST_BOL, FEC_USO_BOL, MET_PAG_BOL
                 FROM dbo.BOLETOS WITH (UPDLOCK, HOLDLOCK)
                 WHERE ID_BOL = @id
             `);
@@ -1087,6 +1096,12 @@ async function cambiarEstadoBoleto(req, res) {
                 message: `El boleto ya se encuentra en estado ${nuevoEstado}.`,
                 boleto: sinCambios
             });
+        }
+
+        if (['RESERVADO','PENDIENTE'].includes(estadoActual) && ['TRANSFERENCIA','DEPOSITO'].includes(actual.recordset[0].MET_PAG_BOL)
+            && ['PAGADO','EMITIDO','USADO'].includes(nuevoEstado)) {
+            await transaccion.rollback();
+            return res.status(409).json({success:false,message:'Revisa el comprobante desde la bandeja de pagos.'});
         }
 
         const permitidos = TRANSICIONES[estadoActual] || [];
@@ -1152,7 +1167,7 @@ async function validarBoleto(req, res) {
     const idControlador = codigo(req.body?.ID_USU_CON ?? req.body?.ID_USU_OFI);
     const cooperativa = cooperativaValida(req.scopeCompany);
 
-    if (!codigoIngresado || codigoIngresado.length > 100) {
+    if (!codigoIngresado || codigoIngresado.length > 500) {
         return res.status(400).json({ success: false, message: 'Escanea un código QR o ingresa una cédula.' });
     }
     if (cooperativa === '') {
@@ -1170,6 +1185,7 @@ async function validarBoleto(req, res) {
         transaccion = new sql.Transaction(pool);
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
+        const esquema = await columnasExtendidasOficinista(transaccion);
         const encontrados = await new sql.Request(transaccion)
             .input('valor', sql.VarChar(500), valor)
             .input('documento', sql.VarChar(50), documento || valor)
@@ -1183,8 +1199,9 @@ async function validarBoleto(req, res) {
                 WHERE (
                         BOL.ID_BOL = @valor
                      OR BOL.COD_QR_BOL = @valor
-                     OR PASAJERO.COR_USU = @documento
-                     OR PASAJERO.ID_USU = @documento
+                     OR ${esquema.TIENE_PASAJERO
+                         ? '(BOL.CED_PAS_BOL = @valor OR (BOL.NOM_PAS_BOL IS NULL AND (PASAJERO.COR_USU = @documento OR PASAJERO.ID_USU = @documento)))'
+                         : '(PASAJERO.COR_USU = @documento OR PASAJERO.ID_USU = @documento)'}
                 )
                   AND (@cooperativa IS NULL OR F.ID_COP_PER = @cooperativa)
                 ORDER BY BOL.FEC_COM_BOL DESC, BOL.ID_BOL DESC
@@ -1240,7 +1257,7 @@ async function validarBoleto(req, res) {
 
         // Separar aprobación de pago por transferencia del control de abordaje
         if (
-            codigo(objetivo.MET_PAG_BOL) === 'TRANSFERENCIA'
+            ['TRANSFERENCIA','DEPOSITO'].includes(codigo(objetivo.MET_PAG_BOL))
             && ['PENDIENTE', 'RESERVADO'].includes(codigo(objetivo.EST_BOL))
         ) {
             await transaccion.commit();

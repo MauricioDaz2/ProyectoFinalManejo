@@ -1,3 +1,5 @@
+const schedule = require('../services/workerSchedule');
+const checkout = require('../services/webCheckout');
 const crypto = require('crypto');
 const fs = require('fs/promises');
 const { sql, conectarBD } = require('../config/db');
@@ -65,6 +67,7 @@ const obtenerAsientos = async (req, res) => {
 
     try {
         const pool = await conectarBD();
+        await liberarReservasVencidas(pool, idHoja);
         let resultado;
         try {
             resultado = await pool.request()
@@ -165,9 +168,6 @@ const obtenerAsientos = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No se encontró la hoja de ruta o no tiene asientos.' });
         }
 
-        if (resultado.recordset.some((r) => r.ESTADO_ASIENTO === 'RESERVADO')) {
-            await liberarReservasVencidas(pool, idHoja);
-        }
 
         const primerAsiento = resultado.recordset[0];
         const tarifaBase = Number(primerAsiento.TAR_BAS_FRE) > 0 ? Number(primerAsiento.TAR_BAS_FRE) : 0;
@@ -383,7 +383,7 @@ const expirarReservaUsuario = async (req, res) => {
                         .query(`
                             UPDATE BOLETOS
                             SET EST_BOL = 'VENCIDO'
-                            WHERE ID_BOL = @idBoleto
+                            WHERE ID_BOL = @idBoleto AND COM_PAG_URL IS NULL AND FEC_EXP_RES_UTC <= SYSUTCDATETIME()
                         `);
                 }
             }
@@ -413,105 +413,71 @@ const subirComprobanteTransferencia = async (req, res) => {
         }
     }
 
+    if (texto(req.body?.metodoPago).toUpperCase() === 'EFECTIVO') {
+        if (req.file) await fs.unlink(req.file.path).catch(() => {});
+        return res.status(400).json({success:false,code:'EFECTIVO_SOLO_VENTANILLA',message:'El efectivo solo se acepta en ventanilla.'});
+    }
     if (!ids.length) {
         if (req.file) await fs.unlink(req.file.path).catch(() => {});
         return res.status(400).json({ success: false, message: 'Indica la reserva a la que corresponde el comprobante.' });
     }
     if (!req.file) {
-        return res.status(400).json({ success: false, message: 'Debes adjuntar el archivo del comprobante de transferencia (JPG, PNG o PDF).' });
+        return res.status(400).json({ success: false, message: 'Debes adjuntar el archivo del comprobante (JPG, PNG, WebP o PDF).' });
     }
-
-    const comprobanteUrl = `/uploads/${req.file.filename}`;
-    const bancoOrigen = texto(req.body?.bancoOrigen).slice(0, 60) || null;
-    const cedulaUsuario = req.auth?.id;
 
     let transaccion;
     try {
+        const sheet = texto(req.body.idHoja).toUpperCase();
+        if (!/^[A-Z0-9_-]{1,5}$/.test(sheet) || ids.some(id => !/^[A-Z0-9_-]{1,5}$/.test(id))) {
+            throw checkout.fail(400, 'La selección indicada no es válida.');
+        }
+        const method = texto(req.body.metodoPago).toUpperCase();
+        if (!['TRANSFERENCIA','DEPOSITO'].includes(method)) throw checkout.fail(400, 'Método de pago web inválido.');
+        const rows = checkout.passengers(JSON.parse(req.body.pasajeros || '[]'));
+        if (rows.length !== ids.length || new Set(ids).size !== ids.length) throw checkout.fail(400, 'Comprueba los asientos seleccionados.');
         const pool = await conectarBD();
-        const schema = await pool.request().query(`
-            SELECT CASE WHEN COL_LENGTH('dbo.BOLETOS', 'FEC_EXP_RES_UTC') IS NOT NULL THEN 1 ELSE 0 END AS TEMPORIZADOR_DISPONIBLE
-        `);
-        const tieneTemporizador = schema.recordset?.[0]?.TEMPORIZADOR_DISPONIBLE === 1;
-
         transaccion = new sql.Transaction(pool);
         await transaccion.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
-
-        for (const idBoleto of ids) {
-            const consulta = await transaccion.request()
-                .input('idBoleto', sql.VarChar(5), idBoleto)
-                .input('cedula', sql.VarChar(10), cedulaUsuario)
-                .query(`
-                    SELECT ID_BOL, EST_BOL, MET_PAG_BOL
-                           ${tieneTemporizador ? ', FEC_EXP_RES_UTC, EST_REV_PAG, CASE WHEN FEC_EXP_RES_UTC IS NOT NULL AND FEC_EXP_RES_UTC <= SYSUTCDATETIME() THEN 1 ELSE 0 END AS EXPIRADO' : ''}
-                    FROM dbo.BOLETOS WITH (UPDLOCK, HOLDLOCK)
-                    WHERE ID_BOL = @idBoleto AND ID_USU_FIN = @cedula
-                `);
-
-            if (!consulta.recordset.length) {
-                await transaccion.rollback();
-                await fs.unlink(req.file.path).catch(() => {});
-                return res.status(404).json({ success: false, message: 'Reserva no encontrada o no pertenece a tu usuario.' });
-            }
-
-            const fila = consulta.recordset[0];
-            const estado = String(fila.EST_BOL || '').toUpperCase();
-
-            if (fila.EXPIRADO === 1 || estado === 'VENCIDO') {
-                await transaccion.request()
-                    .input('idBoleto', sql.VarChar(5), idBoleto)
-                    .query(`
-                        UPDATE dbo.BOLETOS
-                        SET EST_BOL = 'VENCIDO'
-                            ${tieneTemporizador ? ", EST_REV_PAG = 'EXPIRADO'" : ''}
-                        WHERE ID_BOL = @idBoleto
-                    `);
-                await transaccion.commit();
-                await fs.unlink(req.file.path).catch(() => {});
-                return res.status(409).json({
-                    success: false,
-                    code: 'RESERVA_EXPIRADA',
-                    message: 'El tiempo de 5 minutos para subir el comprobante expiró y el asiento fue liberado automáticamente.'
-                });
-            }
-
-            if (estado !== 'RESERVADO' && estado !== 'PENDIENTE') {
-                await transaccion.rollback();
-                await fs.unlink(req.file.path).catch(() => {});
-                return res.status(409).json({
-                    success: false,
-                    message: `La reserva ya no admite comprobante (estado actual: ${estado}).`
-                });
-            }
-
-            const updateReq = transaccion.request()
-                .input('idBoleto', sql.VarChar(5), idBoleto)
-                .input('url', sql.VarChar(500), comprobanteUrl);
-
-            if (tieneTemporizador) {
-                updateReq.input('banco', sql.VarChar(60), bancoOrigen);
-                await updateReq.query(`
-                    UPDATE dbo.BOLETOS
-                    SET COM_PAG_URL = @url,
-                        BAN_ORI_BOL = COALESCE(@banco, BAN_ORI_BOL),
-                        EST_REV_PAG = 'EN_REVISION',
-                        FEC_EXP_RES_UTC = NULL
-                    WHERE ID_BOL = @idBoleto
-                `);
-            } else {
-                await updateReq.query(`
-                    UPDATE dbo.BOLETOS
-                    SET COM_PAG_URL = @url
-                    WHERE ID_BOL = @idBoleto
-                `);
-            }
+        await cc.lock(transaccion);
+        const group = await transaccion.request().input('owner', sql.VarChar(10), req.auth.id)
+            .input('sheet', sql.VarChar(5), sheet).query(`SELECT ID_BOL AS ticket FROM dbo.BOLETOS WITH (UPDLOCK,HOLDLOCK)
+                WHERE ID_USU_FIN=@owner AND ID_HOJ_PER=@sheet AND EST_BOL='RESERVADO'
+                  AND FEC_EXP_RES_UTC>SYSUTCDATETIME() AND COM_PAG_URL IS NULL`);
+        if (group.recordset.length !== ids.length || group.recordset.some(row => !ids.includes(row.ticket))) {
+            throw checkout.fail(409, 'La selección venció o cambió. Actualiza los asientos.');
         }
-
+        for (const [index, id] of ids.entries()) {
+            const person = rows[index];
+            const request = transaccion.request().input('id', sql.VarChar(5),id).input('owner', sql.VarChar(10), req.auth.id)
+                .input('sheet', sql.VarChar(5), sheet).input('seat', sql.VarChar(5), person.asiento);
+            const seat = (await request.query(`SELECT PRE_FIN_BOL FROM dbo.BOLETOS WITH(UPDLOCK,HOLDLOCK)
+                WHERE ID_BOL=@id AND ID_USU_FIN=@owner AND ID_HOJ_PER=@sheet AND ID_ASI_PER=@seat
+                AND EST_BOL='RESERVADO' AND COM_PAG_URL IS NULL AND FEC_EXP_RES_UTC>SYSUTCDATETIME()
+                AND EXISTS (SELECT 1 FROM HOJAS_RUTAS H JOIN FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
+                    JOIN COOPERATIVAS C ON C.ID_COP=F.ID_COP_PER AND C.EST_COP='1'
+                    JOIN ASIENTOS_BUS A ON A.ID_BUS_PER=${cc.effectiveBus()} AND A.ID_ASI=@seat
+                    WHERE H.ID_HOJ=@sheet AND H.EST_VIA_HOJ IN ('PROGRAMADO','PROGRAMADA'))`)).recordset[0];
+            if (!seat) throw checkout.fail(409, 'El bloqueo venció o el asiento ya fue procesado.');
+            const worker = (await transaccion.request().input('doc', sql.VarChar(10), person.cedula).query(
+                "SELECT ID_USU,ID_ROL_PER FROM USUARIOS WHERE (CED_USU=@doc OR ID_USU=@doc) AND ID_ROL_PER IN ('R004','R006')")).recordset;
+            for (const traveler of worker) {
+                await schedule.reserve(transaccion, traveler.ID_USU, sheet, traveler.ID_ROL_PER);
+            }
+            const cents = Math.round(Number(seat.PRE_FIN_BOL)*100);
+            const price = Math.round(cents * (person.tipo === 'ADULTO' ? 1 : 0.5)) / 100;
+            const changed = await request.input('nombre', sql.NVarChar(100), person.nombre.trim()).input('document', sql.VarChar(10), person.cedula)
+                .input('category', sql.VarChar(15), person.tipo).input('price', sql.Decimal(18,2),price).input('method', sql.VarChar(15),method)
+                .input('bank', sql.VarChar(60),texto(req.body.bancoOrigen).slice(0,60)||null)
+                .input('url', sql.VarChar(500),'/api/comprobantes/'+req.file.filename)
+                .query(`UPDATE dbo.BOLETOS SET NOM_PAS_BOL=@nombre,CED_PAS_BOL=@document,TIP_PAS_BOL=@category,TIP_DES_BOL=@category,
+                    PRE_FIN_BOL=@price,MET_PAG_BOL=@method,BAN_ORI_BOL=@bank,COM_PAG_URL=@url,EST_REV_PAG='EN_REVISION',FEC_EXP_RES_UTC=NULL
+                    WHERE ID_BOL=@id AND FEC_EXP_RES_UTC>SYSUTCDATETIME()`);
+            if (changed.rowsAffected[0] !== 1) throw checkout.fail(409, 'El bloqueo venció durante la confirmación.');
+        }
         await transaccion.commit();
         return res.status(200).json({
             success: true,
-            message: 'Comprobante de transferencia recibido. Tu reserva pasó a la bandeja de aprobación del oficinista.',
-            comprobanteUrl,
-            bancoOrigen,
+            message: 'Comprobante recibido. Tu reserva pasó a la bandeja de aprobación del oficinista.',
             estadoRevision: 'EN_REVISION',
             boletos: ids
         });
@@ -520,6 +486,8 @@ const subirComprobanteTransferencia = async (req, res) => {
             try { await transaccion.rollback(); } catch {}
         }
         if (req.file) await fs.unlink(req.file.path).catch(() => {});
+        if (error instanceof SyntaxError) return res.status(400).json({success:false,message:'Formato de pasajeros inválido.'});
+        if (error.status) return res.status(error.status).json({success:false,message:error.message});
         console.error('Error al subir comprobante de transferencia:', error);
         return res.status(500).json({ success: false, message: 'No fue posible registrar el comprobante de transferencia.' });
     }
@@ -527,77 +495,28 @@ const subirComprobanteTransferencia = async (req, res) => {
 
 const reservarAsiento = async (req, res) => {
     const idHoja = texto(req.body?.idHoja).toUpperCase();
-    const metodoPagoCrudo = texto(req.body?.metodoPago);
-
-    const limpiarTexto = (t) => (t ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase() : '');
-    const metodoLimpio = limpiarTexto(metodoPagoCrudo);
-
-    let metodoPago = '';
-    if (metodoLimpio.includes('DEPOSITO')) {
-        metodoPago = 'DEPOSITO';
-    } else if (metodoLimpio.includes('TRANSFERENCIA')) {
-        metodoPago = 'TRANSFERENCIA';
-    } else if (metodoLimpio.includes('EFECTIVO')) {
-        metodoPago = 'EFECTIVO';
-    }
-
-    const cedulaTitular = texto(req.body?.cedulaTitular);
-    if (cedulaTitular !== req.auth?.id) {
-        if (req.file) await fs.unlink(req.file.path).catch(() => {});
-        return res.status(403).json({ success: false, message: 'El titular debe ser el usuario autenticado.' });
-    }
-
-    if (metodoPago === 'EFECTIVO') {
-        if (req.file) await fs.unlink(req.file.path).catch(() => {});
-        return res.status(400).json({
-            success: false,
-            code: 'EFECTIVO_SOLO_VENTANILLA',
-            message: 'El pago en efectivo se realiza exclusivamente en la ventanilla física con el oficinista.'
-        });
-    }
-
-    const comprobanteUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const bancoOrigen = texto(req.body?.bancoOrigen).slice(0, 60) || null;
-
-    let estadoBoleto = 'RESERVADO';
-    if (metodoPago === 'DEPOSITO') {
-        estadoBoleto = 'PAGADO';
-    }
-
-    let idAsientos;
-    let pasajeros;
-    try {
-        idAsientos = JSON.parse(req.body?.idAsientos || '[]').map((id) => texto(id).toUpperCase());
-        pasajeros = JSON.parse(req.body?.pasajeros || '[]');
-    } catch {
-        if (req.file) await fs.unlink(req.file.path).catch(() => {});
-        return res.status(400).json({ success: false, message: 'Formato de datos inválido.' });
-    }
-
-    if (!idAsientos.length || idAsientos.length > 10) {
-        if (req.file) await fs.unlink(req.file.path).catch(() => {});
-        return res.status(400).json({ success: false, message: 'Selecciona entre 1 y 10 asientos.' });
-    }
-
-    if (!['DEPOSITO', 'TRANSFERENCIA'].includes(metodoPago)) {
-        if (req.file) await fs.unlink(req.file.path).catch(() => {});
-        return res.status(400).json({ success: false, message: 'Método de pago no válido. Usa Transferencia o Depósito.' });
+    const cedulaTitular = req.auth.id;
+    const idAsientos = Array.isArray(req.body?.asientos) ? req.body.asientos.map(id => texto(id).toUpperCase()) : [];
+    if (!/^[A-Z0-9_-]{1,5}$/.test(idHoja) || !idAsientos.length || idAsientos.length > 10 ||
+        idAsientos.some(id => !/^[A-Z0-9_-]{1,5}$/.test(id)) || new Set(idAsientos).size !== idAsientos.length) {
+        return res.status(400).json({success:false,message:'Selecciona una salida y entre 1 y 10 asientos diferentes.'});
     }
 
     const pool = await conectarBD();
     const schema = await pool.request().query(`
         SELECT
             CASE WHEN COL_LENGTH('dbo.BOLETOS','CED_PAS_BOL') IS NOT NULL AND COL_LENGTH('dbo.BOLETOS','TIP_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS RESERVAS_DISPONIBLES,
+            CASE WHEN COL_LENGTH('dbo.BOLETOS','NOM_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS NOMBRE_DISPONIBLE,
             CASE WHEN COL_LENGTH('dbo.BOLETOS','FEC_EXP_RES_UTC') IS NOT NULL THEN 1 ELSE 0 END AS TEMPORIZADOR_DISPONIBLE,
             CASE WHEN COL_LENGTH('dbo.FRECUENCIAS','TAR_BAS_FRE') IS NOT NULL THEN 1 ELSE 0 END AS TARIFA_FRECUENCIA_DISPONIBLE
     `);
     const infoSchema = schema.recordset[0] || {};
     if (infoSchema.RESERVAS_DISPONIBLES !== 1) {
-        if (req.file) await fs.unlink(req.file.path).catch(() => {});
         return res.status(503).json({ success: false, message: 'Las reservas requieren aplicar migracion_pasajeros_facturacion.sql. No se realizó ningún cobro.' });
     }
 
     const tieneTemporizador = infoSchema.TEMPORIZADOR_DISPONIBLE === 1;
+    if (!tieneTemporizador || infoSchema.NOMBRE_DISPONIBLE !== 1) return res.status(503).json({success:false,message:'Se requieren las migraciones 016 de reservas y 019 de pasajeros.'});
     const tieneTarifaFrecuencia = infoSchema.TARIFA_FRECUENCIA_DISPONIBLE === 1;
 
     if (tieneTemporizador) {
@@ -612,7 +531,7 @@ const reservarAsiento = async (req, res) => {
         const parametrosAsientos = idAsientos.map((_, index) => `@idAsiento${index}`);
         await cc.lock(transaccion);
         await cc.sale(transaccion, idHoja);
-        await require('../services/workerSchedule').reserve(transaccion, cedulaTitular, idHoja, req.auth.rolId);
+
         const company = await transaccion.request().input('sheet', sql.VarChar(5), idHoja).query(`
             SELECT C.EST_COP FROM dbo.COOPERATIVAS C WITH (UPDLOCK,HOLDLOCK)
             JOIN dbo.FRECUENCIAS F ON F.ID_COP_PER=C.ID_COP
@@ -622,9 +541,12 @@ const reservarAsiento = async (req, res) => {
         `);
         if (!company.recordset.length) {
             await transaccion.rollback();
-            if (req.file) await fs.unlink(req.file.path).catch(() => {});
             return res.status(409).json({ success: false, message: 'El viaje no está disponible para nuevas reservas. La cooperativa puede estar suspendida o inactiva.' });
         }
+
+        const active = await transaccion.request().input('owner', sql.VarChar(10), cedulaTitular)
+            .input('sheet', sql.VarChar(5), idHoja).query("SELECT TOP 1 ID_BOL FROM BOLETOS WITH (UPDLOCK,HOLDLOCK) WHERE ID_HOJ_PER=@sheet AND ID_USU_FIN=@owner AND EST_BOL='RESERVADO' AND COM_PAG_URL IS NULL AND FEC_EXP_RES_UTC>SYSUTCDATETIME()");
+        if (active.recordset.length) throw checkout.fail(409, 'Ya tienes una selección activa en esta salida. Actualiza la página para recuperarla.');
 
         const solicitudAsientos = transaccion.request().input('idHoja', sql.VarChar(5), idHoja);
         idAsientos.forEach((id, index) => solicitudAsientos.input(`idAsiento${index}`, sql.VarChar(5), id));
@@ -641,7 +563,6 @@ const reservarAsiento = async (req, res) => {
 
         if (asiento.recordset.length !== idAsientos.length) {
             await transaccion.rollback();
-            if (req.file) await fs.unlink(req.file.path).catch(() => {});
             return res.status(404).json({ success: false, message: 'Uno o más asientos no pertenecen a la hoja.' });
         }
 
@@ -650,7 +571,6 @@ const reservarAsiento = async (req, res) => {
         const occupied = await occupiedRequest.query(`SELECT ID_BOL FROM dbo.BOLETOS WITH(UPDLOCK,HOLDLOCK) WHERE ID_HOJ_PER=@sheetOccupied AND ID_ASI_PER IN (${idAsientos.map((_, i) => '@occupied' + i).join(',')}) AND ${cc.enabled() ? cc.activeTicket : "UPPER(LTRIM(RTRIM(ISNULL(EST_BOL,'')))) NOT IN ('CANCELADO','ANULADO','INVALIDO','VENCIDO')"}`);
         if (occupied.recordset.length) {
             await transaccion.rollback();
-            if (req.file) await fs.unlink(req.file.path).catch(() => {});
             return res.status(409).json({ success: false, message: 'Uno de los asientos ya está reservado o vendido. Actualiza la disponibilidad.' });
         }
 
@@ -660,34 +580,24 @@ const reservarAsiento = async (req, res) => {
 
         if (!usuario.recordset.length) {
             await transaccion.rollback();
-            if (req.file) await fs.unlink(req.file.path).catch(() => {});
             return res.status(404).json({ success: false, message: 'El usuario titular no existe en la base de datos.' });
         }
 
         const usuarioId = usuario.recordset[0].ID_USU;
         const reservas = [];
-        const tieneComprobante = Boolean(comprobanteUrl);
-        const expiraDate = (metodoPago === 'TRANSFERENCIA' && !tieneComprobante)
-            ? new Date(Date.now() + EXPIRACION_TRANSFERENCIA_SEGUNDOS * 1000)
-            : null;
-        const estRevPag = metodoPago === 'TRANSFERENCIA'
-            ? (tieneComprobante ? 'EN_REVISION' : 'PENDIENTE_COMPROBANTE')
-            : null;
+        const expiraDate = (await transaccion.request().query(
+            'SELECT DATEADD(minute,5,SYSUTCDATETIME()) AS deadline'
+        )).recordset[0].deadline;
 
         for (let index = 0; index < idAsientos.length; index += 1) {
             const datos = asiento.recordset.find((fila) => fila.ID_ASI === idAsientos[index]);
-            const pasajero = pasajeros[index] || { tipo: 'ADULTO' };
-            const tipoPasajero = texto(pasajero.tipo).toUpperCase() || 'ADULTO';
-
             const tarifaBaseFre = Number(datos.TAR_BAS_FRE) > 0 ? Number(datos.TAR_BAS_FRE) : 0;
             const recargoAsiento = Number(datos.PRE_TIP) || 0;
             const precioBase = tarifaBaseFre > 0
                 ? tarifaBaseFre + recargoAsiento
                 : (recargoAsiento > 0 ? recargoAsiento : 5.00);
-            const aplicaDescuento = ['NINO', 'ADULTO_MAYOR', 'DISCAPACIDAD', 'TERCERA_EDAD', 'MENOR_EDAD'].includes(tipoPasajero);
-            const precioFinal = Math.round((aplicaDescuento ? precioBase * 0.5 : precioBase) * 100) / 100;
-
-            const idBoleto = generarCodigo(metodoPago === 'DEPOSITO' ? 'B' : 'R');
+            const precioFinal = Math.round(precioBase * 100) / 100;
+            const idBoleto = generarCodigo('R');
             const codigoQr = generarQr(idBoleto, idHoja, datos.ID_ASI);
 
             const reqInsert = transaccion.request()
@@ -695,71 +605,51 @@ const reservarAsiento = async (req, res) => {
                 .input('origen', sql.VarChar(20), datos.CIU_ORI_FRE)
                 .input('destino', sql.VarChar(20), datos.CIU_DES_FRE)
                 .input('precio', sql.Decimal(18, 2), precioFinal)
-                .input('tipoDescuento', sql.VarChar(30), tipoPasajero === 'ADULTO' ? (datos.NOM_TIP || 'NORMAL') : `${tipoPasajero}_50`)
-                .input('tipoPasajero', sql.VarChar(15), tipoPasajero)
-                .input('cedulaPasajero', sql.VarChar(10), cedulaTitular)
-                .input('metodoPago', sql.VarChar(15), metodoPago)
+                .input('tipoDescuento', sql.VarChar(30), datos.NOM_TIP || 'NORMAL')
+                .input('tipoPasajero', sql.VarChar(15), 'ADULTO')
+                .input('cedulaPasajero', sql.VarChar(10), null)
+                .input('metodoPago', sql.VarChar(15), 'TRANSFERENCIA')
                 .input('codigoQr', sql.VarChar(500), codigoQr)
-                .input('comprobanteUrl', sql.VarChar(500), comprobanteUrl)
-                .input('estadoBoleto', sql.VarChar(15), estadoBoleto)
+                .input('comprobanteUrl', sql.VarChar(500), null)
+                .input('estadoBoleto', sql.VarChar(15), 'RESERVADO')
                 .input('idHoja', sql.VarChar(5), idHoja)
                 .input('idAsiento', sql.VarChar(5), datos.ID_ASI)
                 .input('usuarioId', sql.VarChar(10), usuarioId);
 
-            if (tieneTemporizador) {
-                reqInsert
-                    .input('bancoOrigen', sql.VarChar(60), bancoOrigen)
+            reqInsert
+                    .input('bancoOrigen', sql.VarChar(60), null)
                     .input('fecExpUtc', sql.DateTime2(0), expiraDate)
-                    .input('estRevPag', sql.VarChar(25), estRevPag);
-                await reqInsert.query(`
+                    .input('estRevPag', sql.VarChar(25), 'PENDIENTE_COMPROBANTE');
+            await reqInsert.query(`
                     INSERT INTO BOLETOS
                         (ID_BOL, ORI_TRA_BOL, DES_TRA_BOL, TIP_DES_BOL, PRE_FIN_BOL, MET_PAG_BOL, COM_PAG_URL, BAN_ORI_BOL, EST_BOL, COD_QR_BOL, FEC_COM_BOL, ID_HOJ_PER, ID_ASI_PER, ID_USU_FIN, CED_PAS_BOL, TIP_PAS_BOL, FEC_EXP_RES_UTC, EST_REV_PAG)
                     VALUES
                         (@idBoleto, @origen, @destino, @tipoDescuento, @precio, @metodoPago, @comprobanteUrl, @bancoOrigen, @estadoBoleto, @codigoQr, CONVERT(date, GETDATE()), @idHoja, @idAsiento, @usuarioId, @cedulaPasajero, @tipoPasajero, @fecExpUtc, @estRevPag)
                 `);
-            } else {
-                await reqInsert.query(`
-                    INSERT INTO BOLETOS
-                        (ID_BOL, ORI_TRA_BOL, DES_TRA_BOL, TIP_DES_BOL, PRE_FIN_BOL, MET_PAG_BOL, COM_PAG_URL, EST_BOL, COD_QR_BOL, FEC_COM_BOL, ID_HOJ_PER, ID_ASI_PER, ID_USU_FIN, CED_PAS_BOL, TIP_PAS_BOL)
-                    VALUES
-                        (@idBoleto, @origen, @destino, @tipoDescuento, @precio, @metodoPago, @comprobanteUrl, @estadoBoleto, @codigoQr, CONVERT(date, GETDATE()), @idHoja, @idAsiento, @usuarioId, @cedulaPasajero, @tipoPasajero)
-                `);
-            }
 
             reservas.push({
                 idBoleto,
                 idHoja,
                 idAsiento: datos.ID_ASI,
-                estado: estadoBoleto,
-                estadoRevision: estRevPag,
+                estado: 'RESERVADO',
+                estadoRevision: 'PENDIENTE_COMPROBANTE',
                 expiraEnUtc: expiraDate ? expiraDate.toISOString() : null,
                 segundosRestantes: expiraDate ? EXPIRACION_TRANSFERENCIA_SEGUNDOS : 0,
-                codigoQr,
                 precio: precioFinal
             });
         }
 
         await transaccion.commit();
-        let mensajeExito = 'Operación procesada con éxito.';
-        if (metodoPago === 'DEPOSITO') {
-            mensajeExito = 'Depósito procesado. Tus boletos están en estado PAGADO.';
-        } else if (metodoPago === 'TRANSFERENCIA') {
-            mensajeExito = tieneComprobante
-                ? 'Transferencia y comprobante enviados a la bandeja de aprobación del oficinista.'
-                : 'Asiento retenido temporalmente por 5 minutos. Sube el comprobante de transferencia antes de que expire el temporizador.';
-        }
-
         return res.status(201).json({
             success: true,
-            message: mensajeExito,
-            requiereComprobante: metodoPago === 'TRANSFERENCIA' && !tieneComprobante,
+            message: 'Asientos retenidos por cinco minutos.',
+            requiereComprobante: true,
             expiraEnUtc: expiraDate ? expiraDate.toISOString() : null,
             segundosRestantes: expiraDate ? EXPIRACION_TRANSFERENCIA_SEGUNDOS : 0,
             reservas
         });
     } catch (error) {
         try { await transaccion.rollback(); } catch {}
-        if (req.file) { try { await fs.unlink(req.file.path); } catch {} }
         const control = cc.respond(res, error);
         if (control) return control;
         if (error.status) return res.status(error.status).json({ success: false, message: error.message });
@@ -820,7 +710,8 @@ const descargarBoletoPdf = async (req, res) => {
                     SELECT
                         CASE WHEN COL_LENGTH('dbo.FRECUENCIAS', 'HORA_SAL_FRE') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_HORA,
                         CASE WHEN COL_LENGTH('dbo.ASIENTOS_BUS', 'UBI_ASI') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_UBI,
-                        CASE WHEN COL_LENGTH('dbo.BOLETOS', 'CED_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_CED
+                        CASE WHEN COL_LENGTH('dbo.BOLETOS', 'CED_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_CED,
+                        CASE WHEN COL_LENGTH('dbo.BOLETOS','NOM_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_NOMBRE
                 `);
             const flags = extra.recordset?.[0] || {};
             if (flags.TIENE_HORA || flags.TIENE_UBI || flags.TIENE_CED) {
@@ -830,6 +721,7 @@ const descargarBoletoPdf = async (req, res) => {
                         SELECT
                             ${flags.TIENE_HORA ? 'F.HORA_SAL_FRE' : "CAST('08:00' AS VARCHAR(5)) AS HORA_SAL_FRE"},
                             ${flags.TIENE_UBI ? 'A.UBI_ASI' : 'CAST(NULL AS VARCHAR(15)) AS UBI_ASI'},
+                            ${flags.TIENE_NOMBRE ? 'B.NOM_PAS_BOL AS PASAJERO,' : ''}
                             ${flags.TIENE_CED ? 'B.CED_PAS_BOL' : 'CAST(NULL AS VARCHAR(10)) AS CED_PAS_BOL'}
                         FROM dbo.BOLETOS B
                         INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER

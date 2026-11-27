@@ -52,3 +52,4 @@ desktop.ini
 # CONTENEDORES Y VOLÚMENES (Docker)
 
 docker-data/
+/backend/private_media/comprobantes/
