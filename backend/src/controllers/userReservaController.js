@@ -120,12 +120,21 @@ const obtenerAsientos = async (req, res) => {
         } catch (errCol) {
             const num = errCol.number ?? errCol.originalError?.info?.number;
             if (num !== 207) throw errCol;
+            const layout = (await pool.request().query(`
+                SELECT COL_LENGTH('dbo.BUSES','PLANTILLA_JSON') AS plantilla,
+                       COL_LENGTH('dbo.ASIENTOS_BUS','FIL_ASI') AS fila,
+                       COL_LENGTH('dbo.ASIENTOS_BUS','COL_ASI') AS columna,
+                       COL_LENGTH('dbo.ASIENTOS_BUS','UBI_ASI') AS ubicacion
+            `)).recordset[0] || {};
             resultado = await pool.request()
                 .input('idHoja', sql.VarChar(5), idHoja)
                 .input('cooperativa', sql.VarChar(5), cooperativa || null)
                 .query(`
                     SELECT H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ, B.ID_BUS, B.NUM_BUS, B.NUM_PIS, B.IMG_URL_BUS,
                            A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER, T.NOM_TIP, T.PRE_TIP,
+                           ${layout.plantilla ? 'B.PLANTILLA_JSON,' : ''}
+                           ${layout.fila && layout.columna ? 'A.FIL_ASI, A.COL_ASI,' : ''}
+                           ${layout.ubicacion ? 'A.UBI_ASI,' : ''}
                            CASE
                                WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO') THEN 'OCUPADO'
                                WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('RESERVADO', 'PENDIENTE') THEN 'RESERVADO'

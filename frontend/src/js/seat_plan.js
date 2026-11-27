@@ -3,8 +3,10 @@ const SeatPlan = (() => {
     const labels = {PASILLO:'Pasillo', BANO:'Baño', ESCALERA:'Escalera', BLOQUEADO:'Bloqueado'};
     function button(seat, attribute, available, selected) {
         const status = seat.ESTADO_ASIENTO || seat.EST_BOL || 'LIBRE';
+        const reserved = ['RESERVADO', 'PENDIENTE'].includes(status);
+        const stateClass = available ? 'libre' : (reserved ? 'reservado' : 'occupied');
         const type = seat.ID_TIP_PER === 'TIP03' ? '♿ Accesible' : seat.NOM_TIP;
-        return `<button type="button" class="seat ${available ? 'libre' : 'occupied'}${selected ? ' selected' : ''}" ${attribute}="${escape(seat.ID_ASI)}" aria-pressed="${selected}" ${available ? '' : 'disabled'}>
+        return `<button type="button" class="seat ${stateClass}${selected ? ' selected' : ''}" ${attribute}="${escape(seat.ID_ASI)}" aria-pressed="${selected}" ${available ? '' : 'disabled'}>
           <strong>${escape(seat.ETIQUETA || seat.ID_ASI)}</strong><small>${escape(type)} · ${escape(seat.UBI_ASI)}</small><small>${available ? 'Disponible' : escape(status === 'LIBRE' ? 'Sin cupo' : status)}</small></button>`;
     }
     function render(template, floor, seats, drawSeat) {

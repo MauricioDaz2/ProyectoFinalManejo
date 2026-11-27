@@ -9,4 +9,9 @@
 .seat-plan small,.seat-list small{display:block}
 .seat.selected::after{content:"✓ Seleccionado"}
 .seat-list{display:flex;gap:.5rem;flex-wrap:wrap}
-#seatGrid,#mapaAsientos{display:block;min-width:0;max-width:100%}
+#seatGrid,#mapaAsientosVenta{display:block;min-width:0;max-width:100%}
+
+.plan-grid .seat.reservado,.seat-list .seat.reservado{background:#fff3d6;color:#794a00;border:1px dashed #ad741a}
+.plan-grid .seat.occupied,.seat-list .seat.occupied{background:#eceff3;color:#4d5968}
+[data-plan-floor]{padding:.45rem .8rem;margin:0 .25rem .6rem 0;border:1px solid #c5cfdb;border-radius:.5rem;background:white}
+[data-plan-floor][aria-pressed="true"]{background:#203044;color:white}
