@@ -1,4 +1,4 @@
--- RFC-000085: reversión de 016_frecuencias_destacadas.sql. Idempotente y transaccional.
+-- RFC-000085: reversión de 019_frecuencias_destacadas.sql. Idempotente y transaccional.
 -- Elimina el trigger, el índice, las restricciones y las columnas LIM_DES_COP / ES_DESTACADA.
 SET XACT_ABORT ON;
 BEGIN TRY
@@ -23,7 +23,7 @@ BEGIN TRY
         ALTER TABLE dbo.COOPERATIVAS DROP COLUMN LIM_DES_COP;
 
     COMMIT TRANSACTION;
-    PRINT 'RFC-000085: reversión 016 aplicada.';
+    PRINT 'RFC-000085: reversión 019 aplicada.';
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

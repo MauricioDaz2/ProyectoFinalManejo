@@ -50,7 +50,7 @@ async function installed(pool) {
 }
 
 async function requireInstalled(pool) {
-    if (!await installed(pool)) throw fail(409, 'El módulo de frecuencias destacadas no está instalado. Aplica la migración 016.', { code: 'DESTACADAS_NO_INSTALADAS' });
+    if (!await installed(pool)) throw fail(409, 'El módulo de frecuencias destacadas no está instalado. Aplica la migración 019.', { code: 'DESTACADAS_NO_INSTALADAS' });
 }
 
 async function summary(pool, cooperativa) {

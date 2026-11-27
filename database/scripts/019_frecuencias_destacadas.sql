@@ -52,7 +52,7 @@ BEGIN
 END;');
 
     COMMIT TRANSACTION;
-    PRINT 'RFC-000085: migración 016 aplicada correctamente.';
+    PRINT 'RFC-000085: migración 019 aplicada correctamente.';
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

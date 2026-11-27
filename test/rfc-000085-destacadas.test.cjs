@@ -112,7 +112,7 @@ test('el límite no puede bajar por debajo de las destacadas en uso y valida ran
   assert.deepEqual(await S.summary(pool, 'CP002'), { disponible: true, limite: 5, usadas: 1 });
 });
 
-test('sin migración 016 el módulo responde de forma segura', async () => {
+test('sin migración 019 el módulo responde de forma segura', async () => {
   const { pool, sql } = crearBase({ instalado: false });
   const S = cargarServicio(sql);
   assert.deepEqual(await S.summary(pool, 'CP001'), { disponible: false, limite: 0, usadas: 0 });
@@ -120,15 +120,15 @@ test('sin migración 016 el módulo responde de forma segura', async () => {
   await assert.rejects(S.toggle(pool, 'CP001', 'F0001', true), (e) => e.status === 409 && e.code === 'DESTACADAS_NO_INSTALADAS');
 });
 
-test('migración 016 es aditiva, transaccional e idempotente y tiene reversión', () => {
-  const sqlText = fs.readFileSync('database/scripts/016_frecuencias_destacadas.sql', 'utf8');
+test('migración 019 es aditiva, transaccional e idempotente y tiene reversión', () => {
+  const sqlText = fs.readFileSync('database/scripts/019_frecuencias_destacadas.sql', 'utf8');
   assert.match(sqlText, /SET XACT_ABORT ON/);
   assert.match(sqlText, /BEGIN TRANSACTION[\s\S]*COMMIT TRANSACTION[\s\S]*ROLLBACK TRANSACTION/);
   assert.match(sqlText, /IF COL_LENGTH\('dbo\.COOPERATIVAS', 'LIM_DES_COP'\) IS NULL[\s\S]*LIM_DES_COP int NOT NULL[\s\S]*DEFAULT 0/);
   assert.match(sqlText, /IF COL_LENGTH\('dbo\.FRECUENCIAS', 'ES_DESTACADA'\) IS NULL[\s\S]*ES_DESTACADA bit NOT NULL[\s\S]*DEFAULT 0/);
   assert.match(sqlText, /CREATE OR ALTER TRIGGER dbo\.TR_RFC085_CupoDestacadas/);
   assert.doesNotMatch(sqlText, /\bDROP\s+(TABLE|COLUMN)\b|\bDELETE\s+FROM\b|\bTRUNCATE\b/i, 'no destruye datos');
-  const reversion = fs.readFileSync('database/scripts/016_reversion_frecuencias_destacadas.sql', 'utf8');
+  const reversion = fs.readFileSync('database/scripts/019_reversion_frecuencias_destacadas.sql', 'utf8');
   assert.match(reversion, /DROP TRIGGER dbo\.TR_RFC085_CupoDestacadas/);
   assert.match(reversion, /IF COL_LENGTH\('dbo\.FRECUENCIAS', 'ES_DESTACADA'\) IS NOT NULL/);
 });

@@ -12,7 +12,7 @@ Permite monetizar posiciones destacadas en la portada mediante un cupo que contr
 ## Instalación
 
 1. Respaldar `BD_COOPERATIVAS_BUSES`.
-2. Aplicar `database/scripts/016_frecuencias_destacadas.sql` con `sqlcmd -b` o SSMS. Requiere 014 y 015, es transaccional e idempotente y no altera datos históricos.
+2. Aplicar `database/scripts/019_frecuencias_destacadas.sql` con `sqlcmd -b` o SSMS. Requiere de 014 a 018, es transaccional e idempotente y no altera datos históricos.
 3. Reiniciar Express.
 
 Sin la migración, el sistema funciona como antes: la columna y la estrella no se muestran, la portada indica que no hay destacadas y las escrituras responden `409 DESTACADAS_NO_INSTALADAS`.
@@ -46,9 +46,9 @@ node --test
 
 - Las reglas de cupo y el escenario CP001.
 - El aislamiento entre cooperativas, el límite menor que las destacadas en uso y el funcionamiento sin migración.
-- El análisis estático de la migración 016 y de su reversión.
+- El análisis estático de la migración 019 y de su reversión.
 - Las rutas, la interfaz de la estrella y la portada.
 
 ## Reversión
 
-Revertir los commits y aplicar `database/scripts/016_reversion_frecuencias_destacadas.sql`, que elimina el trigger, el índice, las restricciones y las columnas. También se puede restaurar el respaldo `.bak`.
+Revertir los commits y aplicar `database/scripts/019_reversion_frecuencias_destacadas.sql`, que elimina el trigger, el índice, las restricciones y las columnas. También se puede restaurar el respaldo `.bak`.
