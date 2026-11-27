@@ -3,6 +3,7 @@
   function apply(user) {
     if (!['R002', 'R003'].includes(user?.rolId)) return;
     const isOficinista = user.rolId === 'R003';
+    if (isOficinista && document.body.hasAttribute('data-coop-operaciones')) return;
     const allowed = (permission) => {
       if (isOficinista) return ['rutas', 'salidas', 'ventanilla'].includes(permission);
       if (permission === 'ventanilla') {

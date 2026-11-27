@@ -7,13 +7,18 @@
   <title>Validación de Reservas | Transporte UTA</title>
   <link rel="stylesheet" href="../../assets/admin_layout.css">
   <link rel="stylesheet" href="../../assets/panel_pages.css">
+  <link rel="stylesheet" href="../../assets/coop_dashboard.css">
+  <link rel="stylesheet" href="../../assets/coop_navigation.css">
+  <link rel="stylesheet" href="../../assets/coop_operaciones.css">
   <script src="../../js/api.js" defer></script>
+  <script src="../../js/coop_navigation.js" defer></script>
+  <script src="../../js/coop_access.js" defer></script>
   <script src="../../js/panel_layout.js" defer></script>
   <script src="../../js/oficinista_validacion.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
 </head>
-<body data-app="oficinista" data-page="validacion">
+<body data-app="oficinista" data-page="validacion" data-coop-operaciones>
   <div class="admin-shell">
     <aside id="adminSidebar" class="admin-sidebar" aria-label="Menú principal"></aside>
     <div id="menuBackdrop" class="menu-backdrop" hidden></div>
@@ -24,7 +29,7 @@
       <main id="main-content" class="admin-main">
         <div class="page-head">
           <div>
-            <p class="eyebrow">Oficinista / Pagos y control de abordaje</p>
+            <p class="eyebrow" data-coop-contexto="Validación de reservas">Oficinista / Pagos y control de abordaje</p>
             <h1>Aprobación de transferencias y validación</h1>
             <p>Revisa los comprobantes de reservas por transferencia para aprobar o rechazar el pago, y valida los boletos pagados al abordar.</p>
           </div>
