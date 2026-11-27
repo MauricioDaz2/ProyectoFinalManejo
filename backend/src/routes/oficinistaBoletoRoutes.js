@@ -5,7 +5,7 @@ const router = express.Router();
  * Rutas del módulo Oficinista
  * - Hojas de ruta disponibles para ventanilla y mapa de asientos
  * - Registro y búsqueda de pasajeros
- * - Venta de boletos, búsqueda y validación por QR/cédula
+ * - Venta de boletos, bandeja de aprobación de transferencias, búsqueda y validación por QR/cédula
  * - Cambio de estado de boletos y resumen del día
  */
 
@@ -15,8 +15,11 @@ const {
     registrarPasajero,
     buscarPasajeros,
     crearBoletoVentanilla,
+    listarPendientesTransferencia,
+    revisarTransferenciaBoleto,
     buscarBoletos,
     obtenerBoleto,
+    descargarBoletoPdf,
     cambiarEstadoBoleto,
     validarBoleto,
     resumenOficinista
@@ -33,9 +36,12 @@ router.get('/pasajeros', buscarPasajeros);
 router.post('/pasajeros', registrarPasajero);
 
 router.post('/boletos/ventanilla', crearBoletoVentanilla);
+router.get('/boletos/pendientes-transferencia', listarPendientesTransferencia);
 router.get('/boletos/buscar', buscarBoletos);
 router.post('/boletos/validar', validarBoleto);
+router.get('/boletos/:id/pdf', descargarBoletoPdf);
 router.get('/boletos/:id', obtenerBoleto);
+router.patch('/boletos/:id/revision-transferencia', revisarTransferenciaBoleto);
 router.patch('/boletos/:id/estado', cambiarEstadoBoleto);
 
 module.exports = router;

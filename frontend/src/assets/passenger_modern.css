@@ -280,6 +280,45 @@ body {
     box-shadow: none;
 }
 
+.ticket-note {
+    color: #8a5a00;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ticket-alert {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid #fdba74;
+    border-radius: 10px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 13px;
+}
+
+.ticket-upload {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.ticket-upload input {
+    font-size: 12px;
+}
+
+.ticket-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.ticket-actions .ticket-cancel {
+    margin-top: 0;
+}
+
 .ticket-qr {
     display: flex;
     flex-direction: column;

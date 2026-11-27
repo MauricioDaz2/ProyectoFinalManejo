@@ -34,7 +34,7 @@ test('R004, R006 y R005 usan reservas personales con identidad y cupos aislados'
  const app=require('../backend/src/server'),{store}=require('../backend/src/security/sessionStore'),tokens=Object.fromEntries(Object.keys(users).map(id=>[id,store.create(id)]));
  const server=app.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));
  const call=(path,user,method='GET',body)=>fetch(`http://127.0.0.1:${server.address().port}/api/usuario/reservas${path}`,{method,headers:{Cookie:'transporte_sid='+tokens[user],'X-Transport-Client':'1','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
- const purchase=(user,seat,method='EFECTIVO')=>({idHoja:'H0001',cedulaTitular:user,metodoPago:method,idAsientos:JSON.stringify([seat]),pasajeros:JSON.stringify([{tipo:'ADULTO'}])});
+ const purchase=(user,seat,method='TRANSFERENCIA')=>({idHoja:'H0001',cedulaTitular:user,metodoPago:method,idAsientos:JSON.stringify([seat]),pasajeros:JSON.stringify([{tipo:'ADULTO'}])});
  for(const [i,user]of ['CON01','DRV01','PAS01'].entries())await t.test(user+': reserva, compra, historial y cancelación propios',async()=>{
   const role=users[user].ID_ROL_PER;
   const response=await call('',user,'POST',purchase(user,'A000'+i));assert.equal(response.status,201,await response.clone().text());

@@ -12,7 +12,8 @@
   <button type="button" data-section="ocupacion"><svg aria-hidden="true"><use href="../../assets/worker_icons.svg#people"/></svg>Ocupación</button>
   <button type="button" data-section="operaciones"><svg aria-hidden="true"><use href="../../assets/worker_icons.svg#ticket"/></svg>Mis operaciones</button>
   <button type="button" data-section="historial"><svg aria-hidden="true"><use href="../../assets/worker_icons.svg#clock"/></svg>Historial</button>
-  <button type="button" data-section="venta" data-controller>Venta a bordo</button>
+  <button type="button" data-section="venta">Venta a bordo</button>
+  <button type="button" data-section="finanzas">Reporte financiero</button>
  </div>
  <a class="work-passenger" href="../public/index.html"><svg aria-hidden="true"><use href="../../assets/worker_icons.svg#bus"/></svg>Viajar como pasajero</a>
 </nav>
@@ -30,7 +31,31 @@
  <section data-panel="agenda" hidden><div class="work-card"><h2>Mi agenda</h2><p>Próximos recorridos laborales, separados de tu historial y de tus viajes personales.</p><p id="workAgendaNotice"></p><div id="workAgenda" class="work-agenda"></div></div></section>
  <section data-panel="pasajeros" hidden><div class="work-card"><h2>Pasajeros previstos</h2><p id="workPassengerSummary"></p><p>El titular de la compra no identifica necesariamente a cada acompañante. El abordaje se registra por boleto.</p><div class="work-table"><table><thead><tr><th>Boleto / titular</th><th>Asiento</th><th>Tramo</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="workPassengers"></tbody></table></div></div></section>
  <section data-panel="validar" hidden><div class="work-card"><h2>Validar y registrar abordaje</h2><p>Selecciona el viaje. La validación se confirma en el servidor.</p><form id="workValidate"><label>Código del boleto o contenido del QR<input id="workCode" maxlength="1500" autocomplete="off" required></label><button id="workValidateSubmit" type="submit">Validar boleto</button></form><div id="reader"></div><div class="work-actions"><button id="workCamera" type="button">Activar cámara</button><button id="workCameraStop" type="button" hidden>Apagar cámara</button></div><p id="workCameraStatus" role="status"></p></div></section>
- <section data-panel="venta" hidden><div class="work-card"><h2>Venta a bordo</h2><p id="workSaleReason">Selecciona un viaje para consultar la disponibilidad de venta.</p><form id="workSale"><fieldset disabled><label>Origen autorizado<input id="workSaleOrigin" readonly></label><label>Destino<select id="workSaleDestination"></select></label><label>Pasajeros<input type="number" min="1" max="10" value="1"></label><label>Total calculado<input id="workTotal" readonly value="No disponible"></label><label>Efectivo recibido<input type="number" min="0" step="0.01"></label><p>Vuelto: no disponible sin una tarifa confirmada.</p><button type="submit">Confirmar venta</button></fieldset></form></div></section>
+ <section data-panel="venta" hidden>
+  <div class="work-card"><h2>Venta a bordo</h2><p id="workSaleReason" role="status"></p>
+   <form id="workSale"><fieldset id="workSaleFields" disabled>
+    <label>Origen<input id="workSaleOrigin" readonly></label>
+    <label>Destino<select id="workSaleDestination" required></select></label>
+    <p class="work-hint">Verde: libre. Rojo: ocupado.</p>
+    <div id="workSaleSeats" aria-label="Asientos del bus"></div>
+    <label>Tarifa sugerida<input id="workTotal" readonly></label>
+    <label>Efectivo recibido<input id="workCash" type="number" min="0" max="99999999.99" step="0.01" required></label>
+    <output id="workChange" for="workCash"></output>
+    <button type="submit">Confirmar venta</button>
+   </fieldset></form>
+  </div>
+ </section>
+ <section data-panel="finanzas" hidden>
+  <div class="work-card"><h2>Reporte financiero</h2><p id="workFinanceStatus" role="status"></p>
+   <p id="workFinanceTotals"></p><ul id="workExpenses"></ul>
+   <form id="workExpense"><fieldset id="workExpenseFields" disabled>
+    <label>Categor?a<select name="categoria"><option value="COMBUSTIBLE">Combustible</option><option value="ALIMENTACION">Alimentaci?n</option><option value="PEAJE">Peaje</option><option value="HOSPEDAJE">Hospedaje</option><option value="OTROS">Otros</option></select></label>
+    <label>Monto<input name="monto" type="number" min="0.01" max="99999999.99" step="0.01" required></label>
+    <label>Detalle<input name="detalle" maxlength="200"></label>
+    <button type="submit">Registrar gasto</button>
+   </fieldset></form>
+  </div>
+ </section>
  <section data-panel="ocupacion" hidden><div class="work-card"><h2>Disponibilidad por tramo</h2><p>Consulta de contratos registrados. El descenso no modifica el tramo comprado ni habilita una nueva venta.</p><div class="work-table"><table><thead><tr><th>Tramo</th><th>Capacidad</th><th>Comprometidos</th><th>Libres en el tramo</th></tr></thead><tbody id="workSegments"></tbody></table></div></div><div class="work-card"><h2>Detalle de asientos del viaje</h2><p id="workCapacity"></p><p>Un asiento comprometido tiene al menos un boleto vigente en algún tramo del recorrido.</p><div id="workSeats" class="work-seats"></div></div></section>
  <section data-panel="operaciones" hidden><div class="work-card"><h2>Novedades del viaje</h2><form id="workNote"><label>Describe la novedad<textarea id="workNoteText" maxlength="1000" required></textarea></label><button id="workNoteSubmit" type="submit">Registrar novedad</button></form></div><div class="work-card"><h2>Mis operaciones en este viaje</h2><p id="workOperationsEmpty"></p><ol id="workEvents" class="work-events"></ol></div><div class="work-card" data-controller><h2>Boletos asociados a mi cuenta</h2><p>Importes y métodos registrados. Los datos antiguos no distinguen al vendedor de quien validó el boleto; no representan una liquidación de efectivo.</p><div class="work-table"><table><thead><tr><th>Boleto</th><th>Fecha de compra</th><th>Importe registrado</th><th>Método</th><th>Estado</th></tr></thead><tbody id="workRecordedTickets"></tbody></table></div></div></section>
  <section data-panel="historial" hidden><div class="work-card"><h2>Historial laboral</h2><p>Selecciona un viaje para consultar su recorrido y tus eventos registrados.</p><div class="work-table"><table><thead><tr><th>Fecha / ruta</th><th>Bus</th><th>Inicio</th><th>Finalización</th><th>Estado</th><th></th></tr></thead><tbody id="workHistory"></tbody></table></div></div></section>

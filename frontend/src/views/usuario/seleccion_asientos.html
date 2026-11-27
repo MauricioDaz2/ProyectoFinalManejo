@@ -11,7 +11,8 @@
   <script src="../../js/usuario_asientos.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
-<script src="../../js/worker_passenger.js" defer></script></head>
+  <script src="../../js/worker_passenger.js" defer></script>
+</head>
 <body>
   <div class="usuario-shell">
     <header class="usuario-header">
@@ -19,25 +20,25 @@
         <img class="passenger-brand-logo" src="../../assets/images/transport-logo.svg" alt="" width="54" height="44">
         <span><span class="usuario-brand-name">Sistema de Transporte</span><span class="usuario-brand-caption">Viaja seguro y a tu ritmo</span></span>
       </a>
-      
-      <!-- Navegación corregida dentro del header con el enlace a Mis Boletos -->
+
       <nav class="usuario-navigation" aria-label="Navegación de usuario">
         <a class="usuario-nav-button" href="mis_boletos.html"><span aria-hidden="true">🎫</span>Mis Boletos</a>
         <a class="usuario-nav-button usuario-nav-button-light" href="catalogo_viajes.html"><span aria-hidden="true">⌕</span>Nueva búsqueda</a>
         <a class="usuario-nav-button usuario-nav-button-light" href="../public/index.html"><span aria-hidden="true">⌂</span>Volver al inicio</a>
-      <a id="workerReturnLink" class="usuario-nav-button usuario-nav-button-light" hidden>Volver a mi trabajo</a></nav>
-    <button class="personal-header-button" type="button" data-personal-user hidden>Mi perfil</button><button id="logoutButton" class="usuario-logout" type="button" disabled>Cerrar sesión</button></header>
+        <a id="workerReturnLink" class="usuario-nav-button usuario-nav-button-light" hidden>Volver a mi trabajo</a>
+      </nav>
+      <button class="personal-header-button" type="button" data-personal-user hidden>Mi perfil</button>
+      <button id="logoutButton" class="usuario-logout" type="button" disabled>Cerrar sesión</button>
+    </header>
 
     <main class="usuario-main">
       <p class="usuario-eyebrow">Selecciona tu lugar</p>
       <h1 class="usuario-title">Mapa de asientos</h1>
-      
-      <!-- Resumen del viaje con la imagen del bus incluida -->
+
       <div id="tripSummary" class="usuario-subtitle" style="display: flex; gap: 20px; align-items: center; background: #fff; padding: 15px; border-radius: 12px; border: 1px solid var(--usuario-border);">
         <p>Cargando información del bus...</p>
       </div>
 
-      <!-- Mapa geométrico del bus -->
       <section class="usuario-card">
         <div class="seat-legend" aria-label="Estados de los asientos">
           <span class="legend-item"><span class="legend-color libre"></span>Libre</span>
@@ -49,28 +50,27 @@
         <p id="seatStatus" class="usuario-status" role="status"></p>
       </section>
 
-      <!-- Panel de pago dinámico -->
       <section id="reservationPanel" class="usuario-card reservation-panel" aria-labelledby="reservationTitle">
-        <h2 id="reservationTitle">Finalizar Operación</h2>
+        <h2 id="reservationTitle">Finalizar Reserva en Línea</h2>
         <p id="reservationSummary" class="reservation-summary"></p>
-        
-        <!-- Configuración de tipo de pasajero por cada asiento seleccionado -->
+
         <div id="passengerTypesContainer" style="margin-bottom: 20px;"></div>
 
         <form id="reservationForm">
           <div class="reservation-grid">
             <div class="usuario-field">
-              <label for="metodoPago">Método de pago</label>
+              <label for="metodoPago">Método de pago en línea</label>
               <select id="metodoPago" name="metodoPago" required>
                 <option value="">Selecciona un método</option>
-                <option value="EFECTIVO">Efectivo (Pago en ventanilla)</option>
+                <option value="TRANSFERENCIA">Transferencia Bancaria (Temporizador de 5 minutos)</option>
                 <option value="DEPOSITO">Depósito Bancario</option>
-                <option value="TRANSFERENCIA">Transferencia Bancaria</option>
               </select>
+              <small style="display:block; margin-top:6px; font-size:12px; color:var(--usuario-muted);">
+                * Las ventas en efectivo se realizan exclusivamente en la ventanilla física con el oficinista.
+              </small>
             </div>
           </div>
 
-          <!-- Campos dinámicos para Depósito -->
           <div id="depositoInfo" class="usuario-field" style="display: none; margin-top: 15px; padding: 12px; background: #f8fafc; border: 1px solid var(--usuario-border); border-radius: 8px;">
             <strong>Datos para Depósito:</strong>
             <p style="margin: 5px 0 0; font-size: 14px; color: var(--usuario-muted);">
@@ -80,22 +80,39 @@
             </p>
           </div>
 
-          <!-- Campos dinámicos para Transferencia -->
           <div id="transferenciaInfo" class="usuario-field" style="display: none; margin-top: 15px; gap: 10px;">
+            <div id="temporizadorTransferencia" style="margin-bottom: 14px; padding: 14px 16px; border-radius: 10px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div>
+                  <strong style="font-size: 14px;">⏱ Temporizador para subir comprobante de transferencia</strong>
+                  <p id="textoTemporizadorTransferencia" style="margin: 4px 0 0; font-size: 13px;">
+                    Tienes 5 minutos para completar la transferencia y adjuntar el comprobante. Si el tiempo expira sin comprobante, el asiento se liberará automáticamente.
+                  </p>
+                </div>
+                <div style="text-align: right; min-width: 95px;">
+                  <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; display: block;">Tiempo restante</span>
+                  <strong id="relojTransferencia" style="font-size: 24px; font-family: ui-monospace, monospace; color: #c2410c;">05:00</strong>
+                </div>
+              </div>
+              <div style="margin-top: 8px; height: 6px; border-radius: 999px; background: #fed7aa; overflow: hidden;">
+                <div id="barraProgresoTimer" style="width: 100%; height: 100%; background: #ea580c; transition: width 0.4s linear;"></div>
+              </div>
+            </div>
+
             <div class="usuario-field" style="margin-bottom: 10px;">
               <label for="bancoOrigen">Banco desde el que transfiere (Tu banco)</label>
-              <input id="bancoOrigen" name="bancoOrigen" placeholder="Ej. Banco Guayaquil, Produbanco...">
+              <input id="bancoOrigen" name="bancoOrigen" placeholder="Ej. Banco Guayaquil, Produbanco, Pichincha...">
             </div>
             <div class="usuario-field" style="margin-bottom: 10px;">
               <label>Banco de destino (Empresa)</label>
               <input type="text" value="BANCO PICHINCHA (Cuenta Corriente: 2100458963)" disabled style="background: #f1f3f5;">
             </div>
             <div class="usuario-field" style="margin-bottom: 10px;">
-              <label for="comprobante">Comprobante de transferencia (JPG, PNG o PDF)</label>
-              <input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.pdf">
+              <label for="comprobante">Comprobante de transferencia (JPG, PNG, WebP o PDF)</label>
+              <input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf">
             </div>
             <p style="margin: 0; font-size: 13px; color: var(--usuario-muted);">
-              <em>Tus boletos quedarán en estado RESERVADO hasta que la oficinista valide el comprobante.</em>
+              <em>Puedes retener tu asiento por 5 minutos mientras transfieres o adjuntar el comprobante directamente. El oficinista revisará y aprobará tu pago en su bandeja.</em>
             </p>
           </div>
 

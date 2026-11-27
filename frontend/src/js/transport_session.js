@@ -21,7 +21,12 @@
     const panels = { R001:'../admin/dashboard.html', R002:'../cooperativa/dashboard_coop.html', R003:'../oficinista/ventanilla_boletos.html', R004:'../controlador/panel.html', R005:'../public/index.html', R006:'../chofer/bienvenida.html' };
     const path = new URL(location.href).pathname;
     const family = path.match(/\/views\/(admin|cooperativa|oficinista|controlador|chofer)\//)?.[1];
-    const privateRoles = family ? [{admin:'R001',cooperativa:'R002',oficinista:'R003',controlador:'R004',chofer:'R006'}[family]] : /\/usuario\/(mis_boletos|seleccion_asientos)\.html$/.test(path) ? ['R005','R004','R006'] : null;
+    const sharedCoopRoute = family === 'cooperativa' && /\/resoluciones_ant\.html$/.test(path);
+    const privateRoles = family
+        ? (family === 'oficinista'
+            ? ['R003', 'R002']
+            : (sharedCoopRoute ? ['R002', 'R003'] : [{admin:'R001',cooperativa:'R002',oficinista:'R003',controlador:'R004',chofer:'R006'}[family]]))
+        : /\/usuario\/(mis_boletos|seleccion_asientos)\.html$/.test(path) ? ['R005','R004','R006'] : null;
     let checking = null;
     let ended = false;
     let verifiedId = null;
@@ -94,6 +99,10 @@
                 if (ended) return null;
                 if (!user) { requireLogin(); return null; }
                 if (!privateRoles.includes(user.rolId)) { location.replace(panels[user.rolId]); return null; }
+                if (family === 'oficinista' && user.rolId === 'R002' && user.accesoConfigurado === true && !user.principal && !user.permisos?.some(p => ['ventanilla', 'salidas', 'rutas'].includes(p))) {
+                    location.replace(panels[user.rolId]);
+                    return null;
+                }
                 if (verifiedId && verifiedId !== user.id) { location.reload(); return null; }
                 verifiedId = user.id;
                 verifiedUser = user;
