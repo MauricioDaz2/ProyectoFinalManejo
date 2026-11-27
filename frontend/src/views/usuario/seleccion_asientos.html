@@ -53,15 +53,15 @@
         <h2 id="reservationTitle">Finalizar Reserva en Línea</h2>
         <p id="reservationSummary" class="reservation-summary"></p>
 
-        <div id="passengerTypesContainer" style="margin-bottom: 20px;"></div>
-
-        <form id="reservationForm">
+        <button id="holdSeats" class="usuario-button" type="button">Continuar con estos asientos</button>
+        <form id="reservationForm" hidden>
+          <div id="passengerTypesContainer"></div>
           <div class="reservation-grid">
             <div class="usuario-field">
               <label for="metodoPago">Método de pago en línea</label>
               <select id="metodoPago" name="metodoPago" required>
                 <option value="">Selecciona un método</option>
-                <option value="TRANSFERENCIA">Transferencia Bancaria (Temporizador de 5 minutos)</option>
+                <option value="TRANSFERENCIA">Transferencia bancaria</option>
                 <option value="DEPOSITO">Depósito Bancario</option>
               </select>
               <small style="display:block; margin-top:6px; font-size:12px; color:var(--usuario-muted);">
@@ -70,22 +70,13 @@
             </div>
           </div>
 
-          <div id="depositoInfo" class="usuario-field" style="display: none; margin-top: 15px; padding: 12px; background: #f8fafc; border: 1px solid var(--usuario-border); border-radius: 8px;">
-            <strong>Datos para Depósito:</strong>
-            <p style="margin: 5px 0 0; font-size: 14px; color: var(--usuario-muted);">
-              Realiza el depósito a nombre de la empresa en el <strong>BANCO PICHINCHA</strong>.<br>
-              Cuenta Corriente N°: <strong>2100458963</strong>.<br>
-              <em>Tus boletos quedarán en estado PAGADO automáticamente.</em>
-            </p>
-          </div>
-
-          <div id="transferenciaInfo" class="usuario-field" style="display: none; margin-top: 15px; gap: 10px;">
+          <div id="transferenciaInfo" class="usuario-field">
             <div id="temporizadorTransferencia" style="margin-bottom: 14px; padding: 14px 16px; border-radius: 10px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412;">
               <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <div>
-                  <strong style="font-size: 14px;">⏱ Temporizador para subir comprobante de transferencia</strong>
+                  <strong style="font-size: 14px;">⏱ Tiempo para completar la reserva</strong>
                   <p id="textoTemporizadorTransferencia" style="margin: 4px 0 0; font-size: 13px;">
-                    Tienes 5 minutos para completar la transferencia y adjuntar el comprobante. Si el tiempo expira sin comprobante, el asiento se liberará automáticamente.
+                    Tienes 5 minutos para registrar los pasajeros y adjuntar el comprobante. Si el tiempo expira sin comprobante, el asiento se liberará automáticamente.
                   </p>
                 </div>
                 <div style="text-align: right; min-width: 95px;">
@@ -107,21 +98,21 @@
               <input type="text" value="BANCO PICHINCHA (Cuenta Corriente: 2100458963)" disabled style="background: #f1f3f5;">
             </div>
             <div class="usuario-field" style="margin-bottom: 10px;">
-              <label for="comprobante">Comprobante de transferencia (JPG, PNG, WebP o PDF)</label>
-              <input id="comprobante" name="comprobante" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf">
+              <label for="comprobante">Comprobante de pago (JPG, PNG, WebP o PDF)</label>
+              <input id="comprobante" name="comprobante" type="file" required accept=".jpg,.jpeg,.png,.webp,.pdf">
             </div>
             <p style="margin: 0; font-size: 13px; color: var(--usuario-muted);">
-              <em>Puedes retener tu asiento por 5 minutos mientras transfieres o adjuntar el comprobante directamente. El oficinista revisará y aprobará tu pago en su bandeja.</em>
+              <em>El oficinista revisará el comprobante antes de habilitar los boletos.</em>
             </p>
           </div>
 
           <div class="reservation-actions" style="margin-top: 20px;">
-            <button class="usuario-button" type="submit" id="btnSubmitAccion">Generar solicitud de viaje</button>
+            <button class="usuario-button" type="submit" id="btnSubmitAccion">Enviar reserva a revisión</button>
             <button id="cancelReservation" class="usuario-button usuario-button-secondary" type="button">Cancelar selección</button>
           </div>
         </form>
-        <div id="qrResult" class="qr-result" hidden></div>
-      </section>
+        </section>
+      <p id="qrResult" class="qr-result" role="status" hidden></p>
     </main>
   </div>
 </body>

@@ -562,3 +562,27 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
         padding-inline: 8px;
     }
 }
+
+#passengerTypesContainer {
+    display: grid;
+    gap: 12px;
+    margin-block: 16px;
+}
+
+#passengerTypesContainer fieldset {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--usuario-border);
+    border-radius: 10px;
+}
+
+#passengerTypesContainer label { display: grid; gap: 4px; }
+#passengerTypesContainer legend { padding-inline: 6px; font-weight: 700; }
+#reservationForm[hidden], #holdSeats[hidden] { display: none; }
+
+@media (max-width: 600px) {
+    #passengerTypesContainer fieldset { grid-template-columns: 1fr; }
+}

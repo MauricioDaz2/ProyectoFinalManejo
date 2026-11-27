@@ -83,7 +83,7 @@ const cargarHistorial = async () => {
             const fechaViaje = b.FEC_PRO_HOJ ? String(b.FEC_PRO_HOJ).slice(0, 10) : '—';
             const horaSalida = b.HORA_SAL_FRE ? String(b.HORA_SAL_FRE).slice(0, 5) : '08:00';
             const faltaComprobante = esReservado && String(b.MET_PAG_BOL || '').toUpperCase() === 'TRANSFERENCIA' && !b.COM_PAG_URL;
-            const enRevision = esReservado && String(b.MET_PAG_BOL || '').toUpperCase() === 'TRANSFERENCIA' && Boolean(b.COM_PAG_URL);
+            const enRevision = esReservado && ['DEPOSITO','TRANSFERENCIA'].includes(String(b.MET_PAG_BOL || '').toUpperCase()) && Boolean(b.COM_PAG_URL);
 
             return `
                 <div class="usuario-card" data-boleto="${escapeHtml(b.ID_BOL)}" style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid var(--usuario-border); display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
@@ -99,19 +99,18 @@ const cargarHistorial = async () => {
                                 <strong>⏱ Pendiente de comprobante de transferencia</strong>
                                 ${Number(b.SEGUNDOS_RESTANTES) > 0 ? `<span> · Tiempo restante: <strong>${formatearMinutos(b.SEGUNDOS_RESTANTES)}</strong></span>` : ''}
                                 <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                    <input type="file" data-archivo-comprobante="${escapeHtml(b.ID_BOL)}" accept=".jpg,.jpeg,.png,.webp,.pdf" style="font-size: 12px;">
-                                    <button type="button" class="usuario-button" data-subir-comprobante="${escapeHtml(b.ID_BOL)}" style="padding: 6px 12px; font-size: 12px;">Subir comprobante</button>
+                                    <a class="usuario-button" href="seleccion_asientos.html?idHoja=${encodeURIComponent(b.ID_HOJ_PER)}">Completar la reserva</a>
                                 </div>
                             </div>
                         ` : ''}
 
-                        <div style="margin-top: 12px; display: flex; align-items: center; gap: 15px;">
+                        ${!esReservado && !esInactivo ? `<div style="margin-top: 12px; display: flex; align-items: center; gap: 15px;">
                             <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(b.COD_QR_BOL)}" alt="Código QR del boleto" style="width: 90px; height: 90px; border-radius: 8px; border: 1px solid var(--usuario-border); background: #fff; padding: 4px;" />
                             <div style="font-size: 11px; color: var(--usuario-muted); word-break: break-all; max-width: 250px;">
                                 <strong>Código QR de abordaje:</strong><br>
                                 <code>${escapeHtml(b.COD_QR_BOL)}</code>
                             </div>
-                        </div>
+                        </div>` : ''}
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
                         ${!esInactivo ? `
@@ -158,32 +157,6 @@ if (historialContainer) {
         if (btnPdf) {
             descargarBoletoPdf(btnPdf.dataset.descargarPdf, btnPdf);
             return;
-        }
-        const btn = event.target.closest('[data-subir-comprobante]');
-        if (!btn) return;
-        const idBoleto = btn.dataset.subirComprobante;
-        const input = historialContainer.querySelector(`[data-archivo-comprobante="${idBoleto}"]`);
-        if (!input || !input.files || !input.files.length) {
-            alert('Selecciona la imagen o PDF del comprobante de transferencia.');
-            return;
-        }
-        btn.disabled = true;
-        const form = new FormData();
-        form.append('comprobante', input.files[0]);
-        try {
-            const resp = await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(idBoleto)}/comprobante`, {
-                method: 'POST',
-                body: form
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data.success) throw new Error(data.message || 'No se pudo subir el comprobante.');
-            alert(data.message);
-            cargarHistorial();
-        } catch (error) {
-            alert(error.message);
-            cargarHistorial();
-        } finally {
-            btn.disabled = false;
         }
     });
 }

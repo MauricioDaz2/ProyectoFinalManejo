@@ -6,7 +6,7 @@ document.querySelectorAll('a[href="catalogo_viajes.html"]').forEach((link) => {
     if (searchContext.has('cooperativa')) link.href = `catalogo_viajes.html?${searchContext}`;
 });
 
-let cedulaTitular = '';
+
 
 const tripSummary = document.querySelector('#tripSummary');
 const floorTabs = document.querySelector('#floorTabs');
@@ -18,17 +18,13 @@ const passengerTypesContainer = document.querySelector('#passengerTypesContainer
 const reservationForm = document.querySelector('#reservationForm');
 const qrResult = document.querySelector('#qrResult');
 const metodoPagoInput = document.querySelector('#metodoPago');
-const depositoInfo = document.querySelector('#depositoInfo');
-const transferenciaInfo = document.querySelector('#transferenciaInfo');
 const bancoOrigenInput = document.querySelector('#bancoOrigen');
 const comprobanteInput = document.querySelector('#comprobante');
 const cancelReservation = document.querySelector('#cancelReservation');
 const btnSubmitAccion = document.querySelector('#btnSubmitAccion');
 
-const temporizadorBox = document.querySelector('#temporizadorTransferencia');
 const relojTransferencia = document.querySelector('#relojTransferencia');
 const barraProgresoTimer = document.querySelector('#barraProgresoTimer');
-const textoTemporizador = document.querySelector('#textoTemporizadorTransferencia');
 
 const DURACION_TIMER_SEGUNDOS = 5 * 60;
 
@@ -92,48 +88,26 @@ const actualizarVistaReloj = () => {
     }
 };
 
-const iniciarTemporizadorTransferencia = (segundos = DURACION_TIMER_SEGUNDOS, expiraIso = null) => {
+const holdButton = document.querySelector('#holdSeats');
+let busy = false;
+
+function resetSelection() {
     detenerTemporizadorTransferencia();
-    const destinoMs = expiraIso ? new Date(expiraIso).getTime() : (Date.now() + segundos * 1000);
-    timerExpiraMs = Number.isFinite(destinoMs) && destinoMs > Date.now()
-        ? destinoMs
-        : (Date.now() + DURACION_TIMER_SEGUNDOS * 1000);
-
-    if (temporizadorBox) temporizadorBox.style.display = 'block';
-    actualizarVistaReloj();
-    timerInterval = setInterval(actualizarVistaReloj, 1000);
-};
-
-const manejarExpiracionTemporizador = async () => {
-    detenerTemporizadorTransferencia();
-    const idsPorExpirar = [...boletosRetenidos];
-    boletosRetenidos = [];
-
-    if (idsPorExpirar.length > 0) {
-        try {
-            await fetch(`${API_BASE}/usuario/reservas/expirar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idBoletos: idsPorExpirar })
-            });
-        } catch {}
-    }
-
     selectedSeats = [];
-    if (reservationForm) reservationForm.reset();
-    if (depositoInfo) depositoInfo.style.display = 'none';
-    if (transferenciaInfo) transferenciaInfo.style.display = 'none';
-    if (passengerTypesContainer) passengerTypesContainer.innerHTML = '';
-    if (reservationPanel) reservationPanel.classList.remove('visible');
-    if (btnSubmitAccion) btnSubmitAccion.textContent = 'Generar solicitud de viaje';
+    boletosRetenidos = [];
+    reservationForm.reset();
+    reservationForm.hidden = true;
+    holdButton.hidden = false;
+    passengerTypesContainer.replaceChildren();
+    reservationPanel.classList.remove('visible');
+}
 
+async function manejarExpiracionTemporizador() {
+    resetSelection();
     await loadSeats();
-    showError('⏰ El tiempo de 5 minutos para subir el comprobante de transferencia expiró. La reserva venció y el asiento fue liberado automáticamente.');
-    if (qrResult) {
-        qrResult.hidden = false;
-        qrResult.innerHTML = '<strong>Reserva expirada por tiempo (5 minutos)</strong><br>No se adjuntó el comprobante de transferencia a tiempo y el asiento volvió a quedar libre.';
-    }
-};
+    await restoreSelection();
+    if (!boletosRetenidos.length) showError('El plazo de selección terminó. Consulta los asientos disponibles.');
+}
 
 const calcularTotalSeleccionado = () => {
     return selectedSeats.reduce((sum, seat) => {
@@ -141,7 +115,11 @@ const calcularTotalSeleccionado = () => {
         const select = passengerTypesContainer?.querySelector(`[data-seat-id="${seat.ID_ASI}"]`);
         const tipo = select ? select.value : 'ADULTO';
         const mitad = ['NINO', 'ADULTO_MAYOR', 'DISCAPACIDAD'].includes(tipo);
-        return sum + (mitad ? base * 0.5 : base);
+        const cents = Math.round(base * 100);
+        const final = Math.round(cents * (mitad ? 0.5 : 1));
+        const line = select?.closest('fieldset')?.querySelector('output');
+        if (line) line.textContent = 'Descuento USD ' + ((cents - final) / 100).toFixed(2) + ' · Precio individual USD ' + (final / 100).toFixed(2);
+        return sum + final / 100;
     }, 0);
 };
 
@@ -183,38 +161,24 @@ const renderTabs = (floors) => {
     floorTabs.querySelectorAll('.floor-tab').forEach((button) => button.addEventListener('click', () => renderFloor(Number(button.dataset.floor))));
 };
 
-const renderPassengerTypes = () => {
-    if (!selectedSeats.length) {
-        passengerTypesContainer.innerHTML = '';
-        return;
-    }
-    passengerTypesContainer.innerHTML = selectedSeats.map((seat) => {
-        const etiqueta = etiquetaVisibleAsiento(seat);
-        const esDiscapacidad = /DISCAPACIDAD/i.test(seat.NOM_TIP || '');
-        const precioBase = Number(seat.PRE_TIP || seat.PRECIO_ASIENTO || 5).toFixed(2);
-        return `
-            <div style="margin-top: 10px; padding: 10px; background: #f8fafc; border: 1px solid var(--usuario-border); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                <span><strong>Asiento N° ${escapeHtml(etiqueta)}</strong> · ${escapeHtml(seat.NOM_TIP || 'NORMAL')} ($${precioBase})</span>
-                <div style="width: 220px;">
-                    <select class="passenger-type-select" data-seat-id="${escapeHtml(seat.ID_ASI)}" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--usuario-border);">
-                        <option value="ADULTO" ${!esDiscapacidad ? 'selected' : ''}>Adulto (100%)</option>
-                        <option value="NINO">Niño / Menor (50%)</option>
-                        <option value="ADULTO_MAYOR">Adulto mayor (50%)</option>
-                        <option value="DISCAPACIDAD" ${esDiscapacidad ? 'selected' : ''}>Discapacidad (50%)</option>
-                    </select>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    passengerTypesContainer.querySelectorAll('.passenger-type-select').forEach((sel) => {
-        sel.addEventListener('change', actualizarResumenReserva);
-    });
-};
+function renderPassengerTypes() {
+    passengerTypesContainer.innerHTML = selectedSeats.map(seat => `
+        <fieldset class="usuario-field">
+          <legend>Pasajero del asiento ${escapeHtml(etiquetaVisibleAsiento(seat))} · $${Number(seat.PRE_TIP).toFixed(2)}</legend>
+          <label>Nombre completo <input name="nombre" maxlength="100" required></label>
+          <label>Tipo de documento <select name="documento"><option value="cedula">Cédula ecuatoriana</option><option value="extranjero">Documento extranjero</option></select></label>
+          <label>Identificación <input name="cedula" maxlength="10" required></label>
+          <label>Categoría <select name="tipo" data-seat-id="${escapeHtml(seat.ID_ASI)}">
+            <option value="ADULTO">Adulto</option><option value="NINO">Niño</option>
+            <option value="ADULTO_MAYOR">Adulto mayor</option><option value="DISCAPACIDAD">Persona con discapacidad</option>
+          </select></label>
+        </fieldset>`).join('');
+}
+passengerTypesContainer.addEventListener('change', actualizarResumenReserva);
 
 const selectSeat = (seatId) => {
-    if (boletosRetenidos.length > 0) {
-        return showError('Tienes una reserva por transferencia retenida pendiente de comprobante. Sube el comprobante o cancela la reserva actual.');
+    if (busy || boletosRetenidos.length > 0) {
+        return showError('Completa o cancela la selección actual antes de elegir otros asientos.');
     }
     const seat = seats.find((item) => item.ID_ASI === seatId);
     if (!seat) return;
@@ -225,41 +189,8 @@ const selectSeat = (seatId) => {
         selectedSeats.push(seat);
     }
     renderFloor(activeFloor);
-    renderPassengerTypes();
     actualizarResumenReserva();
     reservationPanel.classList.toggle('visible', selectedSeats.length > 0);
-    if (!selectedSeats.length) {
-        detenerTemporizadorTransferencia();
-    } else if (metodoPagoInput?.value === 'TRANSFERENCIA' && !timerInterval) {
-        iniciarTemporizadorTransferencia(DURACION_TIMER_SEGUNDOS);
-    }
-};
-
-const cancelarReserva = async () => {
-    detenerTemporizadorTransferencia();
-    if (boletosRetenidos.length > 0) {
-        const porCancelar = [...boletosRetenidos];
-        boletosRetenidos = [];
-        for (const idBol of porCancelar) {
-            try {
-                await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(idBol)}/cancelar`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cedula: cedulaTitular })
-                });
-            } catch {}
-        }
-        await loadSeats();
-    }
-    selectedSeats = [];
-    reservationForm.reset();
-    depositoInfo.style.display = 'none';
-    transferenciaInfo.style.display = 'none';
-    passengerTypesContainer.innerHTML = '';
-    reservationPanel.classList.remove('visible');
-    if (btnSubmitAccion) btnSubmitAccion.textContent = 'Generar solicitud de viaje';
-    renderFloor(activeFloor);
-    seatStatus.textContent = 'Selección cancelada.';
 };
 
 const loadSeats = async () => {
@@ -297,167 +228,100 @@ const loadSeats = async () => {
     }
 };
 
-metodoPagoInput.addEventListener('change', () => {
-    const metodo = metodoPagoInput.value;
 
-    depositoInfo.style.display = metodo === 'DEPOSITO' ? 'block' : 'none';
-    transferenciaInfo.style.display = metodo === 'TRANSFERENCIA' ? 'block' : 'none';
-
-    bancoOrigenInput.required = false;
-    comprobanteInput.required = false;
-
-    if (metodo === 'TRANSFERENCIA') {
-        if (!timerInterval) {
-            iniciarTemporizadorTransferencia(DURACION_TIMER_SEGUNDOS);
-        }
-        if (btnSubmitAccion) {
-            btnSubmitAccion.textContent = comprobanteInput.files?.length
-                ? 'Enviar comprobante y reservar'
-                : 'Retener asiento (5 min) / Enviar transferencia';
-        }
-    } else {
-        if (boletosRetenidos.length === 0) {
-            detenerTemporizadorTransferencia();
-        }
-        if (btnSubmitAccion) {
-            btnSubmitAccion.textContent = 'Confirmar compra de boleto';
-        }
-    }
-});
-
-if (comprobanteInput) {
-    comprobanteInput.addEventListener('change', () => {
-        if (metodoPagoInput.value === 'TRANSFERENCIA' && btnSubmitAccion) {
-            btnSubmitAccion.textContent = comprobanteInput.files?.length
-                ? 'Enviar comprobante a revisión del oficinista'
-                : (boletosRetenidos.length ? 'Adjunta el comprobante antes de que expire el reloj' : 'Retener asiento (5 min) / Enviar transferencia');
-        }
-    });
+async function requestCheckout(path, options) {
+    const response = await fetch(API_BASE + '/usuario/reservas' + path, options);
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'No se pudo completar la operación.');
+    return data;
 }
 
-reservationForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!cedulaTitular) return showError('No se detectó la sesión del usuario.');
-
-    // Si ya tiene boletos retenidos en espera de comprobante dentro de los 5 minutos:
-    if (boletosRetenidos.length > 0) {
-        if (!comprobanteInput.files || !comprobanteInput.files.length) {
-            return showError('Selecciona la imagen o PDF del comprobante de transferencia antes de que termine el temporizador de 5 minutos.');
-        }
-        btnSubmitAccion.disabled = true;
-        seatStatus.textContent = 'Subiendo comprobante de transferencia...';
-        const formComp = new FormData();
-        formComp.append('idBoletos', JSON.stringify(boletosRetenidos));
-        formComp.append('bancoOrigen', bancoOrigenInput.value || '');
-        formComp.append('comprobante', comprobanteInput.files[0]);
-
-        try {
-            const resp = await fetch(`${API_BASE}/usuario/reservas/comprobante`, {
-                method: 'POST',
-                body: formComp
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data.success) throw new Error(data.message || 'No fue posible subir el comprobante.');
-
-            detenerTemporizadorTransferencia();
-            boletosRetenidos = [];
-            qrResult.hidden = false;
-            qrResult.innerHTML = `<strong>¡Comprobante enviado a revisión!</strong><br>${escapeHtml(data.message)}<br><small>El oficinista verificará tu transferencia y habilitará tu boleto en Mis Boletos.</small>`;
-            selectedSeats = [];
-            passengerTypesContainer.innerHTML = '';
-            reservationPanel.classList.remove('visible');
-            await loadSeats();
-            seatStatus.textContent = 'Comprobante enviado a la bandeja de aprobación del oficinista.';
-        } catch (error) {
-            showError(error.message);
-            if (/expir/i.test(error.message)) {
-                boletosRetenidos = [];
-                detenerTemporizadorTransferencia();
-                await loadSeats();
-            }
-        } finally {
-            btnSubmitAccion.disabled = false;
-        }
-        return;
-    }
-
-    if (!selectedSeats.length) return showError('Selecciona al menos un asiento.');
-
-    const pasajeros = selectedSeats.map((seat) => {
-        const select = passengerTypesContainer.querySelector(`[data-seat-id="${seat.ID_ASI}"]`);
-        return {
-            cedula: cedulaTitular,
-            tipo: select ? select.value : 'ADULTO'
-        };
+async function restoreSelection() {
+    const data = await requestCheckout('/' + encodeURIComponent(idHoja) + '/bloqueos');
+    if (!data.bloqueos.length) return;
+    const held = data.bloqueos.map(row => {
+        const seat = seats.find(item => item.ID_ASI === row.asiento);
+        if (!seat) throw new Error('Cambió la unidad asignada. Actualiza la disponibilidad.');
+        return {...seat, PRE_TIP: row.precio};
     });
+    selectedSeats = held;
+    boletosRetenidos = data.bloqueos.map(row => row.boleto);
+    reservationPanel.classList.add('visible');
+    holdButton.hidden = true;
+    reservationForm.hidden = false;
+    renderPassengerTypes();
+    actualizarResumenReserva();
+    renderFloor(activeFloor);
+    detenerTemporizadorTransferencia();
+    const remaining = Date.parse(data.bloqueos[0].vence) - Date.parse(data.bloqueos[0].ahora);
+    timerExpiraMs = Date.now() + remaining;
+    timerInterval = setInterval(actualizarVistaReloj, 1000);
+    actualizarVistaReloj();
+}
 
-    const metodoPagoSeleccionado = metodoPagoInput.value;
-    if (metodoPagoSeleccionado === 'EFECTIVO') {
-        return showError('El pago en efectivo solo se realiza en la ventanilla física con el oficinista.');
-    }
-    const estadoBoleto = metodoPagoSeleccionado === 'DEPOSITO' ? 'PAGADO' : 'RESERVADO';
-
-    btnSubmitAccion.disabled = true;
-    seatStatus.textContent = 'Procesando operación...';
-
-    const values = new FormData(reservationForm);
-    values.append('idHoja', idHoja);
-    values.append('idAsientos', JSON.stringify(selectedSeats.map((seat) => seat.ID_ASI)));
-    values.append('pasajeros', JSON.stringify(pasajeros));
-    values.append('cedulaTitular', cedulaTitular);
-    values.append('estado', estadoBoleto);
-
+holdButton.addEventListener('click', async () => {
+    if (busy || !selectedSeats.length) return;
+    busy = holdButton.disabled = true;
+    qrResult.hidden = true;
     try {
-        const response = await fetch(`${API_BASE}/usuario/reservas`, {
-            method: 'POST',
-            body: values
+        await requestCheckout('/bloqueos', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({idHoja, asientos:selectedSeats.map(seat => seat.ID_ASI)})
         });
-        const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.message || 'No fue posible procesar la solicitud.');
-
-        // Si es transferencia sin comprobante aún, iniciar el bloqueo de 5 minutos
-        if (data.requiereComprobante && Array.isArray(data.reservas) && data.reservas.length > 0) {
-            boletosRetenidos = data.reservas.map((r) => r.idBoleto);
-            iniciarTemporizadorTransferencia(data.segundosRestantes || DURACION_TIMER_SEGUNDOS, data.expiraEnUtc);
-            if (textoTemporizador) {
-                textoTemporizador.textContent = '¡Asiento retenido por 5 minutos! Adjunta ahora tu comprobante de transferencia y pulsa "Enviar comprobante a revisión del oficinista".';
-            }
-            if (btnSubmitAccion) {
-                btnSubmitAccion.textContent = 'Enviar comprobante a revisión del oficinista';
-            }
-            qrResult.hidden = false;
-            qrResult.innerHTML = `<strong>⏱ Asiento retenido por 5 minutos</strong><br>${escapeHtml(data.message)}<br><small>Sube el comprobante de transferencia arriba antes de que el reloj llegue a 00:00.</small>`;
-            selectedSeats.forEach((seat) => {
-                seat.ESTADO_ASIENTO = 'RESERVADO';
-            });
-            renderFloor(activeFloor);
-            seatStatus.textContent = 'Asiento retenido por 5 minutos. Sube el comprobante para confirmar.';
-            return;
-        }
-
-        detenerTemporizadorTransferencia();
-        boletosRetenidos = [];
-        qrResult.hidden = false;
-        qrResult.innerHTML = `<strong>¡Operación exitosa!</strong><br>${escapeHtml(data.message)}<br><small>Estado del boleto: ${escapeHtml(estadoBoleto)}</small>`;
-
-        selectedSeats.forEach((seat) => {
-            seat.ESTADO_ASIENTO = estadoBoleto;
-        });
-        renderFloor(activeFloor);
-        selectedSeats = [];
-        passengerTypesContainer.innerHTML = '';
-        reservationPanel.classList.remove('visible');
-        seatStatus.textContent = `Boletos generados correctamente (${estadoBoleto}).`;
+        await loadSeats();
+        await restoreSelection();
     } catch (error) {
         showError(error.message);
     } finally {
-        btnSubmitAccion.disabled = false;
+        busy = holdButton.disabled = false;
     }
 });
 
-cancelReservation.addEventListener('click', cancelarReserva);
-window.TransportSession.ready.then((user) => {
-    if (!user) return;
-    cedulaTitular = user.id;
-    loadSeats();
+reservationForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !boletosRetenidos.length || timerExpiraMs <= Date.now()) return;
+    const passengers = Array.from(passengerTypesContainer.querySelectorAll('fieldset'), (group, index) => ({
+        asiento: selectedSeats[index].ID_ASI, nombre: group.elements.nombre.value.trim(),
+        documento: group.elements.documento.value, cedula: group.elements.cedula.value.trim(), tipo: group.elements.tipo.value
+    }));
+    const values = new FormData();
+    values.set('idHoja', idHoja);
+    values.set('idBoletos', JSON.stringify(boletosRetenidos));
+    values.set('pasajeros', JSON.stringify(passengers));
+    values.set('metodoPago', metodoPagoInput.value);
+    values.set('bancoOrigen', bancoOrigenInput.value);
+    values.set('comprobante', comprobanteInput.files[0]);
+    busy = btnSubmitAccion.disabled = cancelReservation.disabled = true;
+    try {
+        const result = await requestCheckout('', {method:'POST', body:values});
+        resetSelection();
+        await loadSeats();
+        qrResult.hidden = false;
+        qrResult.textContent = result.message;
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        busy = btnSubmitAccion.disabled = cancelReservation.disabled = false;
+    }
 });
+
+cancelReservation.addEventListener('click', async () => {
+    if (busy) return;
+    busy = true;
+    try {
+        for (const id of boletosRetenidos) await requestCheckout('/' + encodeURIComponent(id) + '/cancelar', {method:'PUT'});
+        resetSelection();
+        await loadSeats();
+    } catch (error) {
+        resetSelection();
+        await loadSeats();
+        await restoreSelection();
+        showError(error.message);
+    } finally { busy = false; }
+});
+
+window.TransportSession.ready.then(async user => {
+    if (!user || !idHoja) return showError('Abre una salida desde el catálogo.');
+    await loadSeats();
+    await restoreSelection();
+}).catch(error => showError(error.message));
