@@ -1,0 +1,12 @@
+.plan-scroll{max-width:100%;min-width:0;overflow-x:auto}
+.seat-plan{width:max-content;min-width:min(100%,32rem);margin:auto;border:4px solid #344358;border-radius:2.5rem 2.5rem 1rem 1rem;background:#f6f8fb;overflow:hidden}
+.seat-plan header,.plan-front{background:#203044;color:white;text-align:center;padding:.75rem}
+.plan-guide{text-align:center;padding:.5rem}
+.plan-grid{display:grid;grid-template-columns:repeat(var(--columns),minmax(4.5rem,1fr));gap:.35rem;padding:.6rem}
+.plan-grid>span,.plan-grid>button,.seat-list>button{min-height:48px;border-radius:.5rem;text-align:center;align-content:center}
+.plan-grid>span{background:#e4eaf0;font-size:.78rem}
+.plan-grid .seat,.seat-list .seat{width:auto;height:auto;display:grid;padding:.35rem}
+.seat-plan small,.seat-list small{display:block}
+.seat.selected::after{content:"✓ Seleccionado"}
+.seat-list{display:flex;gap:.5rem;flex-wrap:wrap}
+#seatGrid,#mapaAsientos{display:block;min-width:0;max-width:100%}

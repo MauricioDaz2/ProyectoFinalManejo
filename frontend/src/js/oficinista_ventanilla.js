@@ -200,62 +200,6 @@
     }
   }
 
-  function renderBotonAsiento(asiento) {
-    const vip = /VIP|CAMA|EJECUTIV|PREMIUM/i.test(asiento.NOM_TIP || '');
-    const disc = /DISCAPACIDAD/i.test(asiento.NOM_TIP || '');
-    const ocupado = !asiento.DISPONIBLE;
-    const estiloDisc = disc && !ocupado ? 'style="background:#eff6ff;border-color:#3b82f6;color:#1d4ed8;"' : '';
-    return `<button class="seat ${vip ? 'vip' : ''} ${ocupado ? 'occupied' : ''}" type="button" ${estiloDisc}
-      data-asiento-venta="${App.escapar(asiento.ID_ASI)}"
-      ${ocupado ? 'disabled' : ''}
-      title="Asiento ${App.escapar(asiento.ETIQUETA)} · ${App.escapar(asiento.NOM_TIP || '')} · ${ocupado ? 'Ocupado' : App.dinero(asiento.PRE_TIP)}">
-      ${App.escapar(asiento.ETIQUETA)}
-      <small>${ocupado ? 'Ocupado' : `${disc ? '♿ ' : ''}${App.dinero(asiento.PRE_TIP)}`}</small>
-    </button>`;
-  }
-
-  function renderPisoDesdePlantilla(pisoPlantilla, asientosPiso) {
-    const celdas = Array.isArray(pisoPlantilla?.celdas) ? pisoPlantilla.celdas : [];
-    if (!celdas.length) return null;
-
-    let cursorAsiento = 0;
-    const porCoord = new Map();
-    for (const a of asientosPiso) {
-      if (a.FIL_ASI !== null && a.COL_ASI !== null) {
-        porCoord.set(`${a.FIL_ASI}-${a.COL_ASI}`, a);
-      }
-    }
-
-    const totalFilas = Number(pisoPlantilla.filas) || Math.max(...celdas.map((c) => Number(c.fila) || 1), 1);
-    const filasHtml = [];
-    for (let f = 1; f <= totalFilas; f += 1) {
-      const celdasFila = [];
-      for (let col = 0; col < 5; col += 1) {
-        const celda = celdas.find((c) => Number(c.fila) === f && Number(c.col) === col) || { tipoCelda: col === 2 ? 'PASILLO' : 'BLOQUEADO' };
-        const tipo = String(celda.tipoCelda || celda.rol || 'PASILLO').toUpperCase();
-        if (['ASIENTO', 'NORMAL', 'VIP', 'DISCAPACIDAD'].includes(tipo)) {
-          const asiento = porCoord.get(`${f}-${col}`) || asientosPiso[cursorAsiento];
-          cursorAsiento += 1;
-          if (asiento) {
-            celdasFila.push(renderBotonAsiento(asiento));
-          } else {
-            celdasFila.push('<span class="seat occupied" aria-hidden="true">—</span>');
-          }
-        } else if (tipo === 'PASILLO') {
-          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;border:1px dashed #e2e8f0;border-radius:8px;min-height:46px;">⇅</div>');
-        } else if (tipo === 'BANO') {
-          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;min-height:46px;">🚻 WC</div>');
-        } else if (tipo === 'ESCALERA') {
-          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;background:#fffbeb;color:#b45309;border:1px solid #fde68a;border-radius:8px;min-height:46px;">🪜 Esc.</div>');
-        } else {
-          celdasFila.push('<div style="display:flex;align-items:center;justify-content:center;font-size:11px;background:#f8fafc;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:8px;min-height:46px;">—</div>');
-        }
-      }
-      filasHtml.push(`<div style="display:grid;grid-template-columns:repeat(5,minmax(52px,1fr));gap:6px;margin-bottom:6px;">${celdasFila.join('')}</div>`);
-    }
-    return filasHtml.join('');
-  }
-
   function renderAsientos(datos) {
     asientos = datos.asientos || [];
     if (datos.hoja && hojaSeleccionada) {
@@ -271,19 +215,17 @@
       return;
     }
 
-    mapaAsientos.innerHTML = `<div class="bus-layout">${pisos.map((piso) => {
-      const pisoPlantilla = plantilla?.pisos?.find((p) => Number(p.piso) === Number(piso.piso));
-      const htmlPlantilla = pisoPlantilla ? renderPisoDesdePlantilla(pisoPlantilla, piso.asientos) : null;
-      return `
-        <section class="bus-floor">
-          <div class="bus-floor-head">
-            <h4>${piso.piso === 1 ? 'Piso 1 · Planta baja' : 'Piso 2 · Planta alta'}</h4>
-            <span>${piso.asientos.length} asientos</span>
-          </div>
-          <div class="driver" aria-hidden="true">🛞 Cabina / Frente del bus</div>
-          ${htmlPlantilla || `<div class="seat-grid">${piso.asientos.map(renderBotonAsiento).join('')}</div>`}
-        </section>`;
-    }).join('')}</div>`;
+    let active = pisos.find(group => group.piso === asientoSeleccionado?.PIS_ASI) || pisos[0];
+    function draw() {
+      const tabs = pisos.map(group => '<button type="button" data-plan-floor="'+Number(group.piso)+'" aria-pressed="'+(group === active)+'">Piso '+Number(group.piso)+'</button>').join('');
+      mapaAsientos.innerHTML = tabs + SeatPlan.render(plantilla, active.piso, active.asientos, seat =>
+        SeatPlan.button(seat, 'data-asiento-venta', seat.DISPONIBLE, seat.ID_ASI === asientoSeleccionado?.ID_ASI));
+      mapaAsientos.querySelectorAll('[data-plan-floor]').forEach(tab => tab.onclick = () => {
+        active = pisos.find(group => Number(group.piso) === Number(tab.dataset.planFloor));
+        draw();
+      });
+    }
+    draw();
   }
 
   async function cargarAsientos(hoja) {

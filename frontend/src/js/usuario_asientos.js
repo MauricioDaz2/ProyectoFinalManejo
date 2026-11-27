@@ -158,23 +158,8 @@ const renderFloor = (floor) => {
     const floorSeats = seats.filter((seat) => Number(seat.PIS_ASI) === floor)
         .sort((first, second) => String(first.ID_ASI).localeCompare(String(second.ID_ASI), undefined, { numeric: true }));
 
-    const rows = [];
-    for (let index = 0; index < floorSeats.length; index += 4) {
-        const rowSeats = floorSeats.slice(index, index + 4);
-        rows.push(`<div class="bus-seat-row">${rowSeats.map((seat, seatIndex) => {
-            const state = seatStatusClass(seat.ESTADO_ASIENTO);
-            const selected = selectedSeats.some((item) => item.ID_ASI === seat.ID_ASI);
-            const disabled = state !== 'libre' || cupoDisponible === 0 ? 'disabled' : '';
-            const aisle = seatIndex === 2 ? '<span class="bus-aisle" aria-hidden="true"></span>' : '';
-            const precioFiltro = Number(seat.PRE_TIP || seat.PRECIO_ASIENTO || 5).toFixed(2);
-            const etiqueta = etiquetaVisibleAsiento(seat);
-            return `${seatIndex === 2 ? aisle : ''}<button class="seat ${state}${selected ? ' selected' : ''}" data-seat="${escapeHtml(seat.ID_ASI)}" type="button" ${disabled} title="Asiento ${escapeHtml(etiqueta)} · ${escapeHtml(seat.NOM_TIP)} - $${precioFiltro}">${escapeHtml(etiqueta)}<small style="font-size:8px; display:block;">$${precioFiltro}</small></button>`;
-        }).join('')}</div>`);
-    }
-
-    seatGrid.innerHTML = `<div class="bus-cabin"><div class="bus-front"><span class="bus-driver">🛞 Conductor</span><span class="bus-windshield">Frente del bus (Planta ${floor})</span></div><div class="bus-seat-rows">${rows.join('')}</div><div class="bus-rear">Salida de emergencia</div></div>`;
-    if (!floorSeats.length) seatGrid.innerHTML = '<p class="usuario-empty">No hay asientos en esta planta.</p>';
-
+    seatGrid.innerHTML = SeatPlan.render(viajeActual.plantilla, floor, floorSeats, seat =>
+        SeatPlan.button(seat, 'data-seat', seat.ESTADO_ASIENTO === 'LIBRE' && cupoDisponible !== 0, selectedSeats.some(s => s.ID_ASI === seat.ID_ASI)));
     seatGrid.querySelectorAll('.seat.libre').forEach((button) => button.addEventListener('click', () => selectSeat(button.dataset.seat)));
 };
 
