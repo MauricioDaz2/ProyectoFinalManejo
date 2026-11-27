@@ -12,6 +12,7 @@
   <script src="../../js/date_picker.js" defer></script>
   <script src="../../js/coop_resoluciones.js" defer></script>
   <script src="../../js/coop_asignacion.js" defer></script>
+  <script src="../../js/coop_rotacion.js" defer></script>
   <link rel="stylesheet" href="../../assets/mi_perfil.css">
   <script src="../../js/mi_perfil.js" defer></script>
   <link rel="stylesheet" href="../../assets/coop_dashboard.css">
@@ -183,6 +184,9 @@
           <button class="tab" type="button" role="tab" id="tabHojas" data-vista="hojas" aria-selected="false" aria-controls="panelHojas">
             Hojas programadas <span class="tab-count" id="badgeTotalHojas">0</span>
           </button>
+          <button class="tab" type="button" role="tab" id="tabRotacion" data-vista="rotacion" aria-selected="false" aria-controls="panelRotacion">
+            Hoja de ruta y frecuencias
+          </button>
         </div>
 
         <section id="panelFrecuencias" class="tab-panel" role="tabpanel" aria-labelledby="tabFrecuencias">
@@ -265,6 +269,61 @@
                 </tbody>
               </table>
             </div>
+          </section>
+        </section>
+
+        <section id="panelRotacion" class="tab-panel" role="tabpanel" aria-labelledby="tabRotacion" hidden>
+          <section class="panel rotacion-panel" id="rotacionApp">
+            <div class="panel-toolbar">
+              <div>
+                <h3 class="rotacion-titulo">Hoja de ruta y frecuencias · <span id="rotacionGrupoNombre">Grupo 1</span></h3>
+                <p class="muted">Rotación diaria de 4 buses entre dos salidas y dos paradas. Cada bus aparece una sola vez por fecha.</p>
+              </div>
+            </div>
+            <div class="table-wrap rotacion-wrap">
+              <table class="rotacion-table" id="rotacionTabla" aria-label="Rotación de buses por fecha"></table>
+            </div>
+
+            <div class="rotacion-unidades">
+              <h4>Unidades del grupo</h4>
+              <ul id="rotacionUnidades"></ul>
+            </div>
+
+            <div class="rotacion-acciones">
+              <button class="btn btn-secondary" type="button" id="rotacionBtnFecha">Agregar nueva fecha</button>
+              <button class="btn btn-secondary" type="button" id="rotacionBtnGrupo">Grupo</button>
+              <button class="btn btn-primary" type="button" id="rotacionBtnGenerar">Generar Bus</button>
+              <button class="btn btn-primary" type="button" id="rotacionBtnGuardar">Guardar</button>
+            </div>
+
+            <div id="rotacionAviso" class="rotacion-aviso" role="status" aria-live="polite" hidden></div>
+
+            <form id="rotacionFormFecha" class="rotacion-form" hidden>
+              <label for="rotacionFecha">Nueva fecha</label>
+              <input type="date" id="rotacionFecha" required>
+              <button class="btn btn-primary btn-sm" type="submit">Añadir</button>
+              <button class="btn btn-secondary btn-sm" type="button" id="rotacionCancelarFecha">Cancelar</button>
+            </form>
+
+            <form id="rotacionFormGrupo" class="rotacion-form rotacion-form-grupo" hidden>
+              <div class="rotacion-campo">
+                <label for="rotacionSelectGrupo">Grupo activo</label>
+                <select id="rotacionSelectGrupo"></select>
+              </div>
+              <div class="rotacion-campo">
+                <label for="rotacionNombreGrupo">Nombre</label>
+                <input type="text" id="rotacionNombreGrupo" maxlength="40">
+              </div>
+              <div class="rotacion-campo"><label for="rotacionBus1">Bus número 1</label><input type="text" id="rotacionBus1" maxlength="10" inputmode="numeric" required></div>
+              <div class="rotacion-campo"><label for="rotacionBus2">Bus número 2</label><input type="text" id="rotacionBus2" maxlength="10" inputmode="numeric" required></div>
+              <div class="rotacion-campo"><label for="rotacionBus3">Bus número 3</label><input type="text" id="rotacionBus3" maxlength="10" inputmode="numeric" required></div>
+              <div class="rotacion-campo"><label for="rotacionBus4">Bus número 4</label><input type="text" id="rotacionBus4" maxlength="10" inputmode="numeric" required></div>
+              <div class="rotacion-form-acciones">
+                <button class="btn btn-secondary btn-sm" type="button" id="rotacionNuevoGrupo">+ Nuevo grupo</button>
+                <button class="btn btn-primary btn-sm" type="submit">Guardar grupo</button>
+                <button class="btn btn-secondary btn-sm" type="button" id="rotacionCancelarGrupo">Cancelar</button>
+              </div>
+            </form>
           </section>
         </section>
       </main>
