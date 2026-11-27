@@ -121,11 +121,13 @@ const obtenerAsientos = async (req, res) => {
         } catch (errCol) {
             const num = errCol.number ?? errCol.originalError?.info?.number;
             if (num !== 207) throw errCol;
+            const columns = (await pool.request().query("SELECT COL_LENGTH('dbo.FRECUENCIAS','TAR_BAS_FRE') AS tarifa")).recordset[0];
             resultado = await pool.request()
                 .input('idHoja', sql.VarChar(5), idHoja)
                 .input('cooperativa', sql.VarChar(5), cooperativa || null)
                 .query(`
                     SELECT H.ID_HOJ, H.FEC_PRO_HOJ, H.EST_VIA_HOJ, B.ID_BUS, B.NUM_BUS, B.NUM_PIS, B.IMG_URL_BUS,
+                           ${columns?.tarifa ? 'F.TAR_BAS_FRE,' : ''}
                            A.ID_ASI, A.PIS_ASI, A.ID_TIP_PER, T.NOM_TIP, T.PRE_TIP,
                            CASE
                                WHEN UPPER(LTRIM(RTRIM(ISNULL(O.EST_BOL, '')))) IN ('EMITIDO', 'PAGADO', 'USADO', 'OCUPADO', 'CONFIRMADO') THEN 'OCUPADO'
@@ -135,6 +137,7 @@ const obtenerAsientos = async (req, res) => {
                            O.ID_BOL
                     FROM HOJAS_RUTAS H
                     INNER JOIN BUSES B ON B.ID_BUS = ${cc.effectiveBus()}
+                    INNER JOIN FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
                     INNER JOIN ASIENTOS_BUS A ON A.ID_BUS_PER = B.ID_BUS
                     INNER JOIN TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
                     OUTER APPLY (
