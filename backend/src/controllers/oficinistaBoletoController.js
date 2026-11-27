@@ -1,6 +1,7 @@
 const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
 const { liberarReservasVencidas } = require('./userReservaController');
+const { generarBoletoPdf } = require('../services/ticketPdf');
 const crypto = require('crypto');
 
 /**
@@ -991,6 +992,55 @@ async function obtenerBoleto(req, res) {
     }
 }
 
+async function descargarBoletoPdf(req, res) {
+    const id = codigo(req.params.id);
+    if (!CODIGO_CORTO_RE.test(id)) {
+        return res.status(400).json({ success: false, message: 'Código de boleto inválido.' });
+    }
+
+    try {
+        const pool = await conectarBD();
+        const boleto = await consultarBoletoPorId(pool, id, req.scopeCompany);
+        if (!boleto) {
+            return res.status(404).json({ success: false, message: 'Boleto no encontrado.' });
+        }
+
+        try {
+            const extra = await pool.request()
+                .input('id', sql.VarChar(5), id)
+                .query(`
+                    SELECT
+                        CASE WHEN COL_LENGTH('dbo.FRECUENCIAS', 'HORA_SAL_FRE') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_HORA,
+                        CASE WHEN COL_LENGTH('dbo.ASIENTOS_BUS', 'UBI_ASI') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_UBI
+                `);
+            const flags = extra.recordset?.[0] || {};
+            if (flags.TIENE_HORA || flags.TIENE_UBI) {
+                const det = await pool.request()
+                    .input('id', sql.VarChar(5), id)
+                    .query(`
+                        SELECT
+                            ${flags.TIENE_HORA ? 'F.HORA_SAL_FRE' : "CAST('08:00' AS VARCHAR(5)) AS HORA_SAL_FRE"},
+                            ${flags.TIENE_UBI ? 'A.UBI_ASI' : 'CAST(NULL AS VARCHAR(15)) AS UBI_ASI'}
+                        FROM dbo.BOLETOS B
+                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
+                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
+                        LEFT JOIN dbo.ASIENTOS_BUS A ON A.ID_ASI = B.ID_ASI_PER
+                        WHERE B.ID_BOL = @id
+                    `);
+                if (det.recordset?.[0]) Object.assign(boleto, det.recordset[0]);
+            }
+        } catch {}
+
+        const pdfBuffer = generarBoletoPdf(boleto);
+        res.set('Cache-Control', 'no-store');
+        res.set('Content-Type', 'application/pdf');
+        res.set('Content-Disposition', `attachment; filename="boleto-${boleto.ID_BOL}.pdf"`);
+        return res.status(200).send(pdfBuffer);
+    } catch (error) {
+        return manejarError(res, 'descarga de boleto PDF', error);
+    }
+}
+
 async function cambiarEstadoBoleto(req, res) {
     const id = codigo(req.params.id);
     const nuevoEstado = codigo(req.body?.EST_BOL ?? req.body?.estado);
@@ -1321,6 +1371,7 @@ module.exports = {
     revisarTransferenciaBoleto,
     buscarBoletos,
     obtenerBoleto,
+    descargarBoletoPdf,
     cambiarEstadoBoleto,
     validarBoleto,
     resumenOficinista

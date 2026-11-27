@@ -8,7 +8,8 @@ const {
     subirComprobanteTransferencia,
     expirarReservaUsuario,
     obtenerMisBoletos,
-    cancelarReservaUsuario
+    cancelarReservaUsuario,
+    descargarBoletoPdf
 } = require('../controllers/userReservaController');
 
 const router = express.Router();
@@ -36,8 +37,9 @@ const uploadComprobante = (req, res, next) => upload.single('comprobante')(req, 
     return next();
 });
 
-// Historial, cancelación y expiración automática de reservas
+// Historial, descarga PDF, cancelación y expiración automática de reservas
 router.get('/mis-boletos/:cedula', obtenerMisBoletos);
+router.get('/:idBoleto/pdf', descargarBoletoPdf);
 router.put('/:idBoleto/cancelar', cancelarReservaUsuario);
 router.put('/:idBoleto/expirar', expirarReservaUsuario);
 router.post('/expirar', expirarReservaUsuario);

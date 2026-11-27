@@ -15,6 +15,45 @@ const formatearMinutos = (seg) => {
     return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
 };
 
+const descargarBoletoPdf = async (idBoleto, boton = null) => {
+    const codigo = String(idBoleto || '').trim().toUpperCase();
+    if (!codigo) return;
+    const textoOriginal = boton ? boton.textContent : '';
+    if (boton) {
+        boton.disabled = true;
+        boton.textContent = 'Generando PDF...';
+    }
+    try {
+        const response = await fetch(`${API_BASE}/usuario/reservas/${encodeURIComponent(codigo)}/pdf`, {
+            method: 'GET',
+            headers: { Accept: 'application/pdf' }
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'No fue posible descargar el boleto en PDF.');
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = `boleto-${codigo}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        historialStatus.className = 'usuario-status';
+        historialStatus.textContent = 'Boleto descargado en PDF correctamente.';
+    } catch (error) {
+        historialStatus.className = 'usuario-status error';
+        historialStatus.textContent = error.message;
+    } finally {
+        if (boton) {
+            boton.disabled = false;
+            boton.textContent = textoOriginal || 'Descargar PDF';
+        }
+    }
+};
+
 const cargarHistorial = async () => {
     if (!cedulaTitular) {
         historialStatus.className = 'usuario-status error';
@@ -38,6 +77,7 @@ const cargarHistorial = async () => {
         historialContainer.innerHTML = boletos.map((b) => {
             const estado = String(b.EST_BOL || '').toUpperCase();
             const esReservado = ['RESERVADO', 'PENDIENTE'].includes(estado);
+            const esInactivo = ['CANCELADO', 'ANULADO', 'VENCIDO'].includes(estado);
             const colorEstado = estado === 'PAGADO' || estado === 'EMITIDO' ? 'green' : (esReservado ? 'orange' : 'red');
             const asientoEtiqueta = b.ETIQUETA_ASIENTO || b.NUMERO_ASIENTO || '—';
             const fechaViaje = b.FEC_PRO_HOJ ? String(b.FEC_PRO_HOJ).slice(0, 10) : '—';
@@ -73,9 +113,14 @@ const cargarHistorial = async () => {
                             </div>
                         </div>
                     </div>
-                    <div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                        ${!esInactivo ? `
+                            <button class="usuario-button" type="button" data-descargar-pdf="${escapeHtml(b.ID_BOL)}" style="background: #0d5c4a; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                                Descargar PDF
+                            </button>
+                        ` : ''}
                         ${esReservado ? `
-                            <button class="usuario-button usuario-button-secondary" style="background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;" onclick="cancelarBoleto('${escapeHtml(b.ID_BOL)}')">
+                            <button class="usuario-button usuario-button-secondary" type="button" data-cancelar-boleto="${escapeHtml(b.ID_BOL)}" style="background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer;" onclick="cancelarBoleto('${escapeHtml(b.ID_BOL)}')">
                                 Cancelar Reserva
                             </button>
                         ` : ''}
@@ -109,6 +154,11 @@ const cancelarBoleto = async (idBoleto) => {
 
 if (historialContainer) {
     historialContainer.addEventListener('click', async (event) => {
+        const btnPdf = event.target.closest('[data-descargar-pdf]');
+        if (btnPdf) {
+            descargarBoletoPdf(btnPdf.dataset.descargarPdf, btnPdf);
+            return;
+        }
         const btn = event.target.closest('[data-subir-comprobante]');
         if (!btn) return;
         const idBoleto = btn.dataset.subirComprobante;

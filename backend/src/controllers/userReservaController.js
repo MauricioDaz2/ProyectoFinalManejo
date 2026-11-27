@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs/promises');
 const { sql, conectarBD } = require('../config/db');
 const cc = require('../services/frequencyControl');
+const { generarBoletoPdf } = require('../services/ticketPdf');
 
 const EXPIRACION_TRANSFERENCIA_MINUTOS = 5;
 const EXPIRACION_TRANSFERENCIA_SEGUNDOS = EXPIRACION_TRANSFERENCIA_MINUTOS * 60;
@@ -767,6 +768,90 @@ const reservarAsiento = async (req, res) => {
     }
 };
 
+const descargarBoletoPdf = async (req, res) => {
+    const idBoleto = texto(req.params.idBoleto).toUpperCase();
+    const usuarioAutenticado = texto(req.auth?.id);
+    if (!usuarioAutenticado) {
+        return res.status(401).json({ success: false, message: 'Inicia sesión para descargar tu boleto.' });
+    }
+    if (!/^[A-Z0-9_-]{1,5}$/.test(idBoleto)) {
+        return res.status(400).json({ success: false, message: 'ID de boleto no válido.' });
+    }
+
+    try {
+        const pool = await conectarBD();
+        const resultado = await pool.request()
+            .input('idBoleto', sql.VarChar(5), idBoleto)
+            .query(`
+                SELECT B.ID_BOL, B.ID_USU_FIN, B.ORI_TRA_BOL, B.DES_TRA_BOL, B.TIP_DES_BOL,
+                       B.PRE_FIN_BOL, B.MET_PAG_BOL, B.EST_BOL, B.COD_QR_BOL, B.FEC_COM_BOL,
+                       B.ID_HOJ_PER, B.ID_ASI_PER,
+                       H.FEC_PRO_HOJ,
+                       BU.NUM_BUS, BU.PLA_BUS, BU.NUM_PIS,
+                       F.CIU_ORI_FRE, F.CIU_DES_FRE,
+                       C.NOM_COP,
+                       A.PIS_ASI,
+                       T.NOM_TIP,
+                       U.NOM_USU, U.APE_USU, U.COR_USU
+                FROM BOLETOS B
+                INNER JOIN HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
+                INNER JOIN BUSES BU ON BU.ID_BUS = ${cc.effectiveBus()}
+                INNER JOIN FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
+                INNER JOIN COOPERATIVAS C ON C.ID_COP = F.ID_COP_PER
+                LEFT JOIN ASIENTOS_BUS A ON A.ID_ASI = B.ID_ASI_PER
+                LEFT JOIN TIPOS_ASIENTOS T ON T.ID_TIP = A.ID_TIP_PER
+                LEFT JOIN USUARIOS U ON U.ID_USU = B.ID_USU_FIN
+                WHERE B.ID_BOL = @idBoleto
+            `);
+
+        if (!resultado.recordset.length) {
+            return res.status(404).json({ success: false, message: 'Boleto no encontrado.' });
+        }
+
+        const boleto = { ...resultado.recordset[0] };
+        if (texto(boleto.ID_USU_FIN) !== usuarioAutenticado) {
+            return res.status(403).json({ success: false, message: 'Solo puedes descargar tus propios boletos.' });
+        }
+
+        try {
+            const extra = await pool.request()
+                .input('idBoleto', sql.VarChar(5), idBoleto)
+                .query(`
+                    SELECT
+                        CASE WHEN COL_LENGTH('dbo.FRECUENCIAS', 'HORA_SAL_FRE') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_HORA,
+                        CASE WHEN COL_LENGTH('dbo.ASIENTOS_BUS', 'UBI_ASI') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_UBI,
+                        CASE WHEN COL_LENGTH('dbo.BOLETOS', 'CED_PAS_BOL') IS NOT NULL THEN 1 ELSE 0 END AS TIENE_CED
+                `);
+            const flags = extra.recordset?.[0] || {};
+            if (flags.TIENE_HORA || flags.TIENE_UBI || flags.TIENE_CED) {
+                const det = await pool.request()
+                    .input('idBoleto', sql.VarChar(5), idBoleto)
+                    .query(`
+                        SELECT
+                            ${flags.TIENE_HORA ? 'F.HORA_SAL_FRE' : "CAST('08:00' AS VARCHAR(5)) AS HORA_SAL_FRE"},
+                            ${flags.TIENE_UBI ? 'A.UBI_ASI' : 'CAST(NULL AS VARCHAR(15)) AS UBI_ASI'},
+                            ${flags.TIENE_CED ? 'B.CED_PAS_BOL' : 'CAST(NULL AS VARCHAR(10)) AS CED_PAS_BOL'}
+                        FROM dbo.BOLETOS B
+                        INNER JOIN dbo.HOJAS_RUTAS H ON H.ID_HOJ = B.ID_HOJ_PER
+                        INNER JOIN dbo.FRECUENCIAS F ON F.ID_FRE = H.ID_FRE_PER
+                        LEFT JOIN dbo.ASIENTOS_BUS A ON A.ID_ASI = B.ID_ASI_PER
+                        WHERE B.ID_BOL = @idBoleto
+                    `);
+                if (det.recordset?.[0]) Object.assign(boleto, det.recordset[0]);
+            }
+        } catch {}
+
+        const pdfBuffer = generarBoletoPdf(boleto);
+        res.set('Cache-Control', 'no-store');
+        res.set('Content-Type', 'application/pdf');
+        res.set('Content-Disposition', `attachment; filename="boleto-${boleto.ID_BOL}.pdf"`);
+        return res.status(200).send(pdfBuffer);
+    } catch (error) {
+        console.error('Error al generar PDF del boleto:', error);
+        return res.status(500).json({ success: false, message: 'No fue posible generar el PDF del boleto.' });
+    }
+};
+
 module.exports = {
     EXPIRACION_TRANSFERENCIA_MINUTOS,
     EXPIRACION_TRANSFERENCIA_SEGUNDOS,
@@ -776,5 +861,6 @@ module.exports = {
     subirComprobanteTransferencia,
     expirarReservaUsuario,
     obtenerMisBoletos,
-    cancelarReservaUsuario
+    cancelarReservaUsuario,
+    descargarBoletoPdf
 };

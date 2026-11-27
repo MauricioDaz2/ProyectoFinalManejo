@@ -19,6 +19,7 @@ const {
     revisarTransferenciaBoleto,
     buscarBoletos,
     obtenerBoleto,
+    descargarBoletoPdf,
     cambiarEstadoBoleto,
     validarBoleto,
     resumenOficinista
@@ -38,6 +39,7 @@ router.post('/boletos/ventanilla', crearBoletoVentanilla);
 router.get('/boletos/pendientes-transferencia', listarPendientesTransferencia);
 router.get('/boletos/buscar', buscarBoletos);
 router.post('/boletos/validar', validarBoleto);
+router.get('/boletos/:id/pdf', descargarBoletoPdf);
 router.get('/boletos/:id', obtenerBoleto);
 router.patch('/boletos/:id/revision-transferencia', revisarTransferenciaBoleto);
 router.patch('/boletos/:id/estado', cambiarEstadoBoleto);
