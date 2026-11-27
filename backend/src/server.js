@@ -30,8 +30,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/operacion', require('./routes/tripOperationRoutes'));
 app.use('/api/mi-perfil', require('./routes/userProfileRoutes'));
 app.use('/api/admin', requireSession, requireRole('R001'));
-app.use('/api/coop', requireSession, requireRole('R002'));
-app.use('/api/oficinista', requireSession, requireRole('R001', 'R003'));
+app.use('/api/coop', requireSession, requireRole('R002', 'R003'));
+app.use('/api/oficinista', requireSession, requireRole('R001', 'R002', 'R003'), (req, res, next) => {
+    if (req.auth?.rolId === 'R002' && !require('./security/permissions').can(req.auth, 'ventanilla')) {
+        return res.status(403).json({ success: false, message: 'No tienes permiso para operar ventanilla y validación de boletos.' });
+    }
+    next();
+});
 app.use('/api/controlador', requireSession, requireRole('R004'));
 app.use('/api/usuario/reservas', (req, res, next) => {
     if (req.method === 'GET' && /^\/[A-Za-z0-9_-]{1,5}\/asientos\/?$/.test(req.path)) return next();
@@ -42,7 +47,7 @@ app.use('/api/admin/rutas', adminRutasRoutes);
 app.use('/api/admin/parada', adminParadaRoutes);
 app.use('/api/admin/cooperativas', adminCooperativaRoutes);
 app.use('/api/admin/usuarios', adminUsuarioRoutes);
-app.use('/api/coop/personal', require('./routes/personalRoutes'));
+app.use('/api/coop/personal', requireRole('R002'), require('./routes/personalRoutes'));
 app.get('/api/coop/indicadores', require('./security/permissions').requirePermission('dashboard'), require('./controllers/coopIndicatorsController'));
 app.get('/api/coop/resoluciones-opciones', require('./security/permissions').requirePermission('rutas'), (req, res) => {
     res.status(410).json({ success: false, code: 'MODULO_RESOLUCIONES_ELIMINADO', message: 'El módulo independiente de Resoluciones ANT fue eliminado en RFC-000078.' });

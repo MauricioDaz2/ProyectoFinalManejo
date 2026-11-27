@@ -286,7 +286,12 @@
       }
       options('batchFrequency', data.frecuencias || [], 'ID_FRE', row => `${row.CIU_ORI_FRE} → ${row.CIU_DES_FRE}`);
 
-      $('singleAssignment').hidden = loteDisponible;
+      $('singleAssignment').hidden = false;
+      $('singleAssignment').open = !loteDisponible;
+      if($('groupAssignment')){
+        $('groupAssignment').hidden=!loteDisponible;
+        if(loteDisponible)initializeGroups(data);
+      }
       $('batchForm').hidden = !loteDisponible;
       $('assignmentHelp').textContent = loteDisponible
         ? '1) Elige frecuencia y horario, consulta disponibilidad. 2) Asigna bus, chofer y controlador sin repetirlos en el lote.'
@@ -304,6 +309,115 @@
       loading = false;
       $('assignmentSubmit').disabled = !loaded;
     }
+  }
+
+  let groupOptions, groups=[], groupBusy=false, groupRetry=null;
+  function groupMessage(message){$('groupStatus').textContent=message;}
+  function renderGroupMembers(){
+    const type=$('groupType').value;
+    const group=groups.find(g=>String(g.ID_GRU)===$('groupEditId').value);
+    const isBus=type==='BUS';
+    const candidates=isBus?groupOptions.buses:groupOptions.frecuencias;
+    const idField=isBus?'ID_BUS':'ID_FRE';
+    const occupied=new Set(groups.filter(g=>isBus&&g.TIPO==='BUS'&&g!==group).flatMap(g=>g.miembros));
+    const select=$('groupMembers');
+    select.replaceChildren(...candidates.filter(row=>!occupied.has(row[idField])).map(row=>{
+      const id=row[idField], node=option(id,isBus?busLabel(row):`${row.CIU_ORI_FRE} ? ${row.CIU_DES_FRE}`);
+      node.selected=group?.miembros.includes(id)||false;
+      return node;
+    }));
+    $('groupName').value=group?.NOMBRE||'';
+    $('groupDelete').disabled=!group;
+  }
+  function renderGroupEdit(){
+    options('groupEditId',groups.filter(g=>g.TIPO===$('groupType').value),'ID_GRU',g=>g.NOMBRE);
+    $('groupEditId').options[0].textContent='Nuevo grupo';
+    renderGroupMembers();
+  }
+  function renderGroupCrew(){
+    const group=groups.find(g=>String(g.ID_GRU)===$('groupBus').value);
+    $('groupCrew').replaceChildren();
+    for(const id of group?.miembros||[]){
+      const bus=groupOptions.buses.find(row=>row.ID_BUS===id);
+      const fieldset=document.createElement('fieldset');
+      const legend=document.createElement('legend');
+      legend.textContent=bus?busLabel(bus):id;
+      fieldset.dataset.bus=id;
+      fieldset.append(legend);
+      for(const [field,role,label,initial] of [['chofer','R006','Chofer',bus?.ID_CHO_1||bus?.ID_CHO_2],['controlador','R004','Controlador',bus?.ID_CON_DEF]]){
+        const wrapper=document.createElement('label'), select=document.createElement('select');
+        wrapper.textContent=label;
+        select.required=true;
+        select.dataset.crew=field;
+        select.append(option('','Selecciona personal'));
+        for(const person of groupOptions.personal.filter(p=>p.ID_ROL_PER===role))select.append(option(person.ID_USU,personaLabel(person)));
+        if(initial&&Array.from(select.options).some(o=>o.value===initial))select.value=initial;
+        wrapper.append(select);fieldset.append(wrapper);
+      }
+      $('groupCrew').append(fieldset);
+    }
+  }
+  async function loadGroups(){
+    const result=await request('/coop/grupos-programacion');
+    groups=result.grupos;
+    options('groupBus',groups.filter(g=>g.TIPO==='BUS'),'ID_GRU',g=>g.NOMBRE);
+    options('groupFrequency',groups.filter(g=>g.TIPO==='FRECUENCIA'),'ID_GRU',g=>g.NOMBRE);
+    renderGroupEdit();renderGroupCrew();
+  }
+  function initializeGroups(data){
+    groupOptions=data;
+    loadGroups().catch(error=>groupMessage(error.message));
+  }
+  async function groupAction(form,work){
+    if(groupBusy||!groupOptions)return;
+    groupBusy=true;
+    const buttons=Array.from(form.querySelectorAll('button'));
+    for(const button of buttons)button.disabled=true;
+    try{await work();}
+    catch(error){groupMessage(error.message);}
+    finally{
+      groupBusy=false;
+      for(const button of buttons)button.disabled=false;
+      $('groupDelete').disabled=!$('groupEditId').value;
+    }
+  }
+  if($('groupAssignment')){
+    $('groupType').addEventListener('change',renderGroupEdit);
+    $('groupEditId').addEventListener('change',renderGroupMembers);
+    $('groupBus').addEventListener('change',renderGroupCrew);
+    $('groupEdit').addEventListener('submit',event=>{
+      event.preventDefault();
+      groupAction(event.currentTarget,async()=>{
+        const id=$('groupEditId').value;
+        const data=await request('/coop/grupos-programacion',{id:id||null,tipo:$('groupType').value,
+          nombre:$('groupName').value,miembros:Array.from($('groupMembers').selectedOptions,o=>o.value)});
+        await loadGroups();$('groupEditId').value=String(data.id);renderGroupMembers();
+        groupMessage('Grupo guardado.');
+      });
+    });
+    $('groupDelete').addEventListener('click',()=>{
+      const id=$('groupEditId').value;
+      if(!id||!window.confirm('?Eliminar el grupo seleccionado?'))return;
+      groupAction($('groupEdit'),async()=>{
+        await request('/coop/grupos-programacion',{id,eliminar:true});
+        await loadGroups();groupMessage('Grupo eliminado.');
+      });
+    });
+    $('groupGenerate').addEventListener('submit',event=>{
+      event.preventDefault();
+      groupAction(event.currentTarget,async()=>{
+        const tripulacion=Object.fromEntries(Array.from($('groupCrew').children,row=>[
+          row.dataset.bus,Object.fromEntries(Array.from(row.querySelectorAll('[data-crew]'),field=>[field.dataset.crew,field.value]))
+        ]));
+        const body={grupoBus:$('groupBus').value,grupoFrecuencia:$('groupFrequency').value,
+          desde:$('groupStart').value,hasta:$('groupEnd').value,duracion:Number($('groupDuration').value),tripulacion};
+        const key=JSON.stringify(body);
+        if(groupRetry?.key!==key)groupRetry={key,id:crypto.randomUUID()};
+        const result=await request('/coop/grupos-programacion/generar',{...body,idLote:groupRetry.id});
+        groupMessage(`${result.hojas.length} salidas confirmadas: ${result.hojas.map(h=>h.idHoja).join(', ')}`);
+        notificarHojasActualizadas();
+      });
+    });
   }
 
   $('coopAssignment').addEventListener('toggle', load);
@@ -363,6 +477,6 @@
   $('batchForm').addEventListener('submit', confirmarLote);
 
   request('/auth/me').then(({ usuario }) => {
-    $('coopAssignment').hidden = usuario.rolId !== 'R002' || !(usuario.principal || usuario.permisos?.includes('rutas'));
+    $('coopAssignment').hidden = !['R002', 'R003'].includes(usuario.rolId) || !(usuario.rolId === 'R003' || usuario.principal || usuario.permisos?.includes('rutas'));
   }).catch(() => {});
 })();

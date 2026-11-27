@@ -1,0 +1,56 @@
+body.coop-dashboard[data-coop-operaciones] {
+    --admin-primary: #c60928;
+    --admin-primary-dark: #a00721;
+    --admin-background: #f5f7fb;
+    --panel-accent: #173657;
+    --panel-tint: #edf1f7;
+    --panel-tint-strong: #dce3ef;
+    --panel-ring: #17365724;
+}
+
+.coop-dashboard[data-coop-operaciones] .admin-topbar {
+    min-height: 83px;
+    box-shadow: 0 3px 12px #163b6710;
+}
+
+.coop-dashboard[data-coop-operaciones] .topbar-title,
+.coop-dashboard[data-coop-operaciones] .eyebrow {
+    color: var(--admin-primary);
+}
+
+.coop-dashboard[data-coop-operaciones] .stat-card {
+    border-left: 5px solid var(--admin-primary);
+    border-radius: 14px;
+}
+
+.coop-dashboard[data-coop-operaciones] .stat-icon {
+    background: #fcebef;
+    color: var(--admin-primary);
+}
+
+.coop-dashboard[data-coop-operaciones] .stat-card:nth-child(even) {
+    border-left-color: var(--panel-accent);
+}
+
+.coop-dashboard[data-coop-operaciones] .stat-card:nth-child(even) .stat-icon {
+    background: var(--panel-tint);
+    color: var(--panel-accent);
+}
+
+.coop-dashboard[data-coop-operaciones] .panel,
+.coop-dashboard[data-coop-operaciones] .scanner-card {
+    border-color: var(--panel-tint-strong);
+    border-radius: 14px;
+}
+
+.coop-dashboard[data-coop-operaciones] .sale-grid > div {
+    min-width: 0;
+}
+
+.coop-dashboard[data-coop-operaciones] #mapaAsientosVenta {
+    overflow-x: auto;
+}
+
+.coop-dashboard[data-coop-operaciones] .seat.occupied {
+    cursor: default;
+}

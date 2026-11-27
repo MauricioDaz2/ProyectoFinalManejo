@@ -14,7 +14,8 @@ async function compatible(db, frecuencia, bus) {
     requireEnabled();
     const result = await db.request().input('frecuencia', sql.VarChar(5), frecuencia).input('bus', sql.VarChar(5), bus)
         .query(`SELECT 1 AS permitido FROM dbo.FRECUENCIAS f
-            JOIN dbo.BUS_CATEGORIAS c ON c.ID_CAT=f.ID_CAT_OP WHERE f.ID_FRE=@frecuencia AND c.ID_BUS=@bus`);
+            LEFT JOIN dbo.BUS_CATEGORIAS c ON c.ID_CAT=f.ID_CAT_OP AND c.ID_BUS=@bus
+            WHERE f.ID_FRE=@frecuencia AND (f.ID_CAT_OP IS NULL OR c.ID_BUS IS NOT NULL)`);
     if (!result.recordset.length) throw cc.fail(422, 'CATEGORIA_INCOMPATIBLE', 'Configura una categoría para la frecuencia y selecciona un bus compatible.');
 }
 

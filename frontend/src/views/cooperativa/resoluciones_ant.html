@@ -56,7 +56,8 @@
             <p id="assignmentHelp" class="assignment-help">Selecciona personal activo de tu cooperativa. Se comprobarán horarios laborales y reservas personales.</p>
             <div id="assignmentStatus" class="assignment-status" role="status"></div>
 
-            <div id="singleAssignment">
+            <details id="singleAssignment">
+              <summary>Viaje extra / feriado (1 a 1)</summary>
               <form id="assignmentForm">
                 <div class="form-grid">
                   <div class="field"><label for="assignmentBus">Bus</label><select id="assignmentBus" required></select></div>
@@ -70,8 +71,36 @@
                   <button class="btn btn-primary" id="assignmentSubmit" type="submit">Guardar salida</button>
                 </div>
               </form>
-            </div>
+            </details>
 
+            <details id="groupAssignment" hidden>
+              <summary>Programaci?n por grupos y fechas</summary>
+              <form id="groupEdit" class="assignment-step">
+                <h3>Administrar grupos</h3>
+                <div class="form-grid">
+                  <label>Tipo<select id="groupType"><option value="BUS">Buses</option><option value="FRECUENCIA">Frecuencias</option></select></label>
+                  <label>Grupo<select id="groupEditId"></select></label>
+                  <label>Nombre<input id="groupName" maxlength="80" required></label>
+                  <label>Miembros<select id="groupMembers" multiple size="6" required></select></label>
+                </div>
+                <button class="btn btn-primary" type="submit">Guardar grupo</button>
+                <button class="btn btn-secondary" id="groupDelete" type="button">Eliminar grupo</button>
+              </form>
+              <form id="groupGenerate" class="assignment-step">
+                <h3>Generar salidas</h3>
+                <div class="form-grid">
+                  <label>Grupo de buses<select id="groupBus" required></select></label>
+                  <label>Grupo de frecuencias<select id="groupFrequency" required></select></label>
+                  <label>Desde<input id="groupStart" type="date" required></label>
+                  <label>Hasta<input id="groupEnd" type="date" required></label>
+                  <label>Duraci?n por viaje (minutos)<input id="groupDuration" type="number" min="1" max="1440" required></label>
+                </div>
+                <div id="groupCrew"></div>
+                <p>Se usa la hora de salida de cada frecuencia. Las unidades rotan a diario.</p>
+                <button class="btn btn-primary" type="submit">Generar salidas del rango</button>
+              </form>
+              <p id="groupStatus" role="status"></p>
+            </details>
             <form id="batchForm" hidden>
               <div class="assignment-step">
                 <div class="assignment-step-head">
@@ -330,9 +359,22 @@
                 <span class="help">Hora en que sale el bus de esta frecuencia (Ecuador).</span>
               </div>
               <div class="field">
+                <label for="horaLlegadaFrecuencia">Hora estimada de llegada</label>
+                <input type="time" id="horaLlegadaFrecuencia" value="10:00">
+                <span class="help">Hora prevista de arribo al destino final (Ecuador).</span>
+              </div>
+              <div class="field">
                 <label for="tarifaBaseFrecuencia">Tarifa base (USD) <span class="req">*</span></label>
                 <input type="number" id="tarifaBaseFrecuencia" min="0.25" max="500" step="0.25" value="5.00" required inputmode="decimal">
                 <span class="help">Precio base del boleto; los asientos VIP suman su recargo.</span>
+              </div>
+              <div class="field">
+                <label for="tipoTrayectoFrecuencia">Modalidad de recorrido</label>
+                <select id="tipoTrayectoFrecuencia">
+                  <option value="1">Directo (sin paradas intermedias)</option>
+                  <option value="0">Con paradas intermedias</option>
+                </select>
+                <span class="help">Define si el bus viaja directo o realiza paradas autorizadas en ruta.</span>
               </div>
               <div class="field">
                 <label for="estadoFrecuencia">Estado</label>
@@ -342,6 +384,31 @@
                 </select>
               </div>
             </div>
+          </div>
+
+          <div class="modal-section mt-2" id="seccionParadasFrecuencia" hidden>
+            <div class="modal-section-head">
+              <div>
+                <h4>Paradas intermedias del recorrido</h4>
+                <p>Añade y ordena los puntos intermedios entre el origen y el destino.</p>
+              </div>
+            </div>
+
+            <div class="stops-builder-bar">
+              <div class="field stops-city-field">
+                <label for="paradaIntermediaCiudad">Ciudad o parada intermedia</label>
+                <select id="paradaIntermediaCiudad">
+                  <option value="">Selecciona una ciudad / cantón…</option>
+                </select>
+              </div>
+              <label class="stops-commercial-check" for="paradaIntermediaComercial">
+                <input type="checkbox" id="paradaIntermediaComercial" checked>
+                <span>Parada comercial (abordaje/descenso)</span>
+              </label>
+              <button class="btn btn-secondary btn-sm" type="button" id="btnAgregarParadaFrecuencia">+ Agregar parada</button>
+            </div>
+
+            <ul class="stops-ordered-list" id="listaParadasFrecuencia" aria-label="Paradas intermedias configuradas"></ul>
           </div>
         </div>
         <footer class="modal-footer">
