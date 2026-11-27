@@ -32,20 +32,34 @@ async function quote(db, h) {
     const route = await trip.stops(db, h);
     const origin = route[h.PARADA_ACTUAL ?? 0];
     const destinations = route.filter(p => p.COMERCIAL && p.ORDEN > origin?.ORDEN && p.NOMBRE.length <= 20);
+    const { recordset: [schema] } = await new sql.Request(db).query(`
+        SELECT COL_LENGTH('dbo.BUSES','PLANTILLA_JSON') AS plantilla,
+               COL_LENGTH('dbo.ASIENTOS_BUS','FIL_ASI') AS coordenadas;`);
+    const coordinates = schema.coordenadas ? 'A.FIL_ASI,A.COL_ASI' : 'NULL AS FIL_ASI,NULL AS COL_ASI';
     const result = await request(db, h.ID_HOJ).query(`
-        SELECT F.TAR_BAS_FRE FROM dbo.HOJAS_RUTAS H JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER WHERE H.ID_HOJ=@hoja;
-        SELECT A.ID_ASI,A.PIS_ASI,A.FIL_ASI,A.COL_ASI,
+        SELECT F.TAR_BAS_FRE, ${schema.plantilla ? 'B.PLANTILLA_JSON' : 'NULL AS PLANTILLA_JSON'}
+        FROM dbo.HOJAS_RUTAS H JOIN dbo.FRECUENCIAS F ON F.ID_FRE=H.ID_FRE_PER
+        JOIN dbo.BUSES B ON B.ID_BUS=${cc.effectiveBus()} WHERE H.ID_HOJ=@hoja;
+        SELECT A.ID_ASI,A.PIS_ASI,${coordinates},S.NOM_TIP,S.PRE_TIP,
                CONVERT(bit, CASE WHEN EXISTS (SELECT 1 FROM dbo.BOLETOS T WHERE T.ID_HOJ_PER=@hoja AND T.ID_ASI_PER=A.ID_ASI AND ${cc.activeTicket}) THEN 0 ELSE 1 END) AS libre
         FROM dbo.HOJAS_RUTAS H JOIN dbo.ASIENTOS_BUS A ON A.ID_BUS_PER=${cc.effectiveBus()}
-        WHERE H.ID_HOJ=@hoja ORDER BY A.PIS_ASI,A.FIL_ASI,A.COL_ASI,A.ID_ASI;`);
-    const price = result.recordsets[0][0].TAR_BAS_FRE;
-    const available = Boolean(origin?.COMERCIAL && origin.NOMBRE.length <= 20 && destinations.length && price != null && price > 0);
-    return { id: h.ID_HOJ, origen: origin?.NOMBRE, destinos: destinations, precio: price, disponible: available, asientos: result.recordsets[1] };
+        LEFT JOIN dbo.TIPOS_ASIENTOS S ON S.ID_TIP=A.ID_TIP_PER
+        WHERE H.ID_HOJ=@hoja ORDER BY A.PIS_ASI,FIL_ASI,COL_ASI,A.ID_ASI;`);
+    const { TAR_BAS_FRE: price, PLANTILLA_JSON: raw } = result.recordsets[0][0];
+    let plantilla = null;
+    try {
+        const layout = JSON.parse(raw);
+        if (Array.isArray(layout?.pisos)) plantilla = layout;
+    } catch {
+        // Las unidades con diseños antiguos conservan el mapa de asientos registrados.
+    }
+    const available = Boolean(origin?.COMERCIAL && origin.NOMBRE.length <= 20 && destinations.length && price > 0);
+    return { id: h.ID_HOJ, origen: origin?.NOMBRE, destinos: destinations, precio: price, disponible: available, plantilla, asientos: result.recordsets[1] };
 }
 
-async function current(user) {
+async function current(user, id) {
     const db = await conectarBD();
-    return quote(db, await active(db, user));
+    return quote(db, await active(db, user, id));
 }
 
 async function sell(user, id, body) {

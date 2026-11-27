@@ -1,4 +1,5 @@
 const { sql, conectarBD } = require('../config/db');
+const finance = require('../services/tripFinance');
 
 // 1. Listar hojas de ruta asignadas a un controlador específico
 const listarHojasPorControlador = async (req, res) => {
@@ -32,33 +33,24 @@ const listarHojasPorControlador = async (req, res) => {
 
 // 2. Listar asientos disponibles de una hoja de ruta para venta a bordo
 const listarAsientosDisponibles = async (req, res) => {
-    const { idHoj } = req.params;
     try {
-        const pool = await conectarBD();
-        const resultado = await pool.request()
-            .input('idHoj', sql.VarChar, idHoj)
-            .query(`
-                SELECT A.ID_ASI, A.PIS_ASI, T.NOM_TIP, T.PRE_TIP
-                FROM ASIENTOS_BUS A
-                INNER JOIN HOJAS_RUTAS H ON A.ID_BUS_PER = H.ID_BUS_PER
-                INNER JOIN TIPOS_ASIENTOS T ON A.ID_TIP_PER = T.ID_TIP
-                WHERE H.ID_HOJ = @idHoj 
-                  AND A.ID_ASI NOT IN (
-                      SELECT ID_ASI_PER FROM BOLETOS 
-                      WHERE ID_HOJ_PER = @idHoj AND EST_BOL IN ('Reservado', 'OK', 'Usado')
-                  )
-            `);
-
-        res.status(200).json({ success: true, asientos: resultado.recordset });
+        const quote = await finance.current(req.auth, req.params.idHoj);
+        res.set('Cache-Control', 'no-store').json({
+            success: true,
+            ...quote,
+            asientos: quote.asientos.filter(seat => seat.libre)
+        });
     } catch (error) {
-        console.error('Error al listar asientos disponibles:', error);
-        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+        res.status(error.status || 503).json({
+            success: false,
+            message: error.status ? error.message : 'No se pudo consultar la disponibilidad.'
+        });
     }
 };
-
 const venderBoletoABordo = async (req, res) => {
+    if (!req.body?.idHoj) return res.status(400).json({ success: false, message: 'Indica el viaje de la venta.' });
     try {
-        const result = await require('../services/tripFinance').sell(req.auth, req.body.idHoj, req.body);
+        const result = await finance.sell(req.auth, req.body.idHoj, req.body);
         res.json({ success: true, ...result });
     } catch (error) {
         return require('../services/frequencyControl').respond(res, error) ||
