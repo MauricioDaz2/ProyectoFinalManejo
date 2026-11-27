@@ -468,6 +468,6 @@
   $('batchForm').addEventListener('submit', confirmarLote);
 
   request('/auth/me').then(({ usuario }) => {
-    $('coopAssignment').hidden = usuario.rolId !== 'R002' || !(usuario.principal || usuario.permisos?.includes('rutas'));
+    $('coopAssignment').hidden = !['R002', 'R003'].includes(usuario.rolId) || !(usuario.rolId === 'R003' || usuario.principal || usuario.permisos?.includes('rutas'));
   }).catch(() => {});
 })();

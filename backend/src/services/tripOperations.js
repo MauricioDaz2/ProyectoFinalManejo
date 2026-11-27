@@ -133,7 +133,7 @@ async function assignInTransaction(db,user,body) {
    FROM dbo.BUSES B WITH(UPDLOCK,HOLDLOCK) JOIN dbo.COOPERATIVAS C ON C.ID_COP=B.ID_COP_PER
    JOIN dbo.FRECUENCIAS F ON F.ID_FRE=@frequency
    JOIN dbo.USUARIOS D WITH(UPDLOCK,HOLDLOCK) ON D.ID_USU=@driver JOIN dbo.USUARIOS U WITH(UPDLOCK,HOLDLOCK) ON U.ID_USU=@controller WHERE B.ID_BUS=@bus`)).recordset[0];
-   if(!h||(user.rolId==='R002'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
+   if(!h||(user.rolId!=='R001'&&h.BUS_COP!==user.cooperativaId))throw fail(404,'Asignación no disponible para tu cooperativa.');
    const day=localDay(start);
    await cc.scheduled(db,idFre,day,localDay(new Date(+end-1)));
    await categories.compatible(db,idFre,idBus);

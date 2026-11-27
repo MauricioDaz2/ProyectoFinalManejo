@@ -4,38 +4,56 @@
 
   const app = document.body.dataset.app || 'cooperativa';
   const pagina = document.body.dataset.page || 'dashboard';
-  const usuario = window.App ? App.requiereSesion(app === 'oficinista' ? ['R003'] : ['R002']) : null;
+  const rolesPermitidos = app === 'oficinista'
+    ? ['R003', 'R002']
+    : (pagina === 'resoluciones' ? ['R002', 'R003'] : ['R002']);
+  const usuario = window.App ? App.requiereSesion(rolesPermitidos) : null;
   if (!usuario) return;
 
   document.documentElement.classList.add('panel-authorized');
+
+  const puedeVentanillaCoop = usuario.rolId === 'R003'
+    || usuario.principal
+    || usuario.accesoConfigurado !== true
+    || usuario.permisos?.some((p) => ['ventanilla', 'salidas', 'rutas'].includes(p));
 
   const configuracion = {
     cooperativa: {
       marca: 'Cooperativa',
       subtitulo: 'Gestión de flota y operaciones',
-      rol: 'Usuario de Cooperativa',
+      rol: usuario.rolId === 'R003' ? 'Oficinista de Ventanilla' : 'Usuario de Cooperativa',
       titulos: {
         dashboard: 'Panel de la Cooperativa',
         buses: 'Gestión de Flota de Buses',
         resoluciones: 'Rutas y Frecuencias'
       },
       navegacion: [
-        { pagina: 'dashboard', href: 'dashboard_coop.html', icono: '▦', texto: 'Dashboard' },
-        { pagina: 'buses', href: 'gestion_buses.html', icono: '▤', texto: 'Flota de Buses' },
-        { pagina: 'resoluciones', href: 'resoluciones_ant.html', icono: '▧', texto: 'Rutas y Frecuencias' }
+        ...(usuario.rolId === 'R002' ? [
+          { pagina: 'dashboard', href: 'dashboard_coop.html', icono: '▦', texto: 'Dashboard' },
+          { pagina: 'buses', href: 'gestion_buses.html', icono: '▤', texto: 'Flota de Buses' }
+        ] : []),
+        { pagina: 'resoluciones', href: 'resoluciones_ant.html', icono: '▧', texto: 'Rutas y Frecuencias' },
+        ...(puedeVentanillaCoop ? [
+          { pagina: 'ventanilla', href: '../oficinista/ventanilla_boletos.html', icono: '▣', texto: 'Venta de Boletos' },
+          { pagina: 'validacion', href: '../oficinista/validacion_reservas.html', icono: '◉', texto: 'Validación de Reservas' }
+        ] : [])
       ]
     },
     oficinista: {
       marca: 'Oficinista',
       subtitulo: 'Ventanilla y control de abordaje',
-      rol: 'Oficinista de Ventanilla',
+      rol: usuario.rolId === 'R002' ? 'Usuario de Cooperativa' : 'Oficinista de Ventanilla',
       titulos: {
         ventanilla: 'Ventanilla de Boletos',
         validacion: 'Validación de Reservas'
       },
       navegacion: [
         { pagina: 'ventanilla', href: 'ventanilla_boletos.html', icono: '▣', texto: 'Venta de Boletos' },
-        { pagina: 'validacion', href: 'validacion_reservas.html', icono: '◉', texto: 'Validación de Reservas' }
+        { pagina: 'validacion', href: 'validacion_reservas.html', icono: '◉', texto: 'Validación de Reservas' },
+        { pagina: 'resoluciones', href: '../cooperativa/resoluciones_ant.html', icono: '▧', texto: 'Frecuencias y Hojas de Ruta' },
+        ...(usuario.rolId === 'R002' ? [
+          { pagina: 'dashboard', href: '../cooperativa/dashboard_coop.html', icono: '▦', texto: 'Panel de Cooperativa' }
+        ] : [])
       ]
     }
   };
